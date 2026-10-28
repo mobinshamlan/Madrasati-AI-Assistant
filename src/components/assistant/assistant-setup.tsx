@@ -4,20 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { students, type Student } from "@/components/dashboard/data";
-import {
-  AttendanceIcon,
-  CheckIcon,
-  ClockIcon,
-  ExamIcon,
-  GradesIcon,
-  InfoIcon,
-  MessageIcon,
-  PhoneIcon,
-} from "@/components/dashboard/icons";
-import { ChoiceCard, SectionTab, StudentPicker } from "@/components/dashboard/ui";
+import { ClockIcon, InfoIcon, MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
+import { ChoiceCard, StudentPicker } from "@/components/dashboard/ui";
 import { AFTER_SCHOOL_TIME } from "./config";
 import {
   DAYS_OF_MONTH,
+  adaptToStudent,
   allProblems,
   attendanceCustomOptions,
   attendanceTimingOptions,
@@ -30,6 +22,7 @@ import {
   getTime,
   gradesTimingOptions,
   isEnabled,
+  isTimingAvailable,
   methodOptions,
   needsTime,
   problemsFor,
@@ -42,6 +35,7 @@ import {
   topicSummary,
   usesCalls,
   useSavedPreferences,
+  type ClearedChoice,
   type ContactTime,
   type Period,
   type Day,
@@ -50,10 +44,12 @@ import {
   type Preferences,
   type Problem,
   type Topic,
+  type UnavailableOptions,
 } from "./preferences";
+import { Character, DeliveryNotes, DemoLabel, ReviewList, type EditTarget } from "./summary";
 
 type Step = 1 | 2 | 3 | 4 | 5;
-const STEP_COUNT = 5;
+const STEPS: Step[] = [1, 2, 3, 4, 5];
 const stepTitles: Record<Step, string> = {
   1: "اختر الابن أو الابنة",
   2: "الحضور والغياب",
@@ -61,9 +57,11 @@ const stepTitles: Record<Step, string> = {
   4: "ملخص الدرجات",
   5: "مراجعة اختياراتك",
 };
+/** Short names under the progress bar. */
+const stepNames: Record<Step, string> = { 1: "الابن", 2: "الحضور", 3: "الاختبارات", 4: "الدرجات", 5: "المراجعة" };
 const topicSteps: Record<Topic, Step> = { attendance: 2, exams: 3, grades: 4 };
 const stepTopics: Partial<Record<Step, Topic>> = { 2: "attendance", 3: "exams", 4: "grades" };
-const topicIcons: Record<Topic, typeof AttendanceIcon> = { attendance: AttendanceIcon, exams: ExamIcon, grades: GradesIcon };
+const editSteps: Record<EditTarget, Step> = { student: 1, ...topicSteps, retry: 5 };
 const timingOptions = { attendance: attendanceTimingOptions, exams: examTimingOptions, grades: gradesTimingOptions };
 const timingQuestions: Record<Topic, string> = {
   attendance: "متى يصلك تحديث الحضور؟",
@@ -72,122 +70,174 @@ const timingQuestions: Record<Topic, string> = {
 };
 
 const toArabicDigits = (n: number) => String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
-const stepLabel = (step: Step) => `الخطوة ${toArabicDigits(step)} من ${toArabicDigits(STEP_COUNT)}`;
+const stepLabel = (step: Step) => `الخطوة ${toArabicDigits(step)} من ${toArabicDigits(STEPS.length)}`;
+export const confirmationHref = (studentId: string) => `/assistant/confirmation?student=${studentId}`;
 
-const card = "rounded-b-xl border border-t-0 border-line bg-white p-5 sm:p-6";
 const primaryButton =
-  "inline-flex min-h-14 items-center justify-center gap-2 rounded-lg bg-brand-600 px-10 text-lg font-bold text-white hover:bg-brand-700";
+  "inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-600 px-10 text-lg font-bold text-white transition-colors hover:bg-brand-700";
 const secondaryButton =
-  "inline-flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white px-10 text-lg font-bold text-brand-700 hover:bg-mint-100";
+  "inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white px-10 text-lg font-bold text-brand-700 transition-colors hover:bg-mint-100";
 const errorBox = "rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-4 font-bold text-[#b42318]";
-const saveErrorText = "تعذّر الحفظ على هذا الجهاز. تأكد أن المتصفح يسمح بحفظ البيانات، ثم حاول مرة أخرى.";
-const switchStudentNote = "عند اختيار ابن آخر تظهر اختياراته هو، ولا تُحفظ أي تغييرات لم تضغط بعدها «حفظ التفضيلات».";
+const legendClass = "mb-3 text-xl font-bold text-ink";
 
 const problemText = (problem: Problem) =>
   problem.kind === "time"
-    ? `${topicLabels[problem.topic]}: اختر وقتًا من الخيارات، أو اكتب وقتًا كاملًا (الساعة والدقيقة) في «وقت آخر».`
+    ? `${topicLabels[problem.topic]}: اختر وقتًا من الخيارات، أو حدّد الساعة والدقيقة والفترة في «وقت آخر».`
     : `${topicLabels[problem.topic]}: اختر أحد الخيارات وتأكد من اليوم.`;
 
+/**
+ * Next.js keeps visited pages mounted (hidden) and restores their state. Arriving here by a link or
+ * after saving starts fresh from the saved choices; browser Back still restores an unsaved draft.
+ * Switching student only changes the search params, so it keeps the same id.
+ */
 export function AssistantSetup() {
+  return <Setup key={useRouter().bfcacheId} />;
+}
+
+function Setup() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const student = students.find((s) => s.id === searchParams.get("student")) ?? students[0];
   const saved = useSavedPreferences(student.id);
-  const [editing, setEditing] = useState<{ studentId: string; step: Step } | null>(null);
-  const [justSavedFor, setJustSavedFor] = useState<string | null>(null);
-  // The view remounts for the new student, so remember to put focus back on the student choice.
-  const [pickerFocusFor, setPickerFocusFor] = useState<string | null>(null);
+  // A student chosen in step 1 stays on step 1, with focus back on the choice after the remount.
+  const [pickedFor, setPickedFor] = useState<string | null>(null);
+  const [savedFor, setSavedFor] = useState<string | null>(null);
+  // Choices brought along when the student is changed from the review («تعديل» beside the student).
+  const [carried, setCarried] = useState<{
+    seq: number;
+    studentId: string;
+    prefs: Preferences;
+    cleared: ClearedChoice[];
+  } | null>(null);
 
-  const selectStudent = (id: string) => {
-    setEditing(null);
-    setJustSavedFor(null);
-    setPickerFocusFor(id);
+  /** `draft` is passed only when changing the student from the review: those choices move to the new student. */
+  const selectStudent = (id: string, draft?: Preferences) => {
+    setPickedFor(id);
+    const next = students.find((s) => s.id === id);
+    if (draft && next) {
+      const { preferences, cleared } = adaptToStudent(draft, next.assistantUnavailable);
+      setCarried((c) => ({ seq: (c?.seq ?? 0) + 1, studentId: id, prefs: preferences, cleared }));
+    } else {
+      setCarried(null);
+    }
     router.replace(`/assistant?student=${id}`, { scroll: false });
   };
-  const markSaved = () => {
-    setEditing(null);
-    setPickerFocusFor(null);
-    setJustSavedFor(student.id);
+  const onSaved = () => {
+    setSavedFor(student.id);
+    router.push(confirmationHref(student.id));
   };
 
-  const editingThis = editing?.studentId === student.id ? editing : null;
-  const showWizard = saved.status !== "saved" || editingThis !== null;
+  const hasSaved = saved.status === "saved";
+  const carry = carried?.studentId === student.id ? carried : null;
+  // Saved choices are checked against this student's options too.
+  const fromSaved = adaptToStudent(hasSaved ? saved.preferences : defaultPreferences, student.assistantUnavailable);
   // Remounting per student (and per saved version) keeps each student's draft separate.
   const wizardKey = `${student.id}:${
     saved.status === "saved" ? `${saved.preferences.savedAt}:${saved.legacy ? "legacy" : "v4"}` : saved.status
   }`;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 text-lg">
-      {showWizard ? (
-        <Wizard
-          key={wizardKey}
-          student={student}
-          initial={saved.status === "saved" ? saved.preferences : defaultPreferences}
-          legacy={saved.status === "saved" ? saved.legacy : null}
-          hadInvalidData={saved.status === "invalid"}
-          startStep={editingThis?.step ?? 1}
-          focusOnMount={editingThis !== null}
-          focusPicker={pickerFocusFor === student.id}
-          onSelectStudent={selectStudent}
-          onCancel={saved.status === "saved" ? () => setEditing(null) : undefined}
-          onSaved={markSaved}
-        />
-      ) : (
-        <SavedSummary
-          key={student.id}
-          student={student}
-          preferences={saved.preferences}
-          legacy={saved.legacy}
-          justSaved={justSavedFor === student.id}
-          focusPicker={pickerFocusFor === student.id}
-          onSelectStudent={selectStudent}
-          onSaved={markSaved}
-          onEdit={(step) => {
-            setJustSavedFor(null);
-            setPickerFocusFor(null);
-            setEditing({ studentId: student.id, step });
-          }}
-        />
-      )}
-    </div>
+    <>
+      <section aria-labelledby="page-title" className="bg-mint-200">
+        <div className="mx-auto max-w-3xl px-4 pt-5 pb-7">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <nav aria-label="مسار التنقل" className="text-base">
+              <ol className="flex items-center gap-2 text-ink-soft">
+                <li>
+                  <Link
+                    href={`/?student=${student.id}`}
+                    className="inline-flex min-h-11 items-center font-bold text-brand-700 underline underline-offset-4 hover:text-brand-800"
+                  >
+                    الرئيسية
+                  </Link>
+                </li>
+                <li aria-hidden="true">/</li>
+                <li aria-current="page">المساعد الذكي</li>
+              </ol>
+            </nav>
+            <DemoLabel />
+          </div>
+          <h1 id="page-title" className="mt-3 text-3xl leading-tight font-extrabold text-ink">
+            إعداد المساعد الذكي
+          </h1>
+          <p className="mt-2 max-w-2xl text-lg leading-8 text-ink">
+            اختر ما تريد معرفته عن أبنائك، ومتى وكيف نتواصل معك.
+          </p>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-3xl px-4 py-8 text-lg">
+        {savedFor === student.id ? (
+          <p role="status" className="py-10 text-center font-bold text-brand-800">
+            تم الحفظ. جارٍ فتح صفحة التأكيد…
+          </p>
+        ) : (
+          <Wizard
+            key={carry ? `${student.id}:carried:${carry.seq}` : wizardKey}
+            student={student}
+            initial={carry?.prefs ?? fromSaved.preferences}
+            cleared={carry?.cleared ?? fromSaved.cleared}
+            legacy={!carry && saved.status === "saved" ? saved.legacy : null}
+            hadInvalidData={!carry && saved.status === "invalid"}
+            startStep={carry ? 1 : hasSaved && pickedFor !== student.id ? 5 : 1}
+            startReturnToReview={carry !== null}
+            replacesSaved={carry !== null && saved.status === "saved"}
+            focusPicker={pickedFor === student.id}
+            cancelHref={hasSaved ? confirmationHref(student.id) : undefined}
+            onSelectStudent={selectStudent}
+            onSaved={onSaved}
+          />
+        )}
+      </div>
+    </>
   );
 }
 
 function Wizard({
   student,
   initial,
+  cleared,
   legacy,
   hadInvalidData,
   startStep,
-  focusOnMount,
+  startReturnToReview,
+  replacesSaved,
   focusPicker,
+  cancelHref,
   onSelectStudent,
-  onCancel,
   onSaved,
 }: {
   student: Student;
   initial: Preferences;
+  /** Choices cleared because this student cannot use them. */
+  cleared: ClearedChoice[];
   legacy: LegacyInfo | null;
   hadInvalidData: boolean;
   startStep: Step;
-  focusOnMount: boolean;
+  startReturnToReview: boolean;
+  /** The choices came from another child and this child already has saved preferences: ask before replacing them. */
+  replacesSaved: boolean;
   focusPicker: boolean;
-  onSelectStudent: (id: string) => void;
-  onCancel?: () => void;
+  /** Set when saved preferences exist: leaving without saving returns to them. */
+  cancelHref?: string;
+  onSelectStudent: (id: string, draft?: Preferences) => void;
   onSaved: () => void;
 }) {
   const [prefs, setPrefs] = useState<Preferences>(initial);
   const [step, setStep] = useState<Step>(startStep);
   // Set when a step is opened from «تعديل»; that step then leads straight back to the review.
-  const [returnToReview, setReturnToReview] = useState(startStep !== 5 && focusOnMount);
+  const [returnToReview, setReturnToReview] = useState(startReturnToReview);
   // Errors appear only after the parent tries to continue, so a fresh step is never shown in red.
   const [attempted, setAttempted] = useState<Step[]>([]);
   const [saveFailed, setSaveFailed] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const saveErrorsRef = useRef<HTMLDivElement>(null);
-  const focusPending = useRef(focusOnMount);
+  const confirmRef = useRef<HTMLDialogElement>(null);
+  const confirmBackRef = useRef<HTMLButtonElement>(null);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+  const focusPending = useRef(false);
 
   useEffect(() => {
     if (focusPicker) bodyRef.current?.querySelector<HTMLInputElement>("input[name=assistant-student]:checked")?.focus();
@@ -197,7 +247,7 @@ function Wizard({
     // Only after the parent moves between steps, so the first page load keeps its natural focus.
     if (!focusPending.current) return;
     focusPending.current = false;
-    headingRef.current?.scrollIntoView({ block: "start" });
+    sectionRef.current?.scrollIntoView({ block: "start" });
     headingRef.current?.focus({ preventScroll: true });
   }, [step]);
 
@@ -222,20 +272,15 @@ function Wizard({
       goTo((step + 1) as Step);
     }
   };
-  const editFromReview = (target: Step) => {
-    setReturnToReview(target !== 5);
-    goTo(target);
+  const editFromReview = (target: EditTarget) => {
+    const next = editSteps[target];
+    setReturnToReview(next !== 5);
+    goTo(next);
   };
 
   const problems = allProblems(prefs);
   const noneEnabled = enabledTopics(prefs).length === 0;
-  const save = () => {
-    if (problems.length > 0 || noneEnabled) {
-      setAttempted([2, 3, 4, 5]);
-      saveErrorsRef.current?.scrollIntoView({ block: "center" });
-      saveErrorsRef.current?.focus({ preventScroll: true });
-      return;
-    }
+  const store = () => {
     if (savePreferences(student.id, prefs)) {
       setSaveFailed(false);
       onSaved();
@@ -243,45 +288,82 @@ function Wizard({
       setSaveFailed(true);
     }
   };
+  const save = () => {
+    if (problems.length > 0 || noneEnabled) {
+      setAttempted([2, 3, 4, 5]);
+      saveErrorsRef.current?.scrollIntoView({ block: "center" });
+      saveErrorsRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (replacesSaved) {
+      confirmRef.current?.showModal();
+      // The safe choice gets focus first; Escape does the same as it.
+      confirmBackRef.current?.focus();
+      return;
+    }
+    store();
+  };
 
   const topic = stepTopics[step];
   const showSaveErrors = attempted.includes(5) || noneEnabled;
+  const needsReplacement = cleared.filter((c) => prefs[c.topic].timing === null);
+  const guide: Record<Step, string> = {
+    1: "نضبط التحديثات لابن واحد في كل مرة، ولكل ابن اختياراته الخاصة.",
+    2: `اختر متى وكيف يصلك خبر حضور ${student.firstName} وغيابه.`,
+    3: `اختر متى نذكّرك باختبارات ${student.firstName}، وكيف.`,
+    4: `اختر متى يصلك ملخص درجات ${student.firstName}، وكيف.`,
+    5: "تأكد من اختياراتك، ثم اضغط «حفظ التفضيلات» في الأسفل.",
+  };
 
   return (
-    <section aria-labelledby="wizard-heading">
-      {(step === 1 || step === 5) && hadInvalidData && (
-        <p className="mb-6 flex gap-3 rounded-xl border border-[#fedf89] bg-[#fffaeb] p-4 text-[#7a2e0e]">
-          <InfoIcon size={24} className="mt-1 shrink-0" />
-          تعذّرت قراءة الاختيارات المحفوظة سابقًا على هذا الجهاز، لذلك عرضنا الاختيارات المقترحة. اضغط «حفظ التفضيلات» في الخطوة الأخيرة لحفظها من جديد.
-        </p>
-      )}
-      {(step === 1 || step === 5) && legacy && (
-        <div className="mb-6">
-          <LegacyNotice legacy={legacy} />
-        </div>
-      )}
+    <section
+      ref={sectionRef}
+      aria-labelledby="wizard-heading"
+      className="scroll-mt-4 overflow-hidden rounded-xl border border-line bg-white"
+    >
+      <Progress step={step} />
 
-      <div className="flex flex-wrap items-end justify-between gap-x-4 border-b-4 border-mint-300">
-        <h2
-          id="wizard-heading"
-          ref={headingRef}
-          tabIndex={-1}
-          className="rounded-t-xl bg-brand-600 px-5 pt-3 pb-2.5 text-2xl font-bold text-white"
-        >
-          <span className="sr-only">{stepLabel(step)}: </span>
-          {stepTitles[step]}
-        </h2>
-        <p aria-hidden="true" className="pb-2 text-lg font-bold text-brand-800">
-          {stepLabel(step)}
-        </p>
-      </div>
-
-      <div ref={bodyRef} className={card}>
-        <div aria-hidden="true" className="mb-6 grid grid-cols-5 gap-1.5">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <span key={n} className={`h-2 rounded-full ${n <= step ? "bg-brand-500" : "bg-mint-200"}`} />
-          ))}
+      <div ref={bodyRef} className="space-y-8 p-5 sm:p-8">
+        <div className="flex items-start gap-4 sm:gap-6">
+          <Character kind={step === 1 ? "both" : student.character} className="size-20 sm:size-28" />
+          <div className="min-w-0 pt-1 sm:pt-3">
+            <h2
+              id="wizard-heading"
+              ref={headingRef}
+              tabIndex={-1}
+              className="text-2xl leading-snug font-extrabold text-ink sm:text-[28px]"
+            >
+              <span className="sr-only">{stepLabel(step)}: </span>
+              {stepTitles[step]}
+            </h2>
+            <p className="mt-2 leading-8 text-ink">{guide[step]}</p>
+          </div>
         </div>
+
+        {(step === 1 || step === 5) && hadInvalidData && (
+          <p className="flex gap-3 rounded-xl border border-[#fedf89] bg-[#fffaeb] p-4 text-[#7a2e0e]">
+            <InfoIcon size={24} className="mt-1 shrink-0" />
+            تعذّرت قراءة الاختيارات المحفوظة سابقًا على هذا الجهاز، لذلك عرضنا الاختيارات المقترحة. اضغط «حفظ التفضيلات» في
+            الخطوة الأخيرة لحفظها من جديد.
+          </p>
+        )}
+        {(step === 1 || step === 5) && legacy && <LegacyNotice legacy={legacy} />}
+        {(step === 1 || step === 5) && needsReplacement.length > 0 && (
+          <div role="status" className="rounded-xl border border-[#fedf89] bg-[#fffaeb] p-4 leading-8 text-[#7a2e0e]">
+            <p className="flex gap-3 font-bold">
+              <InfoIcon size={24} className="mt-1 shrink-0" />
+              هذه الاختيارات غير متاحة لـ{student.firstName}:
+            </p>
+            <ul className="mt-1 list-disc space-y-1 ps-14">
+              {needsReplacement.map((c) => (
+                <li key={c.topic}>
+                  {topicLabels[c.topic]}: «{c.was}»
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 ps-9">بقية اختياراتك كما هي. اختر بديلًا لكل منها قبل الحفظ.</p>
+          </div>
+        )}
 
         {step === 1 && (
           <div className="space-y-4">
@@ -289,9 +371,13 @@ function Wizard({
               legend="اختر الابن أو الابنة"
               name="assistant-student"
               selectedId={student.id}
-              onSelect={(id) => id !== student.id && onSelectStudent(id)}
+              onSelect={(id) => id !== student.id && onSelectStudent(id, returnToReview ? prefs : undefined)}
             />
-            <p className="text-base leading-7 text-ink-soft">{switchStudentNote}</p>
+            <p className="text-base leading-7 text-ink-soft">
+              {returnToReview
+                ? "تبقى اختياراتك في الخطوات الأخرى كما هي، وتُحفظ للابن الذي تختاره عند الضغط على «حفظ التفضيلات»."
+                : "عند اختيار ابن آخر تظهر اختياراته هو. التغييرات التي لم تحفظها لا تُنقل إليه."}
+            </p>
           </div>
         )}
 
@@ -300,83 +386,158 @@ function Wizard({
             topic={topic}
             prefs={prefs}
             setPrefs={setPrefs}
-            student={student}
             showErrors={attempted.includes(step)}
             previous={legacy?.needsReview.find((r) => r.topic === topic)}
+            unavailable={student.assistantUnavailable}
+            unavailableWas={cleared.find((c) => c.topic === topic)?.was}
+            firstName={student.firstName}
           />
         )}
 
         {step === 5 && (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-xl font-bold text-ink">ملخص اختياراتك</h3>
-              {showSaveErrors && (problems.length > 0 || noneEnabled) && (
-                <div ref={saveErrorsRef} tabIndex={-1} role="alert" className={errorBox}>
-                  <p>لا يمكن الحفظ بعد:</p>
-                  <ul className="mt-2 list-disc space-y-1 ps-6">
-                    {noneEnabled && <li>كل التحديثات متوقفة. فعّل نوعًا واحدًا على الأقل باستخدام زر «تعديل».</li>}
-                    {problems.map((p) => (
-                      <li key={p.topic}>{problemText(p)}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <ReviewList preferences={prefs} student={student} legacy={legacy} showStudent onEdit={editFromReview} />
-            </div>
+          <div className="space-y-8">
+            {showSaveErrors && (problems.length > 0 || noneEnabled) && (
+              <div ref={saveErrorsRef} tabIndex={-1} role="alert" className={errorBox}>
+                <p>لا يمكن الحفظ بعد:</p>
+                <ul className="mt-2 list-disc space-y-1 ps-6">
+                  {noneEnabled && <li>كل التحديثات متوقفة. فعّل نوعًا واحدًا على الأقل باستخدام زر «تعديل».</li>}
+                  {problems.map((p) => (
+                    <li key={p.topic}>{problemText(p)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <ReviewList preferences={prefs} student={student} legacy={legacy} showStudent onEdit={editFromReview} />
 
             {usesCalls(prefs) && (
-              <ChoiceCard
-                type="checkbox"
-                name="retry"
-                value="retry"
-                checked={prefs.retryUnansweredCall}
-                onChange={() => setPrefs((p) => ({ ...p, retryUnansweredCall: !p.retryUnansweredCall }))}
-                title="إذا لم أرد، أعد الاتصال مرة واحدة بعد ٥ دقائق"
-                description="اختياري. للاتصالات التي لم يُرد عليها فقط، ولا ينطبق على الرسائل."
-              />
+              <fieldset className="min-w-0">
+                <legend className={legendClass}>إذا لم ترد على الاتصال</legend>
+                <ChoiceCard
+                  type="checkbox"
+                  name="retry"
+                  value="retry"
+                  checked={prefs.retryUnansweredCall}
+                  onChange={() => setPrefs((p) => ({ ...p, retryUnansweredCall: !p.retryUnansweredCall }))}
+                  title="إذا لم أرد، أعد الاتصال مرة واحدة بعد ٥ دقائق"
+                  description="اختياري. للاتصالات التي لم يُرد عليها فقط، ولا ينطبق على الرسائل."
+                />
+              </fieldset>
             )}
 
-            <DeliveryNotes student={student} />
-            <DemoSaveNote />
+            <section aria-labelledby="review-notes" className="space-y-4">
+              <h3 id="review-notes" className="text-xl font-bold text-ink">
+                معلومات مهمة
+              </h3>
+              <DeliveryNotes student={student} />
+            </section>
+
             {saveFailed && (
-              <p role="alert" className="rounded-lg bg-[#fef3f2] px-4 py-3 font-bold text-[#b42318]">
-                {saveErrorText}
+              <p role="alert" className={errorBox}>
+                تعذّر الحفظ على هذا الجهاز، فلم تُحفظ اختياراتك. تأكد أن المتصفح يسمح بحفظ البيانات، ثم اضغط «حفظ التفضيلات» مرة
+                أخرى.
               </p>
             )}
           </div>
         )}
 
-        <div className="mt-8 flex flex-col-reverse gap-3 border-t border-mint-200 pt-6 sm:flex-row sm:justify-between">
-          {step > 1 && !returnToReview ? (
-            <button type="button" onClick={() => goTo((step - 1) as Step)} className={secondaryButton}>
-              السابق
-            </button>
-          ) : (
-            <span className="hidden sm:block" />
+        <div className="border-t border-mint-200 pt-6">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+            {step > 1 && !returnToReview ? (
+              <button type="button" onClick={() => goTo((step - 1) as Step)} className={secondaryButton}>
+                السابق
+              </button>
+            ) : (
+              <span className="hidden sm:block" />
+            )}
+            {step === 5 ? (
+              <button ref={saveButtonRef} type="button" onClick={save} className={primaryButton}>
+                حفظ التفضيلات
+              </button>
+            ) : (
+              <button type="button" onClick={goNext} className={primaryButton}>
+                {returnToReview ? "العودة إلى المراجعة" : "التالي"}
+              </button>
+            )}
+          </div>
+          {replacesSaved && (
+            <dialog
+              ref={confirmRef}
+              aria-labelledby="replace-title"
+              aria-describedby="replace-desc"
+              // Closing by any route (back button, Escape) returns the parent to the save button.
+              onClose={() => saveButtonRef.current?.focus()}
+              className="m-auto w-[min(92vw,30rem)] rounded-2xl border border-line bg-white p-0 text-ink shadow-xl"
+            >
+              <h2 id="replace-title" className="bg-mint-200 px-5 py-4 text-xl font-bold text-brand-800">
+                استبدال تفضيلات {student.firstName}؟
+              </h2>
+              <div className="space-y-5 px-5 py-5 text-lg">
+                <p id="replace-desc" className="leading-8 text-ink">
+                  لدى {student.firstName} تفضيلات محفوظة على هذا الجهاز. الحفظ الآن يستبدلها بالاختيارات التي في هذه المراجعة،
+                  ولا تتغير تفضيلات أي ابن آخر.
+                </p>
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      confirmRef.current?.close();
+                      store();
+                    }}
+                    className={primaryButton}
+                  >
+                    نعم، احفظ واستبدل
+                  </button>
+                  <button
+                    ref={confirmBackRef}
+                    type="button"
+                    onClick={() => confirmRef.current?.close()}
+                    className={secondaryButton}
+                  >
+                    رجوع دون حفظ
+                  </button>
+                </div>
+              </div>
+            </dialog>
           )}
-          {step === 5 ? (
-            <button type="button" onClick={save} className={primaryButton}>
-              حفظ التفضيلات
-            </button>
-          ) : (
-            <button type="button" onClick={goNext} className={primaryButton}>
-              {returnToReview ? "العودة إلى المراجعة" : "التالي"}
-            </button>
+          {cancelHref && (
+            <p className="mt-5 text-center">
+              <Link
+                href={cancelHref}
+                className="inline-flex min-h-11 items-center px-3 font-bold text-brand-700 underline underline-offset-4 hover:text-brand-800"
+              >
+                إلغاء التعديل والعودة إلى التفضيلات المحفوظة
+              </Link>
+            </p>
           )}
         </div>
-        {onCancel && (
-          <div className="mt-4 text-center">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="min-h-11 px-3 font-bold text-brand-700 underline underline-offset-4 hover:text-brand-800"
-            >
-              إلغاء التعديل والعودة إلى التفضيلات المحفوظة
-            </button>
-          </div>
-        )}
       </div>
     </section>
+  );
+}
+
+/** «الخطوة ٢ من ٥» with a five-part bar; each part is named on wider screens and for screen readers. */
+function Progress({ step }: { step: Step }) {
+  return (
+    <div className="border-b border-mint-200 bg-mint-50 px-5 py-4 sm:px-8">
+      <p aria-hidden="true" className="font-bold text-brand-800">
+        {stepLabel(step)}
+      </p>
+      <ol aria-label="خطوات الإعداد" className="mt-3 grid grid-cols-5 gap-2">
+        {STEPS.map((n) => (
+          <li key={n} aria-current={n === step ? "step" : undefined}>
+            <span aria-hidden="true" className={`block h-2.5 rounded-full ${n <= step ? "bg-brand-600" : "bg-mint-300"}`} />
+            <span
+              className={`sr-only text-base sm:not-sr-only sm:mt-2 sm:block ${
+                n === step ? "font-bold text-ink" : "text-ink-soft"
+              }`}
+            >
+              {stepNames[n]}
+              {n < step && <span className="sr-only"> (تمت)</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -386,18 +547,22 @@ function TopicStep({
   topic,
   prefs,
   setPrefs,
-  student,
   showErrors,
   previous,
+  unavailable,
+  unavailableWas,
+  firstName,
 }: {
   topic: Topic;
   prefs: Preferences;
   setPrefs: SetPrefs;
-  student: Student;
   showErrors: boolean;
   previous?: LegacyInfo["needsReview"][number];
+  unavailable?: UnavailableOptions;
+  /** The cleared choice's name, when it was cleared because this student cannot use it. */
+  unavailableWas?: string;
+  firstName: string;
 }) {
-  const Icon = topicIcons[topic];
   const timing = prefs[topic].timing;
   const enabled = isEnabled(prefs, topic);
   const problem = showErrors ? problemsFor(prefs, topic)[0] : undefined;
@@ -408,21 +573,8 @@ function TopicStep({
   const patchCustom = (change: Partial<Preferences["attendance"]["custom"]>) =>
     setPrefs((p) => ({ ...p, attendance: { ...p.attendance, custom: { ...p.attendance.custom, ...change } } }));
 
-  const intro: Record<Topic, string> = {
-    attendance: `اختر متى تريد أن تعرف عن حضور ${student.firstName} وغيابه، وكيف يصلك ذلك.`,
-    exams: `اختر متى يصلك تذكير باختبارات ${student.firstName}، وكيف يصلك.`,
-    grades: `اختر متى يصلك ملخص درجات ${student.firstName}، وكيف يصلك.`,
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-start gap-4">
-        <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-mint-200 text-brand-700">
-          <Icon size={26} />
-        </span>
-        <p className="leading-8 text-ink">{intro[topic]}</p>
-      </div>
-
+    <div className="space-y-8">
       {previous && timing === null && (
         <p className="flex gap-3 rounded-xl border border-[#fedf89] bg-[#fffaeb] p-4 font-bold text-[#7a2e0e]">
           <InfoIcon size={22} className="mt-1 shrink-0" />
@@ -435,23 +587,33 @@ function TopicStep({
           )}
         </p>
       )}
+      {!previous && unavailableWas && timing === null && (
+        <p className="flex gap-3 rounded-xl border border-[#fedf89] bg-[#fffaeb] p-4 font-bold text-[#7a2e0e]">
+          <InfoIcon size={22} className="mt-1 shrink-0" />
+          <span>
+            «{unavailableWas}» غير متاح لـ{firstName}. اختر بديلًا من الخيارات التالية.
+          </span>
+        </p>
+      )}
 
       <fieldset className="min-w-0" aria-describedby={invalid ? `${topic}-timing-error` : undefined}>
-        <legend className="mb-3 font-bold text-ink">{timingQuestions[topic]}</legend>
+        <legend className={legendClass}>{timingQuestions[topic]}</legend>
         <div className="grid gap-3">
-          {timingOptions[topic].map((o) => (
-            <ChoiceCard
-              key={o.value}
-              type="radio"
-              name={`${topic}-timing`}
-              value={o.value}
-              checked={timing === o.value}
-              onChange={() => patch({ timing: o.value })}
-              title={o.label}
-              description={o.hint}
-              invalid={invalid}
-            />
-          ))}
+          {timingOptions[topic]
+            .filter((o) => isTimingAvailable(unavailable, topic, o.value))
+            .map((o) => (
+              <ChoiceCard
+                key={o.value}
+                type="radio"
+                name={`${topic}-timing`}
+                value={o.value}
+                checked={timing === o.value}
+                onChange={() => patch({ timing: o.value })}
+                title={o.label}
+                description={o.hint}
+                invalid={invalid}
+              />
+            ))}
           <ChoiceCard
             type="radio"
             name={`${topic}-timing`}
@@ -471,9 +633,9 @@ function TopicStep({
       </fieldset>
 
       {topic === "attendance" && timing === "custom" && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           <fieldset className="min-w-0">
-            <legend className="mb-3 font-bold text-ink">ما نوع الملخص الذي تريده؟</legend>
+            <legend className={legendClass}>ما نوع الملخص الذي تريده؟</legend>
             <div className="grid gap-3">
               {attendanceCustomOptions.map((o) => (
                 <ChoiceCard
@@ -508,33 +670,35 @@ function TopicStep({
         <DayOfMonthSelect value={prefs.grades.dayOfMonth} onChange={(dayOfMonth) => patch({ dayOfMonth })} />
       )}
 
-      {enabled && <MethodPicker topic={topic} value={prefs[topic].method} onChange={(method) => patch({ method })} />}
-
-      {enabled && needsTime(prefs, topic) && (
-        <TimePicker
-          topic={topic}
-          value={getTime(prefs, topic)}
-          onChange={(time) => (topic === "attendance" ? patchCustom({ time }) : patch({ time }))}
-          showError={problem?.kind === "time"}
-        />
+      {enabled && (
+        <div className="space-y-8 border-t border-mint-200 pt-8">
+          <MethodPicker topic={topic} value={prefs[topic].method} onChange={(method) => patch({ method })} />
+          {needsTime(prefs, topic) && (
+            <TimePicker
+              topic={topic}
+              value={getTime(prefs, topic)}
+              onChange={(time) => (topic === "attendance" ? patchCustom({ time }) : patch({ time }))}
+              showError={problem?.kind === "time"}
+            />
+          )}
+          <TopicResult topic={topic} prefs={prefs} />
+        </div>
       )}
-
-      {enabled && <TopicRules topic={topic} prefs={prefs} />}
     </div>
   );
 }
 
-function TopicRules({ topic, prefs }: { topic: Topic; prefs: Preferences }) {
+/** What these choices produce, in one sentence, with the rules that come with them. */
+function TopicResult({ topic, prefs }: { topic: Topic; prefs: Preferences }) {
   const timing = prefs[topic].timing;
+  const summary = topicSummary(prefs, topic);
   const rules: string[] = [];
   if (topic === "attendance") {
     if (timing === "immediate") {
       rules.push("لا يوجد وقت محدد: يصلك التواصل عند تسجيل الحضور أو الغياب أو التأخر، وليس عند الغياب فقط.");
     }
     if (timing === "end-of-day") {
-      rules.push(
-        `يصلك الملخص كل يوم الساعة ${AFTER_SCHOOL_TIME.label} بتوقيت السعودية. هذا وقت ثابت افتراضي للنموذج التجريبي وليس وقت انصراف رسميًا.`,
-      );
+      rules.push(`الساعة ${AFTER_SCHOOL_TIME.label} وقت ثابت افتراضي للنموذج التجريبي، وليس وقت انصراف رسميًا.`);
     }
     rules.push("لا يصلك شيء عن الغياب بعذر مقبول. وإذا قُبل العذر قبل إرسال التحديث، يُلغى التحديث.");
   }
@@ -547,21 +711,26 @@ function TopicRules({ topic, prefs }: { topic: Topic; prefs: Preferences }) {
     );
   }
   return (
-    <ul className="space-y-3">
-      {rules.map((r) => (
-        <li key={r} className="flex gap-3 rounded-xl bg-mint-100 p-4 leading-8 text-ink ring-1 ring-mint-300">
-          <InfoIcon size={22} className="mt-1.5 shrink-0 text-brand-700" />
-          <span>{r}</span>
-        </li>
-      ))}
-    </ul>
+    <section aria-labelledby={`${topic}-result`} className="rounded-xl bg-mint-100 p-5">
+      <h3 id={`${topic}-result`} className="font-bold text-brand-800">
+        ما الذي سيصلك
+      </h3>
+      <p aria-live="polite" className="mt-1 text-lg leading-8 font-bold text-ink">
+        {summary.method}: {summary.when}
+      </p>
+      <ul className="mt-3 list-disc space-y-1.5 ps-6 text-base leading-7 text-ink marker:text-brand-600">
+        {rules.map((r) => (
+          <li key={r}>{r}</li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
 function MethodPicker({ topic, value, onChange }: { topic: Topic; value: Method; onChange: (method: Method) => void }) {
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-3 font-bold text-ink">كيف يصلك؟</legend>
+      <legend className={legendClass}>كيف يصلك؟</legend>
       <div className="grid gap-3 sm:grid-cols-2">
         {methodOptions.map((o) => {
           const Icon = o.value === "call" ? PhoneIcon : MessageIcon;
@@ -575,11 +744,7 @@ function MethodPicker({ topic, value, onChange }: { topic: Topic; value: Method;
               onChange={() => onChange(o.value)}
               title={o.label}
               description={o.hint}
-              leading={
-                <span className="grid size-12 shrink-0 place-items-center rounded-lg bg-mint-200 text-brand-700">
-                  <Icon size={24} />
-                </span>
-              }
+              leading={<Icon size={28} className="shrink-0 text-brand-700" />}
             />
           );
         })}
@@ -589,7 +754,7 @@ function MethodPicker({ topic, value, onChange }: { topic: Topic; value: Method;
 }
 
 const selectClass =
-  "block min-h-14 w-full rounded-xl border-2 bg-white px-3 text-lg font-bold text-ink focus:border-brand-600";
+  "block min-h-14 w-full cursor-pointer rounded-xl border-2 bg-white px-3 text-lg font-bold text-ink focus:border-brand-600";
 
 function TimePicker({
   topic,
@@ -610,8 +775,8 @@ function TimePicker({
 
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-1 flex items-center gap-2 font-bold text-ink">
-        <ClockIcon size={22} className="text-brand-700" />
+      <legend className="mb-1 flex items-center gap-2 text-xl font-bold text-ink">
+        <ClockIcon size={24} className="text-brand-700" />
         اختر الوقت المناسب لك
       </legend>
       <p className="mb-3 text-base text-ink-soft">بتوقيت السعودية</p>
@@ -711,7 +876,7 @@ function TimePicker({
 function ExamDaysSelect({ value, onChange }: { value: number; onChange: (days: number) => void }) {
   return (
     <div>
-      <label htmlFor="exams-days" className="mb-2 block font-bold text-ink">
+      <label htmlFor="exams-days" className="mb-2 block text-xl font-bold text-ink">
         كم يومًا قبل الاختبار؟
       </label>
       <select
@@ -719,7 +884,7 @@ function ExamDaysSelect({ value, onChange }: { value: number; onChange: (days: n
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-describedby="exams-days-hint"
-        className="block min-h-14 w-full rounded-xl border-2 border-[#6c737f] bg-white px-4 text-lg font-bold text-ink focus:border-brand-600"
+        className="block min-h-14 w-full cursor-pointer rounded-xl border-2 border-[#6c737f] bg-white px-4 text-lg font-bold text-ink focus:border-brand-600 sm:max-w-sm"
       >
         {EXAM_DAYS.map((d) => (
           <option key={d} value={d}>
@@ -747,7 +912,7 @@ function DayPicker({
 }) {
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-3 font-bold text-ink">{legend}</legend>
+      <legend className={legendClass}>{legend}</legend>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {dayOptions.map((o) => (
           <ChoiceCard
@@ -768,7 +933,7 @@ function DayPicker({
 function DayOfMonthSelect({ value, onChange }: { value: number; onChange: (day: number) => void }) {
   return (
     <div>
-      <label htmlFor="grades-day-of-month" className="mb-2 block font-bold text-ink">
+      <label htmlFor="grades-day-of-month" className="mb-2 block text-xl font-bold text-ink">
         أي يوم من الشهر؟
       </label>
       <select
@@ -776,7 +941,7 @@ function DayOfMonthSelect({ value, onChange }: { value: number; onChange: (day: 
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-describedby="grades-day-of-month-hint"
-        className="block min-h-14 w-32 rounded-xl border-2 border-[#6c737f] bg-white px-4 text-lg font-bold text-ink focus:border-brand-600"
+        className="block min-h-14 w-32 cursor-pointer rounded-xl border-2 border-[#6c737f] bg-white px-4 text-lg font-bold text-ink focus:border-brand-600"
       >
         {DAYS_OF_MONTH.map((d) => (
           <option key={d} value={d}>
@@ -791,137 +956,16 @@ function DayOfMonthSelect({ value, onChange }: { value: number; onChange: (day: 
   );
 }
 
-function ReviewList({
-  preferences,
-  student,
-  legacy,
-  showStudent,
-  showRetry,
-  onEdit,
-}: {
-  preferences: Preferences;
-  student: Student;
-  legacy: LegacyInfo | null;
-  showStudent?: boolean;
-  showRetry?: boolean;
-  onEdit: (step: Step) => void;
-}) {
-  return (
-    <ul className="divide-y divide-mint-200 rounded-xl border border-mint-300">
-      {showStudent && (
-        <ReviewRow label="الابن أو الابنة" step={1} onEdit={onEdit}>
-          <p className="text-lg font-bold text-ink">{student.name}</p>
-          <p className="text-base text-ink-soft">{student.grade}</p>
-        </ReviewRow>
-      )}
-      {(["attendance", "exams", "grades"] as const).map((topic) => {
-        const s = topicSummary(preferences, topic);
-        const was = legacy?.needsReview.find((r) => r.topic === topic);
-        return (
-          <ReviewRow key={topic} label={s.label} step={topicSteps[topic]} onEdit={onEdit}>
-            <p className={`text-lg font-bold ${s.status === "choose" ? "text-[#b42318]" : s.status === "off" ? "text-ink-soft" : "text-ink"}`}>
-              {s.timing}
-            </p>
-            {s.status === "choose" && was && (
-              <p className="text-base text-ink-soft">
-                {was.previousRequest ? (
-                  <>
-                    طلبك السابق: <bdi>«{was.was}»</bdi>
-                  </>
-                ) : (
-                  <>كان: «{was.was}»</>
-                )}
-              </p>
-            )}
-            {s.status === "off" && <p className="text-base text-ink-soft">لن تصلك تحديثات عن هذا النوع.</p>}
-            {s.status === "on" && (
-              <dl className="mt-1 space-y-0.5 text-base">
-                <SummaryLine term="الطريقة" value={s.method} />
-                <SummaryLine term="الموعد" value={s.when} />
-                {s.note && <p className="text-ink-soft">{s.note}</p>}
-              </dl>
-            )}
-          </ReviewRow>
-        );
-      })}
-      {showRetry && usesCalls(preferences) && (
-        <ReviewRow label="إعادة الاتصال" step={5} onEdit={onEdit}>
-          <p className="text-lg font-bold text-ink">
-            {preferences.retryUnansweredCall ? "مرة واحدة بعد ٥ دقائق إذا لم ترد" : "لا"}
-          </p>
-          <p className="text-base text-ink-soft">للاتصالات التي لم يُرد عليها فقط، ولا ينطبق على الرسائل.</p>
-        </ReviewRow>
-      )}
-    </ul>
-  );
-}
-
-function ReviewRow({
-  label,
-  step,
-  onEdit,
-  children,
-}: {
-  label: string;
-  step: Step;
-  onEdit: (step: Step) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <p className="font-bold text-brand-800">{label}</p>
-        {children}
-      </div>
-      <button
-        type="button"
-        onClick={() => onEdit(step)}
-        aria-label={`تعديل ${label}`}
-        className="inline-flex min-h-12 shrink-0 items-center justify-center self-start rounded-lg border-2 border-brand-600 bg-white px-6 font-bold text-brand-700 hover:bg-mint-100 sm:self-center"
-      >
-        تعديل
-      </button>
-    </li>
-  );
-}
-
-function SummaryLine({ term, value }: { term: string; value?: React.ReactNode }) {
-  if (value === undefined) return null;
-  return (
-    <div className="flex gap-x-2">
-      <dt className="shrink-0 text-ink-soft">{term}:</dt>
-      <dd className="min-w-0 flex-1 text-ink">{value}</dd>
-    </div>
-  );
-}
-
-function DeliveryNotes({ student }: { student: Student }) {
-  return (
-    <ul className="space-y-3">
-      {[
-        `التحديثات المجدولة لـ${student.firstName} تُجمع في اتصال واحد أو رسالة واحدة فقط إذا تطابق التاريخ والوقت وطريقة التواصل.`,
-        "التحديثات المباشرة تصلك فور حدوثها، ولا تتأخر لتُجمع مع غيرها.",
-        "جميع الأوقات بتوقيت السعودية.",
-      ].map((n) => (
-        <li key={n} className="flex gap-3 rounded-xl bg-mint-100 p-4 leading-8 text-ink ring-1 ring-mint-300">
-          <InfoIcon size={22} className="mt-1.5 shrink-0 text-brand-700" />
-          <span>{n}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function LegacyNotice({ legacy, children }: { legacy: LegacyInfo; children?: React.ReactNode }) {
+function LegacyNotice({ legacy }: { legacy: LegacyInfo }) {
   return (
     <section
       aria-labelledby="legacy-title"
       className="rounded-xl border-2 border-[#b2ddff] bg-[#eff8ff] p-5 leading-8 text-[#194185]"
     >
-      <h2 id="legacy-title" className="flex items-center gap-2 text-xl font-bold">
+      <h3 id="legacy-title" className="flex items-center gap-2 text-xl font-bold">
         <InfoIcon size={24} className="shrink-0" />
         تغيّرت خيارات المساعد
-      </h2>
+      </h3>
       <p className="mt-2">
         أصبح لكل نوع من التحديثات وقته الخاص بدل وقت واحد للجميع. نقلنا ما يطابق اختياراتك السابقة كما هو، واخترنا
         «اتصال» إذا لم تكن قد اخترت طريقة تواصل.
@@ -946,147 +990,6 @@ function LegacyNotice({ legacy, children }: { legacy: LegacyInfo; children?: Rea
         </>
       )}
       <p className="mt-2">تبقى اختياراتك السابقة محفوظة كما هي حتى تحفظ الاختيارات الجديدة.</p>
-      {children}
     </section>
   );
-}
-
-function SavedSummary({
-  student,
-  preferences,
-  legacy,
-  justSaved,
-  focusPicker,
-  onSelectStudent,
-  onSaved,
-  onEdit,
-}: {
-  student: Student;
-  preferences: Preferences;
-  legacy: LegacyInfo | null;
-  justSaved: boolean;
-  focusPicker: boolean;
-  onSelectStudent: (id: string) => void;
-  onSaved: () => void;
-  onEdit: (step: Step) => void;
-}) {
-  const confirmationRef = useRef<HTMLHeadingElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
-  const [saveFailed, setSaveFailed] = useState(false);
-  useEffect(() => {
-    // Move focus to the confirmation so keyboard and screen-reader users land on it.
-    if (justSaved) confirmationRef.current?.focus();
-    else if (focusPicker) pickerRef.current?.querySelector<HTMLInputElement>("input:checked")?.focus();
-  }, [justSaved, focusPicker]);
-
-  const firstReview = legacy?.needsReview[0];
-  const saveConverted = () => {
-    if (savePreferences(student.id, preferences)) {
-      setSaveFailed(false);
-      onSaved();
-    } else {
-      setSaveFailed(true);
-    }
-  };
-
-  return (
-    <div className="space-y-8">
-      <section aria-labelledby="saved-student-title">
-        <SectionTab id="saved-student-title" title="الابن أو الابنة" size="lg" />
-        <div ref={pickerRef} className={`${card} space-y-4`}>
-          <StudentPicker
-            legend="اختر الابن أو الابنة"
-            name="assistant-student"
-            selectedId={student.id}
-            onSelect={(id) => id !== student.id && onSelectStudent(id)}
-          />
-        </div>
-      </section>
-
-      <section aria-labelledby="saved-title">
-        {justSaved ? (
-          <div className="mb-5 flex items-center gap-4 rounded-xl border-2 border-[#abefc6] bg-[#ecfdf3] p-5" role="status">
-            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[#067647] text-white">
-              <CheckIcon size={28} strokeWidth={3} />
-            </span>
-            <div>
-              <h2
-                id="saved-title"
-                ref={confirmationRef}
-                tabIndex={-1}
-                className="text-2xl font-extrabold text-[#085d3a] focus:outline-none"
-              >
-                تم حفظ التفضيلات
-              </h2>
-              <p className="mt-1 text-[#085d3a]">حفظنا اختياراتك الخاصة بـ{student.firstName}.</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            {legacy && (
-              <div className="mb-5">
-                <LegacyNotice legacy={legacy}>
-                  <div className="mt-4">
-                    {firstReview ? (
-                      <button type="button" onClick={() => onEdit(topicSteps[firstReview.topic])} className={primaryButton}>
-                        اختيار البديل
-                      </button>
-                    ) : (
-                      <button type="button" onClick={saveConverted} className={primaryButton}>
-                        حفظ التفضيلات
-                      </button>
-                    )}
-                  </div>
-                  {saveFailed && (
-                    <p role="alert" className="mt-3 rounded-lg bg-[#fef3f2] px-4 py-3 font-bold text-[#b42318]">
-                      {saveErrorText}
-                    </p>
-                  )}
-                </LegacyNotice>
-              </div>
-            )}
-            <SectionTab id="saved-title" title={`تفضيلاتك المحفوظة لـ${student.firstName}`} size="lg" />
-          </>
-        )}
-
-        <div
-          className={`${justSaved ? "rounded-xl border" : "rounded-b-xl border border-t-0"} space-y-5 border-line bg-white p-5 sm:p-6`}
-        >
-          <ReviewList preferences={preferences} student={student} legacy={legacy} showRetry onEdit={onEdit} />
-          <DeliveryNotes student={student} />
-          {preferences.savedAt && (
-            <p className="text-base text-ink-soft">آخر حفظ: {formatSavedAt(preferences.savedAt)}</p>
-          )}
-          <DemoSaveNote />
-          <Link href="/" className={secondaryButton}>
-            العودة إلى الرئيسية
-          </Link>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function DemoSaveNote() {
-  return (
-    <p className="flex gap-3 rounded-xl border border-[#b2ddff] bg-[#eff8ff] p-4 text-base leading-7 text-[#194185]">
-      <InfoIcon size={22} className="mt-0.5 shrink-0" />
-      <span>
-        هذا نموذج تجريبي: تُحفظ اختياراتك على هذا الجهاز فقط،{" "}
-        <strong>ولم تتم جدولة أو إرسال أي اتصال أو رسالة فعلية.</strong>
-      </span>
-    </p>
-  );
-}
-
-function formatSavedAt(iso: string) {
-  try {
-    return new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", {
-      dateStyle: "long",
-      timeStyle: "short",
-      timeZone: "Asia/Riyadh",
-    }).format(new Date(iso));
-  } catch {
-    return "";
-  }
 }

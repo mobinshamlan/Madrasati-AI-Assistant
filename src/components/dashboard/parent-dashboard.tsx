@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { topicSummary, topics, useSavedPreferences } from "@/components/assistant/preferences";
 import { useComingSoon } from "./coming-soon";
 import { parent, students, today, type AttendanceStatus, type Student } from "./data";
@@ -24,14 +25,19 @@ import { SectionTab, StudentPicker } from "./ui";
 export function ParentDashboard() {
   return (
     <PageShell current="home">
-      <DashboardBody />
+      <Suspense fallback={<p className="flex-1 px-4 py-16 text-center text-lg text-ink-soft">جارٍ فتح الصفحة…</p>}>
+        <DashboardBody />
+      </Suspense>
     </PageShell>
   );
 }
 
 function DashboardBody() {
-  const [studentId, setStudentId] = useState(students[0].id);
-  const student = students.find((s) => s.id === studentId) ?? students[0];
+  const router = useRouter();
+  // The selected student lives in the address, so a refresh or a return from the assistant keeps it.
+  const selectedId = useSearchParams().get("student");
+  const student = students.find((s) => s.id === selectedId) ?? students[0];
+  const setStudentId = (id: string) => router.replace(`/?student=${id}`, { scroll: false });
 
   return (
     <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">

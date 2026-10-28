@@ -537,6 +537,32 @@ export function problemsFor(p: Preferences, topic: Topic): Problem[] {
 }
 
 export const allProblems = (p: Preferences) => topics.flatMap((t) => problemsFor(p, t));
+
+// ---------- options a particular student cannot use ----------
+
+/** Timing values (never "off") that are not offered for a student, per topic. */
+export type UnavailableOptions = Partial<Record<Topic, readonly string[]>>;
+/** A choice cleared because the student it now applies to cannot use it; `was` is its plain name. */
+export type ClearedChoice = { topic: Topic; was: string };
+
+export const isTimingAvailable = (unavailable: UnavailableOptions | undefined, topic: Topic, timing: string) =>
+  timing === "off" || !unavailable?.[topic]?.includes(timing);
+
+/**
+ * Keeps every choice the student can use and clears only the timings they cannot, so the parent picks
+ * a replacement for those (the existing "choose" check blocks saving until then).
+ */
+export function adaptToStudent(p: Preferences, unavailable: UnavailableOptions | undefined) {
+  const cleared: ClearedChoice[] = [];
+  let preferences = p;
+  for (const topic of topics) {
+    const timing = p[topic].timing;
+    if (timing === null || isTimingAvailable(unavailable, topic, timing)) continue;
+    cleared.push({ topic, was: topicSummary(p, topic).timing });
+    preferences = { ...preferences, [topic]: { ...preferences[topic], timing: null } } as Preferences;
+  }
+  return { preferences, cleared };
+}
 export const canSave = (p: Preferences) => allProblems(p).length === 0 && enabledTopics(p).length > 0;
 
 // ---------- plain-language descriptions ----------
