@@ -10,9 +10,9 @@ export const topicOptions = [
   { value: "grades", label: "الدرجات" },
 ] as const;
 
-export const frequencyOptions = [
-  { value: "daily", label: "يوميًا", hint: "كل يوم دراسي، من الأحد إلى الخميس" },
-  { value: "weekly", label: "أسبوعيًا", hint: "مرة واحدة في الأسبوع" },
+export const attendanceFrequencyOptions = [
+  { value: "daily", label: "ملخص يومي بعد المدرسة", hint: "من الأحد إلى الخميس" },
+  { value: "weekly", label: "ملخص أسبوعي", hint: "مرة واحدة في الأسبوع، في اليوم الذي تختاره" },
 ] as const;
 
 export const dayOptions = [
@@ -32,68 +32,140 @@ export const timeOptions = [
   { value: "20:00", label: "8:00 مساءً" },
 ] as const;
 
+/** Earliest time we suggest for a daily after-school attendance summary. */
+export const AFTER_SCHOOL_FROM = "16:00";
+
 export type Topic = (typeof topicOptions)[number]["value"];
-export type Frequency = (typeof frequencyOptions)[number]["value"];
+export type AttendanceFrequency = (typeof attendanceFrequencyOptions)[number]["value"];
 export type Day = (typeof dayOptions)[number]["value"];
 export type CallTime = (typeof timeOptions)[number]["value"];
 
 export type Preferences = {
   topics: Topic[];
-  frequency: Frequency;
-  day: Day;
+  attendance: { frequency: AttendanceFrequency; day: Day };
+  grades: { day: Day };
+  // Exam reminders are always sent one day before each exam, so they have no setting.
   time: CallTime;
   savedAt?: string;
 };
 
 export const defaultPreferences: Preferences = {
   topics: ["attendance", "exams", "grades"],
-  frequency: "weekly",
-  day: "thu",
+  attendance: { frequency: "weekly", day: "thu" },
+  grades: { day: "thu" },
   time: "18:00",
 };
 
-const STORAGE_PREFIX = "madrasati-demo:assistant-preferences:v1:";
+const V1_PREFIX = "madrasati-demo:assistant-preferences:v1:";
+const V2_PREFIX = "madrasati-demo:assistant-preferences:v2:";
 const CHANGE_EVENT = "madrasati-demo:assistant-preferences-change";
 
 export type SavedState =
   | { status: "none" }
   | { status: "invalid" }
-  | { status: "saved"; preferences: Preferences };
+  /** `changes` explains timing that moved when converting choices saved before per-topic timing existed. */
+  | { status: "saved"; preferences: Preferences; changes: string[] };
 
 const isOneOf = <T extends string>(options: readonly { value: T }[], value: unknown): value is T =>
   typeof value === "string" && options.some((o) => o.value === value);
 
-export function parsePreferences(raw: string | null): SavedState {
-  if (raw === null) return { status: "none" };
+const asRecord = (value: unknown) =>
+  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+
+// Keep the canonical order and drop duplicates or unknown values.
+const readTopics = (value: unknown): Topic[] =>
+  Array.isArray(value) ? topicOptions.map((o) => o.value).filter((v) => value.includes(v)) : [];
+
+const readSavedAt = (value: unknown) =>
+  typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : undefined;
+
+function parseV2(raw: string): SavedState {
   try {
-    const data: unknown = JSON.parse(raw);
-    if (typeof data !== "object" || data === null) return { status: "invalid" };
-    const d = data as Record<string, unknown>;
-    if (!Array.isArray(d.topics)) return { status: "invalid" };
-    // Keep the canonical order and drop duplicates or unknown values.
-    const topics = topicOptions.map((o) => o.value).filter((v) => (d.topics as unknown[]).includes(v));
-    if (topics.length === 0) return { status: "invalid" };
-    if (!isOneOf(frequencyOptions, d.frequency)) return { status: "invalid" };
-    if (!isOneOf(timeOptions, d.time)) return { status: "invalid" };
-    const day = isOneOf(dayOptions, d.day) ? d.day : null;
-    if (d.frequency === "weekly" && day === null) return { status: "invalid" };
-    const savedAt = typeof d.savedAt === "string" && !Number.isNaN(Date.parse(d.savedAt)) ? d.savedAt : undefined;
+    const d = asRecord(JSON.parse(raw));
+    if (!d) return { status: "invalid" };
+    const topics = readTopics(d.topics);
+    const attendance = asRecord(d.attendance);
+    const grades = asRecord(d.grades);
+    if (
+      topics.length === 0 ||
+      !attendance ||
+      !grades ||
+      !isOneOf(attendanceFrequencyOptions, attendance.frequency) ||
+      !isOneOf(dayOptions, attendance.day) ||
+      !isOneOf(dayOptions, grades.day) ||
+      !isOneOf(timeOptions, d.time)
+    ) {
+      return { status: "invalid" };
+    }
     return {
       status: "saved",
-      preferences: { topics, frequency: d.frequency, day: day ?? defaultPreferences.day, time: d.time, savedAt },
+      changes: [],
+      preferences: {
+        topics,
+        attendance: { frequency: attendance.frequency, day: attendance.day },
+        grades: { day: grades.day },
+        time: d.time,
+        savedAt: readSavedAt(d.savedAt),
+      },
     };
   } catch {
     return { status: "invalid" };
   }
 }
 
-function readRaw(studentId: string): string | null {
+/** Converts the earlier single daily/weekly setting into per-topic timing. */
+function migrateV1(raw: string): SavedState {
   try {
-    return window.localStorage.getItem(STORAGE_PREFIX + studentId);
+    const d = asRecord(JSON.parse(raw));
+    if (!d) return { status: "invalid" };
+    const topics = readTopics(d.topics);
+    if (topics.length === 0 || !isOneOf(attendanceFrequencyOptions, d.frequency) || !isOneOf(timeOptions, d.time)) {
+      return { status: "invalid" };
+    }
+    const oldDay = isOneOf(dayOptions, d.day) ? d.day : null;
+    if (d.frequency === "weekly" && oldDay === null) return { status: "invalid" };
+
+    const weeklyDay = oldDay ?? defaultPreferences.grades.day;
+    const preferences: Preferences = {
+      topics,
+      attendance: { frequency: d.frequency, day: weeklyDay },
+      grades: { day: weeklyDay },
+      time: d.time,
+      savedAt: readSavedAt(d.savedAt),
+    };
+
+    const oldTiming = d.frequency === "daily" ? "يوميًا" : `أسبوعيًا يوم ${dayLabel(weeklyDay)}`;
+    const changes: string[] = [];
+    if (topics.includes("grades") && d.frequency === "daily") {
+      changes.push(
+        `الدرجات: أصبحت ملخصًا أسبوعيًا يوم ${dayLabel(weeklyDay)} بدلًا من يوميًا، ويشمل الدرجات الجديدة أو المعدّلة فقط.`,
+      );
+    }
+    if (topics.includes("exams")) {
+      changes.push(`الاختبارات: أصبحت تذكيرًا قبل كل اختبار بيوم واحد بدلًا من ${oldTiming}.`);
+    }
+    return { status: "saved", preferences, changes };
+  } catch {
+    return { status: "invalid" };
+  }
+}
+
+export function parseSaved(v2Raw: string | null, v1Raw: string | null): SavedState {
+  if (v2Raw !== null) return parseV2(v2Raw);
+  if (v1Raw !== null) return migrateV1(v1Raw);
+  return { status: "none" };
+}
+
+function read(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
+
+// A single string snapshot keeps useSyncExternalStore stable between reads.
+const SEPARATOR = "\u0000";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
@@ -106,19 +178,36 @@ function subscribe(onChange: () => void) {
 
 /** Saved preferences for one student; "none" during server rendering. */
 export function useSavedPreferences(studentId: string): SavedState {
-  const raw = useSyncExternalStore(
+  const snapshot = useSyncExternalStore(
     subscribe,
-    () => readRaw(studentId),
+    () => {
+      const v2 = read(V2_PREFIX + studentId);
+      const v1 = read(V1_PREFIX + studentId);
+      return v2 === null && v1 === null ? null : `${v2 ?? ""}${SEPARATOR}${v1 ?? ""}`;
+    },
     () => null,
   );
-  return useMemo(() => parsePreferences(raw), [raw]);
+  return useMemo(() => {
+    if (snapshot === null) return { status: "none" };
+    const [v2, v1] = snapshot.split(SEPARATOR);
+    return parseSaved(v2 || null, v1 || null);
+  }, [snapshot]);
 }
 
-/** Returns false when the browser blocks storage (e.g. private mode or full quota). */
-export function savePreferences(studentId: string, preferences: Preferences): boolean {
+/**
+ * Writes the current format and removes any earlier-format record for the student.
+ * Returns false when the browser blocks storage (e.g. private mode or full quota).
+ */
+export function savePreferences(
+  studentId: string,
+  preferences: Preferences,
+  { keepSavedAt = false }: { keepSavedAt?: boolean } = {},
+): boolean {
   try {
-    const record: Preferences = { ...preferences, savedAt: new Date().toISOString() };
-    window.localStorage.setItem(STORAGE_PREFIX + studentId, JSON.stringify(record));
+    const savedAt = keepSavedAt && preferences.savedAt ? preferences.savedAt : new Date().toISOString();
+    const record = { version: 2, ...preferences, savedAt };
+    window.localStorage.setItem(V2_PREFIX + studentId, JSON.stringify(record));
+    window.localStorage.removeItem(V1_PREFIX + studentId);
     window.dispatchEvent(new Event(CHANGE_EVENT));
     return true;
   } catch {
@@ -129,29 +218,51 @@ export function savePreferences(studentId: string, preferences: Preferences): bo
 const labelOf = <T extends string>(options: readonly { value: T; label: string }[], value: T) =>
   options.find((o) => o.value === value)?.label ?? "";
 
-export function topicsText(topics: Topic[]) {
-  const labels = topicOptions.filter((o) => topics.includes(o.value)).map((o) => o.label);
-  return labels.map((l, i) => (i === 0 ? l : `و${l}`)).join("، ");
-}
-
-export function scheduleText(p: Preferences) {
-  const when =
-    p.frequency === "daily"
-      ? "كل يوم دراسي (من الأحد إلى الخميس)"
-      : `كل أسبوع يوم ${labelOf(dayOptions, p.day)}`;
-  return `${when} الساعة ${labelOf(timeOptions, p.time)} بتوقيت السعودية`;
-}
-
-export function frequencyText(p: Preferences) {
-  return p.frequency === "daily"
-    ? "يوميًا (من الأحد إلى الخميس)"
-    : `أسبوعيًا، يوم ${labelOf(dayOptions, p.day)}`;
-}
+export const dayLabel = (day: Day) => labelOf(dayOptions, day);
+export const topicLabel = (topic: Topic) => labelOf(topicOptions, topic);
 
 export function timeText(p: Preferences) {
   return `${labelOf(timeOptions, p.time)} بتوقيت السعودية`;
 }
 
-export function summarySentence(p: Preferences, studentFirstName: string) {
-  return `عند تفعيل الخدمة، ستصلك مكالمة ${scheduleText(p)}، يخبرك فيها المساعد الذكي عن ${topicsText(p.topics)} الخاصة بـ${studentFirstName}.`;
+/** Turns one topic on or off, keeping the canonical order. Its timing is kept so turning it back on restores it. */
+export function withTopic(p: Preferences, topic: Topic, enabled: boolean): Preferences {
+  return {
+    ...p,
+    topics: topicOptions.map((o) => o.value).filter((v) => (v === topic ? enabled : p.topics.includes(v))),
+  };
+}
+
+/** Plain-words status of one topic, whether it is on or off. */
+export function topicStatus(p: Preferences, topic: Topic) {
+  const schedule = topicSchedules({ ...p, topics: [topic] })[0];
+  return p.topics.includes(topic)
+    ? { enabled: true, label: schedule.label, when: schedule.when, what: schedule.what }
+    : { enabled: false, label: schedule.label, when: "متوقف", what: "لن تصلك تحديثات عن هذا النوع." };
+}
+
+/** When each selected topic is due, in plain words, in the canonical topic order. */
+export function topicSchedules(p: Preferences) {
+  const schedules: Record<Topic, { when: string; what: string }> = {
+    attendance:
+      p.attendance.frequency === "daily"
+        ? { when: "كل يوم دراسي بعد المدرسة (من الأحد إلى الخميس)", what: "ملخص الحضور والغياب والتأخر" }
+        : { when: `كل أسبوع يوم ${dayLabel(p.attendance.day)}`, what: "ملخص الحضور والغياب والتأخر للأسبوع" },
+    grades: {
+      when: `كل أسبوع يوم ${dayLabel(p.grades.day)}`,
+      what: "الدرجات الجديدة أو المعدّلة فقط، ولا يصلك تحديث إذا لم يتغير شيء",
+    },
+    exams: { when: "قبل كل اختبار بيوم واحد", what: "تذكير بموعد الاختبار" },
+  };
+  return topicOptions
+    .filter((o) => p.topics.includes(o.value))
+    .map((o) => ({ topic: o.value, label: o.label, ...schedules[o.value] }));
+}
+
+export function needsAfterSchoolHint(p: Preferences) {
+  return p.topics.includes("attendance") && p.attendance.frequency === "daily";
+}
+
+export function isBeforeAfterSchool(p: Preferences) {
+  return needsAfterSchoolHint(p) && p.time < AFTER_SCHOOL_FROM;
 }
