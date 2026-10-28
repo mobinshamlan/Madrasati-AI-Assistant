@@ -1,26 +1,62 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Palette sampled from the parent and student home screenshots in the
+ * Ministry of Education "دليل المستخدم لأولياء الأمور في منصة مدرستي" (Jan 2026).
+ * Text-bearing teal shades are darkened slightly so white text meets WCAG AA.
+ */
+@theme {
+  --color-mint-50: #f3f9f9;
+  --color-mint-100: #e9f6f6;
+  --color-mint-200: #d3ebe5;
+  --color-mint-300: #c1e3dd;
+  --color-mint-400: #a0ded7;
+  --color-mint-500: #95d0c8;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-brand-400: #9ad8cf;
+  --color-brand-500: #0d9991;
+  --color-brand-600: #00807a;
+  --color-brand-700: #006d68;
+  --color-brand-800: #0b4f4c;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-tile-orange: #d57a48;
+  --color-tile-navy: #11536e;
+  --color-tile-green: #6fb81f;
+  --color-tile-sky: #4fa9b0;
+  --color-tile-olive: #a4ab55;
+
+  --color-ink: #1f2a37;
+  --color-ink-soft: #4d5761;
+  --color-line: #d2d6db;
+  --color-page: #fbfcfc;
+
+  --font-sans: var(--font-tajawal), "IBM Plex Sans Arabic", Tahoma, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-tile-navy);
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(17 24 39 / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
 }
