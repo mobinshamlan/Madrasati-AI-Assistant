@@ -3,6 +3,7 @@
 The `/assistant` page only **records** a parent's preferences, per student, in the browser's
 `localStorage`. Nothing is sent, scheduled, called or stored in Supabase. The rules below describe
 the intended behaviour for a future delivery service; none of it is implemented.
+A matching database structure exists in Supabase but the app does not use it yet: see `docs/database.md`.
 
 All times are Saudi time (Asia/Riyadh).
 
