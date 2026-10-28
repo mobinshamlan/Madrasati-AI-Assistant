@@ -1,0 +1,25 @@
+
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>مساعد الطالب الصوتي</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+  <main class="shell">
+    <header><span class="eyebrow">مساعد صوتي مباشر</span><h1>مساعد الطالب</h1><p>تحدث بالعربية واسأل عن تقدم الطالب.</p></header>
+    <aside class="notice"><strong>جلسة GPT-Live مدفوعة</strong><span>تبدأ الفوترة عند بدء الاتصال: ‎$0.05 للدقيقة، محسوبة بالثانية. لن يتصل التطبيق قبل تأكيدك في زر البدء.</span></aside>
+    <section class="connection" aria-live="polite"><span id="status-dot" class="dot"></span><span id="status">جاهز — لم تبدأ جلسة</span></section>
+    <section class="steps" aria-label="مراحل المحادثة">
+      <div data-step="recording"><b>١</b><span>الميكروفون</span><small>بانتظارك</small></div>
+      <div data-step="transcript"><b>٢</b><span>التفريغ النصي</span><small>بانتظار الصوت</small></div>
+      <div data-step="answer"><b>٣</b><span>الإجابة والبيانات</span><small>بانتظار السؤال</small></div>
+      <div data-step="playback"><b>٤</b><span>الصوت</span><small>بانتظار الرد</small></div>
+    </section>
+    <section class="conversation" aria-live="polite">
+      <article><h2>كلامك</h2><p id="transcript" class="placeholder">سيظهر التفريغ هنا. قد يختلف عن كلامك الفعلي.</p></article>
+      <article><h2>رد المساعد</h2><p id="answer" class="placeholder">سيظهر الرد هنا.</p></article>
+    </section>
+    <audio id="remote-audio" controls autoplay playsinline aria-label="الرد الصوتي"></audio>
+    <div id="error" class="error" role="alert" hidden></div>
+    <footer><button id="start" class="primary">ابدأ محادثة صوتية</button><button id="end" class="secondary" disabled>إنهاء المحادثة</button><p class="footnote">يستخدم الصوت المباشر GPT-Live. بيانات الطالب تُقرأ محلياً من BasicData.json.</p></footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body></html>
