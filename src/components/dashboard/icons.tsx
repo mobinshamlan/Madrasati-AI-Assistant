@@ -84,6 +84,13 @@ export const MailIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const MessageIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 5.5h16a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1H10l-4.5 3.5V17H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1Z" />
+    <path d="M7.5 10h9M7.5 13.5h6" />
+  </Svg>
+);
+
 export const BellIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 1.5h-15Z" />

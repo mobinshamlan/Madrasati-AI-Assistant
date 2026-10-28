@@ -6,7 +6,7 @@ import { PageShell } from "@/components/dashboard/page-shell";
 
 export const metadata: Metadata = {
   title: "إعداد المساعد الذكي | المساعد الذكي لولي الأمر",
-  description: "اختيار التحديثات وموعد الاتصال المفضل — نموذج تعليمي تجريبي ببيانات خيالية.",
+  description: "اختيار التحديثات وموعدها وطريقة التواصل — نموذج تعليمي تجريبي ببيانات خيالية.",
 };
 
 export default function AssistantPage() {
@@ -33,7 +33,7 @@ export default function AssistantPage() {
               إعداد المساعد الذكي
             </h1>
             <p className="mt-3 max-w-2xl text-lg leading-8 text-ink">
-              اختر ما تريد معرفته عن أبنائك، والوقت المناسب لنتصل بك ونخبرك به. خمس خطوات قصيرة.
+              اختر ما تريد معرفته عن أبنائك، ومتى وكيف نتواصل معك. خمس خطوات قصيرة.
             </p>
           </div>
         </section>

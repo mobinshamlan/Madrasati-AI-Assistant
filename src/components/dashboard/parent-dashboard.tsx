@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { timeText, topicSchedules, useSavedPreferences } from "@/components/assistant/preferences";
+import { topicSummary, topics, useSavedPreferences } from "@/components/assistant/preferences";
 import { useComingSoon } from "./coming-soon";
 import { parent, students, today, type AttendanceStatus, type Student } from "./data";
 import {
@@ -349,27 +349,27 @@ function AssistantCard({ student }: { student: Student }) {
           <>
             <p className="font-bold text-ink">تفضيلاتك المحفوظة لـ{student.firstName}:</p>
             <ul className="mt-3 space-y-2.5">
-              {topicSchedules(saved.preferences).map((s) => (
-                <li key={s.topic} className="flex gap-2.5">
-                  <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-                  <span>
-                    <strong>{s.label}:</strong> {s.when}
-                  </span>
-                </li>
-              ))}
-              <li className="flex gap-2.5">
-                <PhoneIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-                <span>
-                  الاتصال الساعة {timeText(saved.preferences)}
-                </span>
-              </li>
+              {topics
+                .map((t) => topicSummary(saved.preferences, t))
+                .filter((s) => s.status !== "off")
+                .map((s) => (
+                  <li key={s.topic} className="flex gap-2.5">
+                    <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
+                    <span>
+                      <strong>{s.label}:</strong> {s.short}
+                      {s.method && ` — ${s.method}`}
+                    </span>
+                  </li>
+                ))}
             </ul>
-            {saved.changes.length > 0 && (
+            {saved.legacy && (
               <p className="mt-3 rounded-lg bg-[#eff8ff] px-3 py-2 text-sm font-bold text-[#194185]">
-                تغيّر توقيت بعض التحديثات. راجعها في صفحة المساعد.
+                {saved.legacy.needsReview.length > 0
+                  ? "بعض الاختيارات تحتاج إلى بديل. افتح صفحة المساعد لاختياره."
+                  : "تغيّرت خيارات المساعد. راجعها واحفظها في صفحة المساعد."}
               </p>
             )}
-            <p className="mt-3 text-sm text-ink-soft">محفوظة على هذا الجهاز للعرض التجريبي، ولم تُجدول أي مكالمة فعلية.</p>
+            <p className="mt-3 text-sm text-ink-soft">جميع الأوقات بتوقيت السعودية. محفوظة على هذا الجهاز للعرض التجريبي، ولم يُجدول أو يُرسل أي تواصل فعلي.</p>
           </>
         ) : (
           <>
@@ -384,7 +384,7 @@ function AssistantCard({ student }: { student: Student }) {
               <li className="flex gap-2.5">
                 <PhoneIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
                 <span>
-                  <strong>تحديد موعد الاتصال المفضل</strong> لديك لتلقي ملخص عن {student.firstName}.
+                  <strong>تحديد الموعد وطريقة التواصل</strong> (اتصال أو رسالة) لتعرف أخبار {student.firstName}.
                 </span>
               </li>
             </ul>
