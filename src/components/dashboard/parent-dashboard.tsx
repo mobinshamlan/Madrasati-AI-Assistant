@@ -1,48 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { ComingSoonProvider, useComingSoon } from "./coming-soon";
+import { frequencyText, timeText, topicsText, useSavedPreferences } from "@/components/assistant/preferences";
+import { useComingSoon } from "./coming-soon";
 import { parent, students, today, type AttendanceStatus, type Student } from "./data";
 import {
-  AccessibilityIcon,
   AttendanceIcon,
   CheckIcon,
   ClassIcon,
   ClockIcon,
   ExamIcon,
   GradesIcon,
-  InfoIcon,
   MegaphoneIcon,
   PhoneIcon,
   SchoolIcon,
   SparkleIcon,
   UserIcon,
 } from "./icons";
-import { SiteHeader } from "./site-header";
+import { PageShell } from "./page-shell";
+import { SectionTab, StudentPicker } from "./ui";
 
 export function ParentDashboard() {
   return (
-    <ComingSoonProvider>
-      <DemoNotice />
-      <SiteHeader />
+    <PageShell current="home">
       <DashboardBody />
-      <footer className="mt-auto border-t border-mint-300 bg-mint-100 px-4 py-4 text-center text-sm text-ink-soft">
-        نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية ولا يمثل خدمة صادرة عن وزارة التعليم.
-      </footer>
-      <AccessibilityButton />
-    </ComingSoonProvider>
-  );
-}
-
-function DemoNotice() {
-  return (
-    <p
-      role="note"
-      className="flex items-center justify-center gap-2 bg-[#fffaeb] px-4 py-2 text-center text-sm font-bold text-[#7a2e0e] border-b border-[#fedf89]"
-    >
-      <InfoIcon size={18} className="shrink-0" />
-      نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية
-    </p>
+    </PageShell>
   );
 }
 
@@ -64,7 +47,7 @@ function DashboardBody() {
           <GradesSection student={student} />
         </div>
         <aside className="space-y-6" aria-label="الإعلانات والمساعد الذكي والملف الشخصي">
-          <AssistantCard />
+          <AssistantCard student={student} />
           <AnnouncementsSection student={student} />
           <ProfileCard />
         </aside>
@@ -95,36 +78,14 @@ function WelcomeBanner({ student, onSelect }: { student: Student; onSelect: (id:
             </div>
           </div>
 
-          <fieldset className="min-w-0">
-            <legend className="mb-2 text-sm font-bold text-brand-800">اختر الابن لعرض بياناته</legend>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {students.map((s) => (
-                <label
-                  key={s.id}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-transparent bg-white/70 px-3 py-2.5 transition-colors hover:bg-white has-[:checked]:border-brand-600 has-[:checked]:bg-white has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-tile-navy"
-                >
-                  <input
-                    type="radio"
-                    name="student"
-                    value={s.id}
-                    checked={s.id === student.id}
-                    onChange={() => onSelect(s.id)}
-                    className="peer sr-only"
-                  />
-                  <span className="grid size-11 shrink-0 place-items-center rounded-full bg-mint-500 text-white">
-                    <UserIcon size={22} />
-                  </span>
-                  <span className="min-w-0 flex-1 leading-snug">
-                    <span className="block font-bold text-brand-800">{s.name}</span>
-                    <span className="block text-sm text-ink-soft">{s.grade}</span>
-                  </span>
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full border-2 border-mint-500 text-transparent peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-checked:text-white">
-                    <CheckIcon size={14} strokeWidth={3} />
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <StudentPicker
+            legend="اختر الابن لعرض بياناته"
+            legendClassName="mb-2 text-sm font-bold text-brand-800"
+            selectedId={student.id}
+            onSelect={onSelect}
+            tone="tinted"
+            size="md"
+          />
         </div>
 
         <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-white/60 pt-6 md:grid-cols-3">
@@ -186,17 +147,6 @@ function Tile({
         </span>
       </a>
     </li>
-  );
-}
-
-function SectionTab({ id, title, aside }: { id: string; title: string; aside?: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-end justify-between gap-x-4 border-b-4 border-mint-300">
-      <h2 id={id} className="rounded-t-xl bg-brand-600 px-5 pt-2.5 pb-2 text-lg font-bold text-white">
-        {title}
-      </h2>
-      {aside && <div className="pb-1.5 text-sm text-ink-soft">{aside}</div>}
-    </div>
   );
 }
 
@@ -375,8 +325,9 @@ function GradesSection({ student }: { student: Student }) {
   );
 }
 
-function AssistantCard() {
-  const openComingSoon = useComingSoon();
+function AssistantCard({ student }: { student: Student }) {
+  const saved = useSavedPreferences(student.id);
+  const href = `/assistant?student=${student.id}`;
   return (
     <section
       aria-labelledby="assistant-title"
@@ -394,38 +345,48 @@ function AssistantCard() {
         </div>
       </div>
       <div className="px-5 pb-5">
-        <p className="leading-7 text-ink">
-          ميزة قادمة تساعدك على متابعة أبنائك دون الحاجة لتصفح المنصة يوميًا. ستتمكن من:
-        </p>
-        <ul className="mt-3 space-y-2.5">
-          <li className="flex gap-2.5">
-            <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-            <span>
-              <strong>اختيار التحديثات</strong> التي تهمك: الحضور والغياب، الاختبارات، الدرجات، وإعلانات المدرسة.
-            </span>
-          </li>
-          <li className="flex gap-2.5">
-            <PhoneIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-            <span>
-              <strong>تحديد جدول الاتصال المفضل</strong> لديك (الأيام والوقت) لتلقي ملخص عن أبنائك.
-            </span>
-          </li>
-        </ul>
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          onClick={() =>
-            openComingSoon({
-              title: "المساعد الذكي لولي الأمر",
-              description:
-                "نعمل على تجهيز إعدادات المساعد الذكي: اختيار التحديثات وجدول الاتصال المفضل. ستتوفر هذه الخطوة في المرحلة القادمة من النموذج.",
-            })
-          }
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-2.5 font-bold text-white hover:bg-brand-700"
+        {saved.status === "saved" ? (
+          <>
+            <p className="font-bold text-ink">تفضيلاتك المحفوظة لـ{student.firstName}:</p>
+            <ul className="mt-3 space-y-2.5">
+              <li className="flex gap-2.5">
+                <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
+                <span>{topicsText(saved.preferences.topics)}</span>
+              </li>
+              <li className="flex gap-2.5">
+                <PhoneIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
+                <span>
+                  {frequencyText(saved.preferences)}، الساعة {timeText(saved.preferences)}
+                </span>
+              </li>
+            </ul>
+            <p className="mt-3 text-sm text-ink-soft">محفوظة على هذا الجهاز للعرض التجريبي، ولم تُجدول أي مكالمة فعلية.</p>
+          </>
+        ) : (
+          <>
+            <p className="leading-7 text-ink">تابع أبناءك دون الحاجة لتصفح المنصة يوميًا. يمكنك:</p>
+            <ul className="mt-3 space-y-2.5">
+              <li className="flex gap-2.5">
+                <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
+                <span>
+                  <strong>اختيار التحديثات</strong> التي تهمك: الحضور والغياب، والاختبارات، والدرجات.
+                </span>
+              </li>
+              <li className="flex gap-2.5">
+                <PhoneIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
+                <span>
+                  <strong>تحديد موعد الاتصال المفضل</strong> لديك لتلقي ملخص عن {student.firstName}.
+                </span>
+              </li>
+            </ul>
+          </>
+        )}
+        <Link
+          href={href}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-3 font-bold text-white hover:bg-brand-700"
         >
-          إعداد المساعد الذكي
-          <span className="rounded bg-white/20 px-1.5 py-0.5 text-xs">قريبًا</span>
-        </button>
+          {saved.status === "saved" ? "عرض التفضيلات وتعديلها" : "إعداد المساعد الذكي"}
+        </Link>
       </div>
     </section>
   );
@@ -486,21 +447,6 @@ function ProfileCard() {
         <MoreButton title="تعديل بياناتي" label="تعديل بياناتي" />
       </div>
     </section>
-  );
-}
-
-function AccessibilityButton() {
-  const openComingSoon = useComingSoon();
-  return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      aria-label="أدوات إمكانية الوصول"
-      onClick={() => openComingSoon({ title: "إمكانية الوصول", description: "أدوات التخصيص وإمكانية الوصول ستتوفر قريبًا." })}
-      className="fixed bottom-4 left-4 z-20 grid size-12 place-items-center rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700"
-    >
-      <AccessibilityIcon size={26} />
-    </button>
   );
 }
 

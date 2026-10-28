@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useComingSoon } from "./coming-soon";
 import { parent } from "./data";
 import {
+  AccessibilityIcon,
   AttendanceIcon,
   BellIcon,
   ChevronDownIcon,
@@ -21,27 +23,24 @@ import {
   UserIcon,
 } from "./icons";
 
+export type PageKey = "home" | "assistant";
+
 type NavItem = {
   label: string;
   Icon: typeof HomeIcon;
-  current?: boolean;
+  page?: PageKey;
+  href?: string;
   isNew?: boolean;
   description?: string;
 };
 
 const navItems: NavItem[] = [
-  { label: "الرئيسية", Icon: HomeIcon, current: true },
+  { label: "الرئيسية", Icon: HomeIcon, page: "home", href: "/" },
   { label: "أبنائي", Icon: ChildrenIcon, description: "صفحة أبنائي ستعرض ملفات الأبناء وبياناتهم المدرسية بالتفصيل." },
   { label: "الحضور والغياب", Icon: AttendanceIcon, description: "سجل الحضور والغياب التفصيلي لكل فصل دراسي سيتوفر قريبًا." },
   { label: "الاختبارات", Icon: ExamIcon, description: "جدول الاختبارات الكامل ونتائجها سيتوفر قريبًا." },
   { label: "الدرجات", Icon: GradesIcon, description: "كشف الدرجات التفصيلي لجميع المواد سيتوفر قريبًا." },
-  {
-    label: "المساعد الذكي",
-    Icon: SparkleIcon,
-    isNew: true,
-    description:
-      "ميزة جديدة قيد التطوير: سيختار ولي الأمر التحديثات التي تهمه وجدول الاتصال المفضل لديه لتلقي ملخص عن أبنائه.",
-  },
+  { label: "المساعد الذكي", Icon: SparkleIcon, page: "assistant", href: "/assistant", isNew: true },
 ];
 
 const utilityActions = [
@@ -57,7 +56,7 @@ function NewBadge() {
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({ current }: { current: PageKey }) {
   const openComingSoon = useComingSoon();
   const [menuOpen, setMenuOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -103,15 +102,18 @@ export function SiteHeader() {
           <ul className="flex h-full items-stretch justify-center gap-1 xl:gap-2">
             {navItems.map((item) => (
               <li key={item.label} className="flex">
-                {item.current ? (
-                  <a
-                    href="#main"
-                    aria-current="page"
-                    className="flex items-center gap-2 border-b-[3px] border-brand-500 bg-mint-300 px-3 text-[15px] font-bold text-ink xl:px-4"
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    aria-current={item.page === current ? "page" : undefined}
+                    className={`flex items-center gap-2 border-b-[3px] px-3 text-[15px] font-bold text-ink xl:px-4 ${
+                      item.page === current ? "border-brand-500 bg-mint-300" : "border-transparent hover:bg-mint-300/60"
+                    }`}
                   >
                     <item.Icon size={19} className="text-brand-700" />
                     {item.label}
-                  </a>
+                    {item.isNew && <NewBadge />}
+                  </Link>
                 ) : (
                   <button
                     type="button"
@@ -121,7 +123,6 @@ export function SiteHeader() {
                   >
                     <item.Icon size={19} className="text-brand-700" />
                     {item.label}
-                    {item.isNew && <NewBadge />}
                   </button>
                 )}
               </li>
@@ -211,16 +212,19 @@ export function SiteHeader() {
           <ul className="divide-y divide-mint-200 px-2 py-1">
             {navItems.map((item) => (
               <li key={item.label}>
-                {item.current ? (
-                  <a
-                    href="#main"
-                    aria-current="page"
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    aria-current={item.page === current ? "page" : undefined}
                     onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-3 rounded-md border-s-4 border-brand-500 bg-mint-200 px-3 py-3 font-bold"
+                    className={`flex items-center gap-3 rounded-md border-s-4 px-3 py-3 font-bold ${
+                      item.page === current ? "border-brand-500 bg-mint-200" : "border-transparent hover:bg-mint-100"
+                    }`}
                   >
                     <item.Icon size={20} className="text-brand-700" />
                     {item.label}
-                  </a>
+                    {item.isNew && <NewBadge />}
+                  </Link>
                 ) : (
                   <button
                     type="button"
@@ -230,11 +234,7 @@ export function SiteHeader() {
                   >
                     <item.Icon size={20} className="text-brand-700" />
                     {item.label}
-                    {item.isNew ? (
-                      <NewBadge />
-                    ) : (
-                      <span className="ms-auto text-xs font-medium text-ink-soft">قريبًا</span>
-                    )}
+                    <span className="ms-auto text-xs font-medium text-ink-soft">قريبًا</span>
                   </button>
                 )}
               </li>
@@ -242,9 +242,8 @@ export function SiteHeader() {
           </ul>
         </nav>
         <ul className="flex flex-wrap gap-2 border-t border-mint-200 px-4 py-3" aria-label="أدوات المساعدة">
-          {utilityActions
-            .filter(({ count }) => !count)
-            .map(({ label, Icon }) => (
+          {[...utilityActions.filter(({ count }) => !count), { label: "إمكانية الوصول", Icon: AccessibilityIcon }].map(
+            ({ label, Icon }) => (
               <li key={label}>
                 <button
                   type="button"
