@@ -21,6 +21,7 @@ stop() {
   pkill -f "ngrok http 8000" 2>/dev/null
   pkill -f "uvicorn backend.app:app" 2>/dev/null
   pkill -f next-server 2>/dev/null
+  pkill -f "next dev" 2>/dev/null
   sleep 1
 }
 
@@ -64,14 +65,12 @@ done
 # PUBLIC_URL من ngrok (يغلب أي قيمة قديمة في .env) عشان مكالمات Twilio ترجع لجهازك.
 ( cd "$HERE" && PUBLIC_URL="${URL:-${PUBLIC_URL:-}}" nohup "$PY" -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 >"$RUN/backend.log" 2>&1 </dev/null & echo $! >"$RUN/backend.pid" )
 
-if [ ! -f "$WEB/.next/BUILD_ID" ] || [ "${REBUILD:-0}" = 1 ]; then
-  echo "بناء الموقع (مرة وحدة، ياخذ دقيقة)..."
-  ( cd "$WEB" && npm run build >"$RUN/build.log" 2>&1 ) || { echo "❌ فشل البناء، راجع $RUN/build.log"; exit 1; }
-fi
-( cd "$WEB" && nohup npm run start -- -p 3000 >"$RUN/web.log" 2>&1 </dev/null & echo $! >"$RUN/web.pid" )
+# الموقع بوضع التطوير (npm run dev): هذا الوضع الوحيد اللي تشتغل فيه لوحة /demo-control بدون تسجيل دخول
+# (TAMMENI_LOCAL_OPERATOR=1 في .env.local، ومن هذا الجهاز فقط). وبعد تغيير .env.local ما يحتاج إعادة بناء.
+( cd "$WEB" && nohup npm run dev -- -p 3000 >"$RUN/web.log" 2>&1 </dev/null & echo $! >"$RUN/web.pid" )
 
-for _ in $(seq 1 40); do curl -fs http://127.0.0.1:3000/welcome >/dev/null && break; sleep 1; done
+for _ in $(seq 1 60); do curl -fs http://127.0.0.1:3000/welcome >/dev/null && break; sleep 1; done
 status
 echo
 echo "ولي الأمر:  http://localhost:3000/welcome  ثم «ابدأ مع طمّني»"
-echo "لوحة الديمو: http://localhost:3000/demo-control"
+echo "لوحة الديمو: http://localhost:3000/demo-control   (تفتح مباشرة بدون دخول، من هذا الجهاز فقط)"
