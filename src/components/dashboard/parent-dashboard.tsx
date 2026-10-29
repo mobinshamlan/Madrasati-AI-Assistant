@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { topicSummary, topics, useSavedPreferences } from "@/components/assistant/preferences";
+import { topicSummary, topics } from "@/components/assistant/preferences";
+import { useDashboardStudent, useLinkedStudents, useStudentPreferences, type DashboardStudent, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import { useComingSoon } from "./coming-soon";
-import { parent, students, today, type AttendanceStatus, type Student } from "./data";
+import { parent, today, type AttendanceStatus, type Student } from "./data";
 import {
   AttendanceIcon,
   CheckIcon,
@@ -36,12 +37,23 @@ function DashboardBody() {
   const router = useRouter();
   // The selected student lives in the address, so a refresh or a return from the assistant keeps it.
   const selectedId = useSearchParams().get("student");
-  const student = students.find((s) => s.id === selectedId) ?? students[0];
+  // The parent's children and their records come from Supabase (RLS: only this parent's children).
+  const linked = useLinkedStudents();
+  const list = linked.status === "ready" ? linked.data : [];
+  const current = list.find((s) => s.id === selectedId) ?? list[0] ?? null;
+  const record = useDashboardStudent(current);
   const setStudentId = (id: string) => router.replace(`/?student=${id}`, { scroll: false });
+
+  if (linked.status === "error") return <LoadProblem message={linked.message} onRetry={linked.reload} />;
+  if (linked.status === "loading") return <Loading />;
+  if (!current) return <LoadProblem message="لا يوجد أبناء مرتبطون بهذا الحساب بعد." />;
+  if (record.status === "error") return <LoadProblem message={record.message} onRetry={record.reload} />;
+  if (record.status === "loading") return <Loading />;
+  const student = record.data;
 
   return (
     <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-      <WelcomeBanner student={student} onSelect={setStudentId} />
+      <WelcomeBanner student={student} students={list} onSelect={setStudentId} />
       <p className="sr-only" aria-live="polite">
         يتم الآن عرض بيانات {student.name}
       </p>
@@ -53,16 +65,54 @@ function DashboardBody() {
           <GradesSection student={student} />
         </div>
         <aside className="space-y-6" aria-label="الإعلانات والمساعد الذكي والملف الشخصي">
-          <AssistantCard student={student} />
+          <AssistantCard student={current} />
           <AnnouncementsSection student={student} />
-          <ProfileCard />
+          <ProfileCard childCount={list.length} />
         </aside>
       </div>
     </main>
   );
 }
 
-function WelcomeBanner({ student, onSelect }: { student: Student; onSelect: (id: string) => void }) {
+function Loading() {
+  return (
+    <main id="main" className="flex-1 px-4 py-16 text-center text-lg">
+      <p role="status" className="text-ink-soft">
+        جارٍ تحميل بيانات الأبناء…
+      </p>
+    </main>
+  );
+}
+
+/** A failure says so; the page never falls back to bundled data. */
+function LoadProblem({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <main id="main" className="flex-1 px-4 py-16">
+      <div role="alert" className="mx-auto max-w-xl rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-5 text-lg font-bold text-[#b42318]">
+        <p>{message}</p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-4 inline-flex min-h-12 items-center rounded-lg border-2 border-[#b42318] bg-white px-6 text-[#b42318] hover:bg-[#fff6f5]"
+          >
+            إعادة المحاولة
+          </button>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function WelcomeBanner({
+  student,
+  students,
+  onSelect,
+}: {
+  student: DashboardStudent;
+  students: LinkedStudent[];
+  onSelect: (id: string) => void;
+}) {
   const rate = attendanceRate(student);
   const average = gradeAverage(student);
 
@@ -86,6 +136,7 @@ function WelcomeBanner({ student, onSelect }: { student: Student; onSelect: (id:
 
           <StudentPicker
             legend="اختر الابن لعرض بياناته"
+            students={students}
             legendClassName="mb-2 text-sm font-bold text-brand-800"
             selectedId={student.id}
             onSelect={onSelect}
@@ -331,8 +382,9 @@ function GradesSection({ student }: { student: Student }) {
   );
 }
 
-function AssistantCard({ student }: { student: Student }) {
-  const saved = useSavedPreferences(student.id);
+function AssistantCard({ student }: { student: LinkedStudent }) {
+  const prefs = useStudentPreferences(student.dbId);
+  const saved = prefs.status === "ready" && prefs.data.exists ? prefs.data : null;
   const href = `/assistant?student=${student.id}`;
   return (
     <section
@@ -351,7 +403,11 @@ function AssistantCard({ student }: { student: Student }) {
         </div>
       </div>
       <div className="px-5 pb-5">
-        {saved.status === "saved" ? (
+        {prefs.status === "loading" ? (
+          <p role="status" className="text-ink-soft">جارٍ تحميل التفضيلات…</p>
+        ) : prefs.status === "error" ? (
+          <p role="alert" className="font-bold text-[#b42318]">{prefs.message}</p>
+        ) : saved ? (
           <>
             <p className="font-bold text-ink">تفضيلاتك المحفوظة لـ{student.firstName}:</p>
             <ul className="mt-3 space-y-2.5">
@@ -368,14 +424,7 @@ function AssistantCard({ student }: { student: Student }) {
                   </li>
                 ))}
             </ul>
-            {saved.legacy && (
-              <p className="mt-3 rounded-lg bg-[#eff8ff] px-3 py-2 text-sm font-bold text-[#194185]">
-                {saved.legacy.needsReview.length > 0
-                  ? "بعض الاختيارات تحتاج إلى بديل. افتح صفحة المساعد لاختياره."
-                  : "تغيّرت خيارات المساعد. راجعها واحفظها في صفحة المساعد."}
-              </p>
-            )}
-            <p className="mt-3 text-sm text-ink-soft">جميع الأوقات بتوقيت السعودية. محفوظة على هذا الجهاز للعرض التجريبي، ولم يُجدول أو يُرسل أي تواصل فعلي.</p>
+            <p className="mt-3 text-sm text-ink-soft">جميع الأوقات بتوقيت السعودية. محفوظة في حسابك التجريبي.</p>
           </>
         ) : (
           <>
@@ -400,7 +449,7 @@ function AssistantCard({ student }: { student: Student }) {
           href={href}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-3 font-bold text-white hover:bg-brand-700"
         >
-          {saved.status === "saved" ? "عرض التفضيلات وتعديلها" : "إعداد المساعد الذكي"}
+          {saved ? "عرض التفضيلات وتعديلها" : "إعداد المساعد الذكي"}
         </Link>
       </div>
     </section>
@@ -434,11 +483,11 @@ function AnnouncementsSection({ student }: { student: Student }) {
   );
 }
 
-function ProfileCard() {
+function ProfileCard({ childCount }: { childCount: number }) {
   const rows = [
     { label: "الاسم", value: parent.name },
     { label: "الصفة", value: `${parent.role} (${parent.relation})` },
-    { label: "عدد الأبناء", value: `${students.length}` },
+    { label: "عدد الأبناء", value: `${childCount}` },
     { label: "البريد الإلكتروني", value: parent.email, ltr: true },
     { label: "الجوال", value: parent.phone, ltr: true },
     { label: "آخر دخول", value: parent.lastLogin },

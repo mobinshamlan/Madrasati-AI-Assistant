@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from backend.phone_bridge import router as phone_router
+from backend.parent_preview import router as parent_preview_router
+from backend.notify import router as notify_router
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -28,6 +30,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http
 
 
 app.include_router(phone_router)
+app.include_router(parent_preview_router)
+app.include_router(notify_router)
 
 
 class StudentDataService:

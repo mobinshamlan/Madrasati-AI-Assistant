@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { endDemoSession } from "@/lib/demo-session";
 import { useComingSoon } from "./coming-soon";
 import { parent } from "./data";
 import {
@@ -16,6 +18,7 @@ import {
   GradesIcon,
   HeadsetIcon,
   HomeIcon,
+  LogoutIcon,
   MailIcon,
   MenuIcon,
   SearchIcon,
@@ -56,8 +59,34 @@ function NewBadge() {
   );
 }
 
+function Logo() {
+  return (
+    <Image
+      src="/brand/madrasati-logo.svg"
+      alt="شعار منصة مدرستي"
+      width={114}
+      height={58}
+      unoptimized
+      priority
+      className="h-10 w-auto lg:h-12"
+    />
+  );
+}
+
+/** The logo bar alone, for the demo login page. */
+export function BrandHeader() {
+  return (
+    <header className="border-b border-mint-300 bg-mint-200">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center px-4 lg:h-[72px] lg:px-6">
+        <Logo />
+      </div>
+    </header>
+  );
+}
+
 export function SiteHeader({ current }: { current: PageKey }) {
   const openComingSoon = useComingSoon();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
 
@@ -83,19 +112,18 @@ export function SiteHeader({ current }: { current: PageKey }) {
     openComingSoon({ title: label });
   };
 
+  // Ends only the demo session; the assistant preferences saved on this device stay as they are.
+  const leave = async () => {
+    setMenuOpen(false);
+    await endDemoSession();
+    router.replace("/login");
+  };
+
   return (
     <header className="relative z-30 border-b border-mint-300 bg-mint-200">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-4 px-4 lg:h-[72px] lg:px-6">
         <div className="shrink-0">
-          <Image
-            src="/brand/madrasati-logo.svg"
-            alt="شعار منصة مدرستي"
-            width={114}
-            height={58}
-            unoptimized
-            priority
-            className="h-10 w-auto lg:h-12"
-          />
+          <Logo />
         </div>
 
         <nav aria-label="القائمة الرئيسة" className="hidden h-full flex-1 lg:block">
@@ -166,6 +194,15 @@ export function SiteHeader({ current }: { current: PageKey }) {
               <span className="block text-xs text-ink-soft">{parent.role}</span>
             </span>
             <ChevronDownIcon size={16} className="text-ink-soft" />
+          </button>
+
+          <button
+            type="button"
+            onClick={leave}
+            className="hidden min-h-10 items-center gap-1.5 rounded-full border border-brand-600 bg-white px-3 text-sm font-bold text-brand-700 hover:bg-mint-50 lg:flex"
+          >
+            <LogoutIcon size={18} />
+            خروج
           </button>
 
           <button
@@ -257,6 +294,16 @@ export function SiteHeader({ current }: { current: PageKey }) {
               </li>
             ))}
         </ul>
+        <div className="border-t border-mint-200 px-4 py-3">
+          <button
+            type="button"
+            onClick={leave}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white font-bold text-brand-700 hover:bg-mint-100"
+          >
+            <LogoutIcon size={20} />
+            خروج من الدخول التجريبي
+          </button>
+        </div>
       </div>
     </header>
   );

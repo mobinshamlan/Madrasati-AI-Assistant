@@ -1,9 +1,13 @@
 # Database structure
 
+> **Update 2026-10-29:** two more migrations (`20261029101954_demo_school_records`, `20261029103638_attempt_provider_update`) add the imported school records, simulated events, update decisions and the operator role. See `docs/demo-control.md`.
+
 **Applied on 2026-10-28** to the Supabase project `nbbegxzicokiblvbszor` ("Madrasati AI
-Assistant."), with the two fictional students from `seed.sql`. No accounts, profiles, links or
-preferences exist there yet. The website still saves preferences in `localStorage` only. There is no login, database-backed saving, academic records, scheduling,
-calls or messages yet.
+Assistant."), starting with the two fictional students from `seed.sql`. Later migrations and the
+demo import (see `docs/demo-control.md`) add school records, demo Auth roles, preferences storage,
+events and dispatch tables. The website reads and writes preferences through Supabase with the
+signed-in demo parent; older browser `localStorage` preferences may still be offered as a one-time
+import into the review. Automatic scheduling and real SMS/calls are not on by default (mock provider).
 
 | File | What it does |
 | --- | --- |

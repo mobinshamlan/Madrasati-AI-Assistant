@@ -1,4 +1,3 @@
-import { students } from "./data";
 import { CheckIcon, UserIcon } from "./icons";
 
 export function SectionTab({
@@ -104,8 +103,10 @@ export function ChoiceCard({
   );
 }
 
+/** A choice of student. The list comes from the caller (Supabase for the signed-in parent). */
 export function StudentPicker({
   legend,
+  students,
   selectedId,
   onSelect,
   name = "student",
@@ -114,6 +115,7 @@ export function StudentPicker({
   legendClassName = "sr-only",
 }: {
   legend: string;
+  students: { id: string; name: string; grade: string }[];
   selectedId: string;
   onSelect: (id: string) => void;
   name?: string;

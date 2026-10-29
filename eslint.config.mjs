@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Design skills copied in for the coding assistants; third-party tooling, not app code.
+    ".claude/**",
+    ".cursor/**",
   ]),
 ]);
 

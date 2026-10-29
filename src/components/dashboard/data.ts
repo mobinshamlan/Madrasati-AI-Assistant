@@ -1,16 +1,14 @@
 // All people, schools and records below are fictional, for an educational prototype only.
+// The signed-in website now reads students and records from Supabase (src/lib/tammeni/parent-data.ts).
+// This bundled copy only feeds pages shown before sign-in and the type of a student record.
 
 import type { UnavailableOptions } from "@/components/assistant/preferences";
 
 export type AttendanceStatus = "present" | "absent" | "late" | "excused";
 
-/** Which assistant illustration accompanies this student in the assistant pages. Set explicitly, never inferred from the name. */
-export type AssistantCharacter = "girl" | "boy";
-
 export type Student = {
   id: string;
   name: string;
-  character: AssistantCharacter;
   /** Assistant timing options this student cannot use. Unset means every option is available. */
   assistantUnavailable?: UnavailableOptions;
   firstName: string;
@@ -48,7 +46,6 @@ export const students: Student[] = [
   {
     id: "reem",
     name: "ريم عبدالرحمن الشهري",
-    character: "girl",
     firstName: "ريم",
     grade: "الصف الخامس الابتدائي",
     stage: "المرحلة الابتدائية",
@@ -104,7 +101,6 @@ export const students: Student[] = [
   {
     id: "faisal",
     name: "فيصل عبدالرحمن الشهري",
-    character: "boy",
     firstName: "فيصل",
     grade: "الصف الثاني المتوسط",
     stage: "المرحلة المتوسطة",

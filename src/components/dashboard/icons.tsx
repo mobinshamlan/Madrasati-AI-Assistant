@@ -192,3 +192,12 @@ export const InfoIcon = (p: IconProps) => (
     <path d="M12 11v5.5M12 7.5v.01" />
   </Svg>
 );
+
+/** A door with an arrow pointing out. In RTL the arrow points left, away from the reading start. */
+export const LogoutIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+    <path d="M9 8l-4 4 4 4" />
+    <path d="M5 12h10" />
+  </Svg>
+);

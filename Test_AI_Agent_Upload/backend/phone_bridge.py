@@ -7,6 +7,11 @@
 Endpoints:
   POST /api/phone/voice   <- Twilio يستدعيه أول ما ولي الأمر يرد؛ نرجّع TwiML فيه <Stream>
   WS   /api/phone/media   <- Twilio يرسل/يستقبل الصوت هنا (G.711 mu-law, 8kHz)
+
+مساران:
+  - المسار القديم (make_call.py): معاملات الرابط وبيانات Data/BasicData.json، كما كان.
+  - مسار السياق (?ctx=<رمز>): من لوحة الديمو. نتحقق من توقيع Twilio، ونمرر الرمز فقط، ثم نحمّل
+    حقائق التحديث من Supabase (backend/call_context.py). لا بديل احتياطي ببيانات محمد.
 """
 from __future__ import annotations
 
@@ -25,6 +30,8 @@ from xml.sax.saxutils import escape, quoteattr
 import websockets
 from dotenv import load_dotenv
 from fastapi import APIRouter, Request, Response, WebSocket, WebSocketDisconnect
+
+from backend.call_context import context_instructions, load_context
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -129,9 +136,42 @@ def _public_ws_url(request: Request) -> str:
     return base.replace("https://", "wss://").replace("http://", "ws://") + "/api/phone/media"
 
 
+def _twilio_signature_ok(request: Request, form: dict[str, str]) -> bool:
+    """Twilio signs the full public URL plus the POST form. Without the auth token we cannot check: refuse."""
+    token = os.getenv("TWILIO_AUTH_TOKEN", "")
+    signature = request.headers.get("x-twilio-signature", "")
+    base = os.getenv("PUBLIC_URL", "").rstrip("/")
+    if not token or not signature or not base:
+        return False
+    from twilio.request_validator import RequestValidator
+
+    url = f"{base}{request.url.path}" + (f"?{request.url.query}" if request.url.query else "")
+    return RequestValidator(token).validate(url, form, signature)
+
+
+async def _context_voice(request: Request, token: str) -> Response:
+    form: dict[str, str] = {}
+    if request.method == "POST":
+        form = {k: str(v) for k, v in (await request.form()).items()}
+    if not _twilio_signature_ok(request, form):
+        return Response(status_code=403)
+    ctx = await load_context(token)
+    if ctx is None or ctx["method"] != "call":
+        # No facts, no fallback: end the call politely without naming anyone.
+        return Response(content='<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>', media_type="application/xml")
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<Response><Connect><Stream url={quoteattr(_public_ws_url(request))}>'
+        f'<Parameter name="ctx" value={quoteattr(token)}/></Stream></Connect></Response>'
+    )
+    return Response(content=twiml, media_type="application/xml")
+
+
 @router.api_route("/voice", methods=["GET", "POST"])
 async def voice(request: Request) -> Response:
     q = request.query_params
+    if "ctx" in q:
+        return await _context_voice(request, q["ctx"])
     params = {
         "persona": q.get("persona", "lulwa"),
         "student": q.get("student", "محمد"),
@@ -243,13 +283,23 @@ async def media(twilio: WebSocket) -> None:
                     call["call_sid"] = msg["start"].get("callSid")
                     call["params"] = msg["start"].get("customParameters", {})
                     p = call["params"]
-                    p.setdefault("persona", "lulwa")
+                    if "ctx" in p:
+                        # Context path: facts come only from Supabase for this one update.
+                        ctx = await load_context(p["ctx"])
+                        if ctx is None or ctx["method"] != "call":
+                            log.warning("call context unavailable; hanging up without fallback")
+                            await hang_up()
+                            return
+                        instructions, persona = context_instructions(ctx), ctx["persona"]
+                    else:
+                        p.setdefault("persona", "lulwa")
+                        instructions, persona = build_instructions(p), p["persona"]
                     oa = await _connect_openai()
                     await send_oa({"type": "session.start", "session": {
                         "model": LIVE_MODEL,
-                        "instructions": build_instructions(p),
+                        "instructions": instructions,
                         "audio": {"format": {"type": "audio/pcmu", "rate": 8000},
-                                  "output": {"voice": VOICES.get(p["persona"], "marin")}},
+                                  "output": {"voice": VOICES.get(persona, "marin")}},
                     }})
                     tasks.append(asyncio.create_task(openai_to_twilio()))
                     tasks.append(asyncio.create_task(_watchdog()))
