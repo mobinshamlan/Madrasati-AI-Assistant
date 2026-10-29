@@ -1,36 +1,24 @@
+# مساعد مدرستي الصوتي والنصي
 
-# Saudi Arabic GPT-Live voice assistant
+تطبيق محلي يتيح اختيار طالب من مجموعة البيانات ثم السؤال عن ملفه، الحضور، الاختبارات، الدرجات، والإعلانات كتابةً أو بالصوت. السجلات المتغيرة تُقرأ من Supabase بصلاحيات ولي الأمر، والمعلومات التعريفية من `../supabase/data/madrasati-dataset.json`. كل محادثة مرتبطة بمعرّف الطالب الذي اختاره المستخدم؛ الخادم يتحقق من المعرّف ولا يبدل النطاق استناداً إلى نص السؤال.
 
-This project connects the existing `frontEnd_poc/` page to OpenAI GPT-Live (`gpt-live-1`) over WebRTC. The server keeps the OpenAI API key private and retrieves student facts from the existing `Data/BasicData.json`. No other ASR/LLM/TTS model is selected or substituted. Browser recording, browser ASR, and browser TTS are not used: microphone audio and generated speech travel through the real GPT-Live session.
+## المتطلبات
+- Python 3.12
+- Node.js 18 أو أحدث
+- مفتاح OpenAI لتوليد إجابات النص والصوت المباشر (الإجابات النصية تستخدم سجلات محلية عند غياب المفتاح أو تعطل المزود)
 
-## Billing and key setup
+## التشغيل على Windows PowerShell
 
-GPT-Live sessions are billable at **$0.05 per minute, billed by the second**; local dataset lookup is not an OpenAI request. Delegated tools can have separate charges if configured, but this app performs retrieval locally and does not call a Responses model. The UI displays the session rate and asks for confirmation before requesting a Live session. No session is opened on page load, health checks, or automated tests.
-
-Copy `.env.example` to `.env` only if you do not already have a local `.env`, then set `OPENAI_API_KEY`. The backend also accepts the existing `API_KEY` variable. Never paste the key into frontend files or commit `.env`; it is ignored by Git. A key's validity and account access cannot be verified without a provider request.
-
-## Install and run (Windows PowerShell)
-
-From this project directory:
+من مجلد `Test_AI_Agent_Upload`:
 
 ```powershell
 py -3.12 -m venv .venv
-Set-ExecutionPolicy -Scope Process Bypass
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-Copy-Item .env.example .env  # skip if .env already exists
-notepad .env
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+# أنشئي .env من .env.example عند عدم وجوده، ثم أضيفي OPENAI_API_KEY
+.\.venv\Scripts\python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
 ```
 
-Start backend in PowerShell window 1:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-uvicorn backend.app:app --host 127.0.0.1 --port 8000
-```
-
-Start frontend in PowerShell window 2:
+في نافذة ثانية:
 
 ```powershell
 Set-Location .\frontEnd_poc
@@ -38,34 +26,50 @@ $env:BACKEND_URL = "http://127.0.0.1:8000"
 node .\server.mjs
 ```
 
-Open `http://localhost:5173`, press **ابدأ محادثة صوتية**, review and accept the rate confirmation, then allow microphone access. Say a question; the page displays transcript fragments, data lookup stage, assistant response text, and remote audio playback. Press **إنهاء المحادثة** to close it.
+افتحي http://localhost:5173 ثم اختاري الطالب. الأسئلة النصية تستخدم سجلات الطالب المختار. بدء الصوت يطلب موافقة منفصلة، وقد يترتب عليه رسوم مزود الخدمة. لا تضعي المفتاح في ملفات الواجهة أو Git، ولا تشاركي ملف `.env`.
 
-Stop either server with **Ctrl+C** in its PowerShell window. To stop an orphaned development process, inspect first with `Get-NetTCPConnection -LocalPort 8000,5173 -State Listen`; then stop only the matching PID with `Stop-Process -Id <PID>`.
+## الفحوصات
 
-## Test and health check
+من مجلد `Test_AI_Agent_Upload`:
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-python -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 Invoke-RestMethod http://127.0.0.1:8000/api/health
-Invoke-RestMethod http://127.0.0.1:8000/api/status
 ```
 
-Tests read the real JSON dataset and mock the provider session-creation response. They make no network calls, start no Live sessions, and create no charges. A mocked API test only verifies payload construction; it does not verify account model access, actual microphone transport, transcription, or playback.
+الحسابات للنسبة تخص التقييم الفردي فقط عند توفر الدرجة والدرجة القصوى، ولا تمثل معدلاً عاماً. الخدمة نموذج أولي محلي ولا تطبق تسجيل دخول أو صلاحيات إنتاجية.
 
-## Architecture and limitations
 
-1. Browser obtains mic access only after the user confirms a paid Live session.
-2. Browser creates an `RTCPeerConnection`, audio track and data channel; it posts the SDP offer to local `POST /api/live/session`.
-3. FastAPI calls OpenAI's documented `POST /v1/live/sessions` with the exact `gpt-live-1` model. The API key never leaves the backend.
-4. Live transcript/output events update the page. For client delegations, the browser sends the recognized utterance to local `POST /api/student/lookup`; the service reads the existing JSON and returns facts to GPT-Live using `session.commentary.append`.
+## Structured student insights and demo records
 
-Transcript fragments are incremental and may be incomplete; the Live protocol does not provide a transcript-done event for these events. The lookup uses accumulated available transcript text. No real GPT-Live session has been run during implementation because session minutes are billable and require explicit approval. Real voice pipeline functionality therefore remains unverified until an approved session is started in the browser.
+The imported fixture is ../supabase/data/madrasati-dataset.json; the running agent reads live school records from Supabase. Student records may include onlineLessons and assignments. Added examples are marked demo=true and source=synthetic_demo, not real observations. Percentages use score / outOf; subject averages require two assessments, trends require three dated results, and missing scores are excluded. Missing records do not prove absence, zero, or non-submission. Noor is only suggested as a parent follow-up; the application has no Noor integration.
 
-## Endpoints
+Run tests from this directory: .venv\Scripts\python.exe -m unittest discover -s tests -v
 
-- `GET /api/health`: local backend liveness only.
-- `GET /api/status`: selected model ID and whether the key variable is configured; no provider request.
-- `POST /api/live/session`: creates a billable Live session after the UI's explicit confirmation.
-- `POST /api/student/lookup`: retrieves only from `Data/BasicData.json`.
-- `DELETE /api/live/session/{session_id}`: removes local session context.
+## الديمو (ولي الأمر + لوحة التشغيل + المكالمات)
+
+البيانات في Supabase (مصدر واحد): الموقع ولوحة `/demo-control` وجسر المكالمات يقرؤون منه. الـ Agent هنا يقرأ نفس ملف البيانات
+المستورد (`../supabase/data/madrasati-dataset.json`، وتقدر تغيّره بـ `MADRASATI_DATASET`). التفاصيل والتشغيل الكامل في
+`../docs/demo-control.md`. تشغيل سريع (الـ backend + ngrok + الموقع): `./run_demo.sh` (و`status` و`stop`).
+
+## Live data flow after integration
+
+- Parent preferences select the student, topic and communication method. Demo-control rechecks preferences before dispatch and blocks disabled topics.
+- The signed call context contains the selected student's stable key and the event-specific facts from Supabase. Those facts drive the opening and answers about the update.
+- The backend dataset supplies only matching static profile details (school, grade and classroom). It never supplies an old attendance/grade/exam record as a fallback for the current event. No match means no extra profile, not a different student.
+- The standalone text and browser voice assistant now read current school records from Supabase on each request. Every request has its own dataset snapshot so repeated lookups within an answer use the same loaded records; the next question reloads them. Reads across tables are not a single database transaction.
+- Reads sign in with the configured demo **parent**, use its publishable key and bearer token, and remain subject to RLS. Only linked students are available (Reem and Nawaf in the current demo). This is a shared fictional-parent demo, not individual visitor authentication.
+- Disabled attendance/exam/grade categories are removed before reaching the assistant. No saved preferences means these categories are unavailable. The browser UI may still show generic category labels.
+- Attendance is ordered by the school date, with active demo records overriding imported records for the same day. Archived records are excluded. Grades use publication date with creation time as a tie-breaker; exam cancellation remains explicit.
+- Previous assistant answers are not sent as factual history to the text model. Current school facts come from the new database snapshot.
+- A database failure produces an unavailable error; there is no fallback to stale JSON school records.
+
+### Backend settings
+
+Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `TAMMENI_DEMO_PARENT_EMAIL`, and `TAMMENI_DEMO_PARENT_PASSWORD` in the backend environment. On a local checkout the existing website `.env.local` provides these server-side settings as a fallback; values are never sent to the browser. Never use the operator or a service-role account for agent reads.
+
+Restart the Python backend after updating code. Existing frontend URLs and request contracts are unchanged. Fixture-only behavior is available in Python tests by explicitly constructing `StudentDataService(DATA_PATH)`; the running app defaults to Supabase.
+
+Shared passwordless demo dispatch remains mock-only. Real SMS/call delivery and paid model output were not exercised during this integration. Read-only live Supabase loading was verified; event changes between questions were verified with mocked snapshots, without modifying shared demo data.
+
+`run_demo.sh` only stops matching processes tracked in its `.demo` directory, and refuses to start if other servers occupy ports 3000 or 8000.
