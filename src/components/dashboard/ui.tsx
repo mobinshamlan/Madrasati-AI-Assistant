@@ -1,66 +1,4 @@
-"use client";
-
-import { useOptionalDashboardData } from "@/lib/dashboard-data";
-import type { AttendanceStatus } from "./data";
 import { CheckIcon, UserIcon } from "./icons";
-
-export const primaryButton =
-  "inline-flex min-h-14 items-center justify-center gap-2 rounded-lg bg-brand-600 px-10 text-lg font-bold text-white hover:bg-brand-700 disabled:opacity-60";
-export const secondaryButton =
-  "inline-flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white px-10 text-lg font-bold text-brand-700 hover:bg-mint-100 disabled:opacity-60";
-export const errorBox = "rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-4 font-bold text-[#b42318]";
-
-export const statusStyles: Record<AttendanceStatus, { label: string; className: string }> = {
-  present: { label: "حاضر", className: "bg-[#ecfdf3] text-[#067647] ring-[#abefc6]" },
-  absent: { label: "غائب", className: "bg-[#fef3f2] text-[#b42318] ring-[#fecdca]" },
-  late: { label: "متأخر", className: "bg-[#fffaeb] text-[#93370d] ring-[#fedf89]" },
-  excused: { label: "غياب بعذر", className: "bg-[#eff8ff] text-[#175cd3] ring-[#b2ddff]" },
-};
-
-export function InfoRing({ Icon, label, value }: { Icon: typeof UserIcon; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="grid size-14 shrink-0 place-items-center rounded-full border-2 border-brand-400 bg-white/50 text-brand-600">
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0">
-        <dt className="text-sm text-ink-soft">{label}</dt>
-        <dd className="font-bold text-ink">{value}</dd>
-      </div>
-    </div>
-  );
-}
-
-export function Tile({
-  href,
-  Icon,
-  color,
-  label,
-  value,
-}: {
-  href: string;
-  Icon: typeof UserIcon;
-  color: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <li>
-      <a
-        href={href}
-        className="flex h-full flex-col items-start gap-3 rounded-lg bg-brand-600 p-2.5 text-white shadow-sm transition-colors hover:bg-brand-700 sm:flex-row sm:items-center sm:gap-4"
-      >
-        <span className={`grid size-11 shrink-0 place-items-center rounded-md sm:size-14 ${color}`}>
-          <Icon size={28} />
-        </span>
-        <span>
-          <span className="block text-2xl font-extrabold leading-none">{value}</span>
-          <span className="mt-1 block font-bold">{label}</span>
-        </span>
-      </a>
-    </li>
-  );
-}
 
 export function SectionTab({
   id,
@@ -165,33 +103,31 @@ export function ChoiceCard({
   );
 }
 
+/** A choice of student. The list comes from the caller (Supabase for the signed-in parent). */
 export function StudentPicker({
   legend,
+  students,
   selectedId,
   onSelect,
   name = "student",
   tone = "plain",
   size = "lg",
   legendClassName = "sr-only",
-  options,
 }: {
   legend: string;
+  students: { id: string; name: string; grade: string }[];
   selectedId: string;
   onSelect: (id: string) => void;
   name?: string;
   tone?: "plain" | "tinted";
   size?: "md" | "lg";
   legendClassName?: string;
-  /** Defaults to the parent's children from the dashboard data; the school page passes its own list. */
-  options?: { id: string; name: string; grade: string }[];
 }) {
-  const dashboard = useOptionalDashboardData();
-  const items = options ?? dashboard?.students.map((s) => ({ id: s.id, name: s.name, grade: s.grade })) ?? [];
   return (
     <fieldset className="min-w-0">
       <legend className={legendClassName}>{legend}</legend>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {items.map((s) => (
+        {students.map((s) => (
           <ChoiceCard
             key={s.id}
             type="radio"

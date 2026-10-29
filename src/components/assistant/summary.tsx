@@ -1,24 +1,19 @@
 import Image from "next/image";
-import type { AssistantCharacter, Student } from "@/components/dashboard/data";
+import type { LinkedStudent } from "@/lib/tammeni/parent-data";
 import { topicSummary, topics, usesCalls, type LegacyInfo, type Preferences, type Topic } from "./preferences";
 
 /** What a «تعديل» button opens: the student choice, one topic, or the retry choice on the review. */
 export type EditTarget = "student" | Topic | "retry";
 
-const characterSources: Record<AssistantCharacter | "both", string> = {
-  girl: "/characters/girl.png",
-  boy: "/characters/boy.png",
-  both: "/characters/combined.png",
-};
-
 /**
- * An illustration of the assistant, never a photograph of the student. Decorative: every
- * instruction is in the text beside it, so it has empty alt text.
+ * طمّني's two assistants, لولوة and تركي, drawn together. They are the assistants, never a picture of
+ * the student, so the same illustration appears for every child. Decorative: every instruction is in
+ * the text beside it, so it has empty alt text.
  */
-export function Character({ kind, className }: { kind: AssistantCharacter | "both"; className: string }) {
+export function Character({ className }: { className: string }) {
   return (
     <Image
-      src={characterSources[kind]}
+      src="/characters/combined.png"
       alt=""
       width={128}
       height={128}
@@ -37,7 +32,7 @@ export function ReviewList({
   onEdit,
 }: {
   preferences: Preferences;
-  student: Student;
+  student: Pick<LinkedStudent, "name" | "grade">;
   legacy: LegacyInfo | null;
   showStudent?: boolean;
   showRetry?: boolean;
@@ -140,7 +135,7 @@ function SummaryLine({ term, value }: { term: string; value?: React.ReactNode })
 }
 
 /** The rules that apply to every saved choice, as one plain list. */
-export function DeliveryNotes({ student }: { student: Student }) {
+export function DeliveryNotes({ student }: { student: Pick<LinkedStudent, "firstName"> }) {
   return (
     <ul className="list-disc space-y-1.5 ps-6 text-base leading-7 text-ink marker:text-brand-600">
       <li>

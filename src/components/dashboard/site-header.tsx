@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { endDemoSession } from "@/lib/demo-session";
 import { useComingSoon } from "./coming-soon";
-import { useOptionalDashboardData } from "@/lib/dashboard-data";
-import { school } from "./data";
+import { parent } from "./data";
 import {
   AccessibilityIcon,
   AttendanceIcon,
@@ -17,6 +18,7 @@ import {
   GradesIcon,
   HeadsetIcon,
   HomeIcon,
+  LogoutIcon,
   MailIcon,
   MenuIcon,
   SearchIcon,
@@ -24,8 +26,7 @@ import {
   UserIcon,
 } from "./icons";
 
-export type PageKey = "home" | "assistant" | "school";
-export type HeaderVariant = "parent" | "school";
+export type PageKey = "home" | "assistant";
 
 type NavItem = {
   label: string;
@@ -36,20 +37,13 @@ type NavItem = {
   description?: string;
 };
 
-const parentNavItems: NavItem[] = [
+const navItems: NavItem[] = [
   { label: "الرئيسية", Icon: HomeIcon, page: "home", href: "/" },
   { label: "أبنائي", Icon: ChildrenIcon, description: "صفحة أبنائي ستعرض ملفات الأبناء وبياناتهم المدرسية بالتفصيل." },
   { label: "الحضور والغياب", Icon: AttendanceIcon, description: "سجل الحضور والغياب التفصيلي لكل فصل دراسي سيتوفر قريبًا." },
   { label: "الاختبارات", Icon: ExamIcon, description: "جدول الاختبارات الكامل ونتائجها سيتوفر قريبًا." },
   { label: "الدرجات", Icon: GradesIcon, description: "كشف الدرجات التفصيلي لجميع المواد سيتوفر قريبًا." },
   { label: "المساعد الذكي", Icon: SparkleIcon, page: "assistant", href: "/assistant", isNew: true },
-];
-
-const schoolNavItems: NavItem[] = [
-  { label: "الحضور والغياب", Icon: AttendanceIcon, href: "#attendance" },
-  { label: "الاختبارات", Icon: ExamIcon, href: "#exams" },
-  { label: "الدرجات", Icon: GradesIcon, href: "#grades" },
-  { label: "سجل الأحداث", Icon: BellIcon, href: "#events" },
 ];
 
 const utilityActions = [
@@ -65,14 +59,34 @@ function NewBadge() {
   );
 }
 
-export function SiteHeader({ current, variant = "parent" }: { current: PageKey; variant?: HeaderVariant }) {
-  const isSchool = variant === "school";
-  const navItems = isSchool ? schoolNavItems : parentNavItems;
-  const parent = useOptionalDashboardData()?.parent;
-  const person = isSchool
-    ? { name: school.adminName, short: school.adminName, role: school.role }
-    : { name: parent?.name ?? "ولي الأمر", short: parent?.shortName ?? "ولي الأمر", role: parent?.role ?? "ولي أمر" };
+function Logo() {
+  return (
+    <Image
+      src="/brand/madrasati-logo.svg"
+      alt="شعار منصة مدرستي"
+      width={114}
+      height={58}
+      unoptimized
+      priority
+      className="h-10 w-auto lg:h-12"
+    />
+  );
+}
+
+/** The logo bar alone, for the demo login page. */
+export function BrandHeader() {
+  return (
+    <header className="border-b border-mint-300 bg-mint-200">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center px-4 lg:h-[72px] lg:px-6">
+        <Logo />
+      </div>
+    </header>
+  );
+}
+
+export function SiteHeader({ current }: { current: PageKey }) {
   const openComingSoon = useComingSoon();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
 
@@ -98,26 +112,19 @@ export function SiteHeader({ current, variant = "parent" }: { current: PageKey; 
     openComingSoon({ title: label });
   };
 
+  // Ends only the demo session; the assistant preferences saved on this device stay as they are.
+  const leave = async () => {
+    setMenuOpen(false);
+    await endDemoSession();
+    router.replace("/login");
+  };
+
   return (
     <header className="relative z-30 border-b border-mint-300 bg-mint-200">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-4 px-4 lg:h-[72px] lg:px-6">
         <div className="shrink-0">
-          <Image
-            src="/brand/madrasati-logo.svg"
-            alt="شعار منصة مدرستي"
-            width={114}
-            height={58}
-            unoptimized
-            priority
-            className="h-10 w-auto lg:h-12"
-          />
+          <Logo />
         </div>
-        {isSchool && (
-          <p className="hidden border-s-2 border-brand-400 ps-4 leading-tight sm:block">
-            <span className="block text-sm font-extrabold text-brand-800">{school.name}</span>
-            <span className="block text-xs text-ink-soft">نظام المدرسة</span>
-          </p>
-        )}
 
         <nav aria-label="القائمة الرئيسة" className="hidden h-full flex-1 lg:block">
           <ul className="flex h-full items-stretch justify-center gap-1 xl:gap-2">
@@ -183,10 +190,19 @@ export function SiteHeader({ current, variant = "parent" }: { current: PageKey; 
               <UserIcon size={20} />
             </span>
             <span className="text-start leading-tight">
-              <span className="block text-sm font-bold text-brand-800">{person.short}</span>
-              <span className="block text-xs text-ink-soft">{person.role}</span>
+              <span className="block text-sm font-bold text-brand-800">{parent.shortName}</span>
+              <span className="block text-xs text-ink-soft">{parent.role}</span>
             </span>
             <ChevronDownIcon size={16} className="text-ink-soft" />
+          </button>
+
+          <button
+            type="button"
+            onClick={leave}
+            className="hidden min-h-10 items-center gap-1.5 rounded-full border border-brand-600 bg-white px-3 text-sm font-bold text-brand-700 hover:bg-mint-50 lg:flex"
+          >
+            <LogoutIcon size={18} />
+            خروج
           </button>
 
           <button
@@ -225,8 +241,8 @@ export function SiteHeader({ current, variant = "parent" }: { current: PageKey; 
             <UserIcon size={20} />
           </span>
           <span className="leading-tight">
-            <span className="block font-bold text-brand-800">{person.name}</span>
-            <span className="block text-sm text-ink-soft">{person.role}</span>
+            <span className="block font-bold text-brand-800">{parent.name}</span>
+            <span className="block text-sm text-ink-soft">{parent.role}</span>
           </span>
         </div>
         <nav aria-label="القائمة الرئيسة (الجوال)">
@@ -278,6 +294,16 @@ export function SiteHeader({ current, variant = "parent" }: { current: PageKey; 
               </li>
             ))}
         </ul>
+        <div className="border-t border-mint-200 px-4 py-3">
+          <button
+            type="button"
+            onClick={leave}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white font-bold text-brand-700 hover:bg-mint-100"
+          >
+            <LogoutIcon size={20} />
+            خروج من الدخول التجريبي
+          </button>
+        </div>
       </div>
     </header>
   );

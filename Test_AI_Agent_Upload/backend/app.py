@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from backend import store
-from backend.demo_api import parent_router, school_router
+from backend.notify import router as notify_router
+from backend.parent_preview import router as parent_preview_router
 from backend.phone_bridge import router as phone_router
 from backend.student_insights import enrich, fmt
 
@@ -17,14 +17,15 @@ load_dotenv(ROOT / ".env")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY", "")
 LIVE_MODEL = "gpt-live-1"
 TEXT_MODEL = os.getenv("TEXT_MODEL", "gpt-4.1-mini")
-DATA_PATH = store.SEED_PATH  # البذرة؛ البيانات الحيّة تُقرأ من backend.store
+# One shared dataset: the same file that is imported into Supabase (supabase/data), not a second copy.
+DATA_PATH = Path(os.getenv("MADRASATI_DATASET") or ROOT.parent / "supabase" / "data" / "madrasati-dataset.json")
 LIVE_SESSIONS: dict[str, str] = {}
 CONVERSATIONS: dict[str, dict[str, Any]] = {}
 app = FastAPI(title="Madrasati Student Assistant", version="2.3.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Content-Type", "Authorization"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type"])
 app.include_router(phone_router)
-app.include_router(parent_router)
-app.include_router(school_router)
+app.include_router(parent_preview_router)
+app.include_router(notify_router)
 
 
 def normalize(value: str) -> str:
@@ -45,18 +46,14 @@ CATEGORY_TERMS = {
 
 
 class StudentDataService:
-    """Access the canonical dataset and return only the selected student's records.
+    """Access the canonical dataset and return only the selected student's records."""
 
-    With no path it reads the live data from backend.store (the single source of truth, which the school
-    page also writes to). A path reads a standalone JSON file instead (used by the tests).
-    """
-
-    def __init__(self, path: Path | None = None):
-        self.path = Path(path) if path is not None else None
+    def __init__(self, path: Path = DATA_PATH):
+        self.path = Path(path)
 
     def _dataset(self) -> dict[str, Any]:
         try:
-            data = store.dataset() if self.path is None else json.loads(self.path.read_text(encoding="utf-8"))
+            data = json.loads(self.path.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or not isinstance(data.get("students"), list):
                 raise ValueError("dataset must contain a students array")
             if any(not isinstance(s, dict) or not s.get("id") for s in data["students"]):

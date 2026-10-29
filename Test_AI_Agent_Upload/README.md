@@ -46,14 +46,8 @@ The backend uses Data/madrasati-dataset.json. Student records may include online
 
 Run tests from this directory: .venv\Scripts\python.exe -m unittest discover -s tests -v
 
-## نظام ولي الأمر والمدرسة والمكالمات (الديمو)
+## الديمو (ولي الأمر + لوحة التشغيل + المكالمات)
 
-مصدر الحقيقة الوحيد للبيانات هو `Data/madrasati-dataset.json` (البذرة)، وأول تشغيل ينسخه إلى `Data/runtime_state.json`
-(البيانات الحية + تفضيلات ولي الأمر + سجل الأحداث). كل شي يمر عبر `backend/store.py`: صفحة ولي الأمر (`/`، `/assistant`)،
-صفحة المدرسة (`/school`)، الـ Agent النصي والصوتي، وجسر المكالمات. حذف `runtime_state.json` يرجّع البيانات للبذرة.
-
-- تسجيل غياب أو درجة أو اختبار من `/school` يعدّل نفس البيانات اللي تقرؤها صفحة ولي الأمر والـ Agent.
-- بعدها `backend/notifier.py` يقرأ تفضيل ولي الأمر ويقرر: اتصال (Twilio + لولوة/تركي) أو رسالة أو لا شي.
-- التشغيل الكامل (الـ backend + ngrok + الموقع): `./run_demo.sh` (و`status` و`stop`). يحتاج `.env` فيه مفاتيح Twilio وOpenAI و`PARENT_PHONE`.
-- التجربة بدون اتصال فعلي: `DEMO_DRY_RUN=1`.
-- بعد تعديل `madrasati-dataset.json`: `node scripts/generate-supabase-seed.mjs` (من جذر المشروع) لتحديث `supabase/seed.sql`.
+البيانات في Supabase (مصدر واحد): الموقع ولوحة `/demo-control` وجسر المكالمات يقرؤون منه. الـ Agent هنا يقرأ نفس ملف البيانات
+المستورد (`../supabase/data/madrasati-dataset.json`، وتقدر تغيّره بـ `MADRASATI_DATASET`). التفاصيل والتشغيل الكامل في
+`../docs/demo-control.md`. تشغيل سريع (الـ backend + ngrok + الموقع): `./run_demo.sh` (و`status` و`stop`).

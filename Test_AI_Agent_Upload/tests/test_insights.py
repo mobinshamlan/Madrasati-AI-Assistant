@@ -1,21 +1,13 @@
-import os
-import tempfile
 import unittest
 from tempfile import TemporaryDirectory
 from pathlib import Path
 import json
 
-os.environ.setdefault("DEMO_STATE_PATH", str(Path(tempfile.mkdtemp()) / "state.json"))
-
 import backend.app as backend
-from backend import store
 from backend.student_insights import enrich, insights
 
 
 class InsightTests(unittest.TestCase):
-    def setUp(self):
-        store.reset()
-
     def test_reem_demo_online_lesson_records_are_scoped_and_labeled(self):
         data = backend.service.retrieve_relevant_student_data('reem', 'online lesson attendance')
         result = enrich(backend.service, data, 'reem', 'online lesson attendance')

@@ -1,26 +1,53 @@
 # Madrasati-AI-Assistant
-AI-powered parent communication assistant for Madrasati
 
+Educational Arabic RTL prototype inspired by Madrasati (منصة مدرستي). Fictional student records only. Not affiliated with the official Madrasati platform.
 
-Educational prototype inspired by Madrasati. Use fictional student records only. This project is not affiliated with the official Madrasati platform.
-
-## Local development
+## Local development (website)
 
 Requires Node.js 20.9 or newer.
 
-1. Run `npm install`.
-2. Run `npm run dev`.
-3. Open http://localhost:3000.
+1. `npm install`
+2. Copy `.env.example` → `.env.local` and fill the empty variables (see below). Never commit `.env.local`.
+3. `npm run dev` → http://localhost:3000
+4. Optional production check: `npm run build` && `npm start`
 
-Checks: `npm run lint` and `npm run build`.
+Checks: `npm run lint`, `npm test`, `npm run build`. Typecheck: `npx tsc --noEmit`.
 
-The Arabic RTL foundation is configured. Parent setup UI and Supabase integration are the next steps. No credentials are required for the starter. Never commit secrets or real student records.
+## Environment (teammate setup)
 
+Website (`.env.local` from `.env.example`):
 
-## Supabase connection
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — project **Connect** dialog; publishable key only
+- `TAMMENI_BACKEND_URL` — defaults to `http://127.0.0.1:8000`
+- `TAMMENI_DEMO_PARENT_*` / `TAMMENI_DEMO_OPERATOR_*` — fictional demo Auth accounts (server-only; ask the team lead for values, never put them in docs or git)
+- `TAMMENI_LOCAL_OPERATOR` — leave empty unless you want local auto-open of `/demo-control` under `npm run dev` on this machine only
+- `TAMMENI_DISPATCH_SECRET` — shared with the Python backend; long and random
 
-Copy `.env.example` to `.env.local` if the local file is missing. In the Supabase project, open **Connect** and paste the project URL and **publishable** key into the two variables. Never use a secret or service-role key. Restart the development server after editing this file.
+Python backend (`Test_AI_Agent_Upload/.env` from that folder’s `.env.example`):
 
-Run `npm run supabase:check` to verify the public API connection without printing configuration values or accessing student records. This checks connectivity, not table permissions.
+- `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `TAMMENI_DISPATCH_SECRET` (same secret as the website)
+- `TAMMENI_PROVIDER` defaults to **`mock`** (nothing is sent). Do not set `twilio` unless a person has approved a real test.
 
-The dashboard still uses fictional fixtures and preferences still use browser storage. Connection setup does not add authentication, tables, policies, scheduling, or voice calls. Before moving preferences to Supabase, add authentication and parent-specific RLS policies; keep RLS enabled.
+Never use a Supabase secret/service-role key in these files.
+
+## Database migrations (without repeating)
+
+Migration files live in `supabase/migrations/` with versioned names. On a shared Supabase project, apply **only versions that are not already recorded** in the project’s migration history (Dashboard → Database → Migrations, or `supabase db push` / linked CLI). Re-applying an already-recorded version is unnecessary and should be skipped.
+
+Demo school data import is separate and repeatable: see `docs/demo-control.md` (`scripts/build-demo-import.mjs` → `supabase/seed/demo-dataset-import.sql`). Stable keys mean a re-run does not wipe the project; it does not replace migration application.
+
+Structure and RLS notes: `docs/database.md`. Demo roles, control panel, and limits: `docs/demo-control.md`. Preference preview: `docs/backend-preview.md`.
+
+## Opening the demo
+
+1. Start the Python backend from `Test_AI_Agent_Upload` (venv + `uvicorn` on port 8000) — see `docs/demo-control.md`.
+2. Start the website (`npm run dev`).
+3. Parent path: open `/welcome`, then «ابدأ مع طمّني».
+4. Operator / demo control: open `/demo-control` and sign in as the operator (or use local operator mode if configured).
+
+Automatic background scheduling and unanswered-call retry workers are **not** implemented. Manual «تشغيل التحديث الآن — للديمو» with the **mock** provider records a log entry and does not send SMS or place calls.
+
+## Safety
+
+- Use fictional data only. Never commit secrets, real student records, or real phone numbers.
+- `.env*` is gitignored except empty `.env.example` templates.

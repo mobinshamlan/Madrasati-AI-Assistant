@@ -4,7 +4,7 @@
 الاستخدام:
     python make_call.py                          # لولوة + غياب محمد عن الرياضيات
     python make_call.py --persona turki
-    python make_call.py --scenario exam_reminder --day الأحد --time "الحصة الثانية"
+    python make_call.py --scenario exam_reminder --day الأحد --time "٨:٠٠ صباحا"
 
 يحتاج في .env:  TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, PARENT_PHONE, PUBLIC_URL
 (PUBLIC_URL = رابط ngrok مثل https://xxxx.ngrok-free.app)
@@ -27,7 +27,7 @@ ap.add_argument("--subject", default="الرياضيات")
 ap.add_argument("--gender", choices=["m", "f"], default="m")
 ap.add_argument("--assessment", default="الاختبار الأسبوعي")
 ap.add_argument("--day", default="الأحد")
-ap.add_argument("--time", default="الحصة الأولى")
+ap.add_argument("--time", default="٨:٠٠ صباحا")
 args = ap.parse_args()
 
 required = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM", "PARENT_PHONE", "PUBLIC_URL"]

@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
-import type { Student } from "@/components/dashboard/data";
-import { useDashboardData } from "@/lib/dashboard-data";
 import { CheckIcon } from "@/components/dashboard/icons";
-import { useSavedPreferences, type Preferences } from "./preferences";
+import { useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
+import type { Preferences } from "./preferences";
+import { PreferencesPreview } from "./preferences-preview";
 import { Character, DeliveryNotes, DemoLabel, formatSavedAt, ReviewList } from "./summary";
 
 const primaryButton =
@@ -19,8 +19,12 @@ const homeHref = (studentId: string) => `/?student=${studentId}`;
 
 export function AssistantConfirmation() {
   const studentId = useSearchParams().get("student");
-  const { students } = useDashboardData();
-  const student = students.find((s) => s.id === studentId);
+  const linked = useLinkedStudents();
+  if (linked.status === "loading") return <Waiting text="جارٍ تحميل البيانات…" />;
+  if (linked.status === "error") {
+    return <Problem title="تعذّر تحميل البيانات" body={linked.message} action={{ href: studentId ? setupHref(studentId) : "/assistant", label: "العودة إلى إعداد المساعد" }} home="/" />;
+  }
+  const student = linked.data.find((s) => s.id === studentId);
   if (!student) {
     return (
       <Problem
@@ -35,52 +39,43 @@ export function AssistantConfirmation() {
   return <StudentConfirmation key={student.id} student={student} />;
 }
 
-function StudentConfirmation({ student }: { student: Student }) {
-  const saved = useSavedPreferences(student.id);
+function StudentConfirmation({ student }: { student: LinkedStudent }) {
+  const saved = useStudentPreferences(student.dbId);
 
-  if (saved.status === "loading") {
+  // Only a record the database returned counts as saved. Anything else is not shown as a success.
+  if (saved.status === "loading") return <Waiting text={`جارٍ تحميل تفضيلات ${student.firstName}…`} />;
+  if (saved.status === "error") {
     return (
-      <p role="status" className="mx-auto max-w-3xl px-4 py-10 text-lg text-ink-soft">
-        جارٍ تحميل التفضيلات…
-      </p>
+      <Problem
+        title={`تعذّر تحميل تفضيلات ${student.firstName}`}
+        body={saved.message}
+        action={{ href: setupHref(student.id), label: "العودة إلى إعداد المساعد" }}
+        home={homeHref(student.id)}
+      />
     );
   }
-
-  // Only a complete record in the current format counts as saved. Anything else is not shown as a success.
-  if (saved.status === "none") {
+  if (!saved.data.exists) {
     return (
       <Problem
         title={`لم تُحفظ تفضيلات لـ${student.firstName} بعد`}
-        body="لا توجد تفضيلات محفوظة في النظام. أكمل خطوات الإعداد واضغط «حفظ التفضيلات»."
+        body="لا توجد تفضيلات محفوظة في حسابك لهذا الابن. أكمل خطوات الإعداد واضغط «حفظ التفضيلات»."
         action={{ href: setupHref(student.id), label: "إعداد التفضيلات" }}
         home={homeHref(student.id)}
       />
     );
   }
-  if (saved.status === "invalid") {
-    return (
-      <Problem
-        title={`تعذّرت قراءة تفضيلات ${student.firstName}`}
-        body="التفضيلات المحفوظة في النظام غير مكتملة أو تالفة. اخترها من جديد واحفظها."
-        action={{ href: setupHref(student.id), label: "إعادة اختيار التفضيلات" }}
-        home={homeHref(student.id)}
-      />
-    );
-  }
-  if (saved.legacy) {
-    return (
-      <Problem
-        title={`تفضيلات ${student.firstName} تحتاج إلى مراجعة`}
-        body="تغيّرت خيارات المساعد بعد آخر حفظ. راجع اختياراتك واحفظها حتى تُعتمد."
-        action={{ href: setupHref(student.id), label: "مراجعة التفضيلات" }}
-        home={homeHref(student.id)}
-      />
-    );
-  }
-  return <Success student={student} preferences={saved.preferences} />;
+  return <Success student={student} preferences={saved.data.preferences} />;
 }
 
-function Success({ student, preferences }: { student: Student; preferences: Preferences }) {
+function Waiting({ text }: { text: string }) {
+  return (
+    <p role="status" className="mx-auto max-w-3xl px-4 py-16 text-center text-lg text-ink-soft">
+      {text}
+    </p>
+  );
+}
+
+function Success({ student, preferences }: { student: LinkedStudent; preferences: Preferences }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Land keyboard and screen-reader users on the result. Nothing moves on by itself.
   useEffect(() => headingRef.current?.focus(), []);
@@ -94,7 +89,7 @@ function Success({ student, preferences }: { student: Student; preferences: Pref
             <DemoLabel />
           </div>
           <div className="mt-4 flex items-center gap-4 sm:gap-6">
-            <Character kind={student.character} className="size-20 sm:size-32" />
+            <Character className="size-20 sm:size-32" />
             <div className="min-w-0">
               <h1
                 id="confirmation-title"
@@ -132,6 +127,8 @@ function Success({ student, preferences }: { student: Student; preferences: Pref
             <p className="text-base text-ink-soft">آخر حفظ: {formatSavedAt(preferences.savedAt)} بتوقيت السعودية</p>
           )}
         </section>
+
+        <PreferencesPreview key={JSON.stringify(preferences)} studentId={student.id} preferences={preferences} />
 
         <section aria-labelledby="notes-title" className="space-y-4">
           <h2 id="notes-title" className="text-2xl font-extrabold text-ink">

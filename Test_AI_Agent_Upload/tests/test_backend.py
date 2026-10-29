@@ -1,22 +1,15 @@
 import asyncio
 import json
-import os
-import tempfile
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from fastapi.testclient import TestClient
-os.environ["DEMO_DRY_RUN"] = "1"
-os.environ.setdefault("DEMO_STATE_PATH", str(Path(tempfile.mkdtemp()) / "state.json"))
-
 import backend.app as backend
-from backend import store
 
 
 class AgentTests(unittest.TestCase):
     def setUp(self):
-        store.reset()
         self.client = TestClient(backend.app)
         backend.CONVERSATIONS.clear()
         backend.LIVE_SESSIONS.clear()
@@ -32,11 +25,11 @@ class AgentTests(unittest.TestCase):
 
     def test_canonical_dataset_and_all_student_ids_load(self):
         self.assertEqual(backend.DATA_PATH.name, "madrasati-dataset.json")
-        self.assertEqual(len(self.students), 5)
+        self.assertEqual(len(self.students), 4)
         self.assertEqual({s["id"] for s in self.client.get("/api/students").json()}, set(self.students))
 
     def test_every_student_has_profile_attendance_week_exams_grades_and_announcements(self):
-        expected = {"reem": (3, 5, 3), "faisal": (4, 5, 3), "lujain": (3, 6, 3), "nawaf": (2, 5, 3), "mohammed": (1, 3, 0)}
+        expected = {"reem": (3, 5, 3), "faisal": (4, 5, 3), "lujain": (3, 6, 3), "nawaf": (2, 5, 3)}
         for student_id, student in self.students.items():
             self.assertEqual(backend.service.get_student_profile(student_id)["id"], student_id)
             attendance = backend.service.get_student_attendance(student_id)
@@ -213,77 +206,6 @@ class AgentTests(unittest.TestCase):
             path.write_text("{", encoding="utf-8")
             with self.assertRaises(Exception):
                 backend.StudentDataService(path).get_students()
-
-
-class DemoFlowTests(unittest.TestCase):
-    """تفضيلات ولي الأمر -> حدث المدرسة -> قرار (اتصال/رسالة/ولا شي)، وكلها على نفس مصدر البيانات."""
-
-    def setUp(self):
-        store.reset()
-        self.client = TestClient(backend.app)
-        self.prefs = {k: {"timing": "immediate", "method": "call"} for k in ("attendance", "exams", "grades")}
-
-    def event(self, **kw):
-        body = {"type": "attendance", "student_id": "mohammed", "subject": "الرياضيات", **kw}
-        return self.client.post("/api/school/events", json=body).json()["result"]
-
-    def test_school_requires_login_when_auth_enabled(self):
-        from backend import demo_api
-        demo_api.SCHOOL_AUTH = True
-        self.addCleanup(setattr, demo_api, "SCHOOL_AUTH", False)
-        self.assertEqual(self.client.get("/api/school/students").status_code, 401)
-        self.assertEqual(self.client.post("/api/school/login", json={"username": "x", "password": "y"}).status_code, 401)
-        token = self.client.post("/api/school/login", json={"username": "school", "password": "school123"}).json()["token"]
-        self.assertEqual(self.client.get("/api/school/students", headers={"Authorization": f"Bearer {token}"}).status_code, 200)
-
-    def test_no_saved_preferences_means_no_alert(self):
-        self.assertEqual(self.event()["action"], "skipped")
-
-    def test_absence_follows_saved_channel(self):
-        self.client.put("/api/parent/preferences/mohammed", json=self.prefs)
-        self.assertEqual(self.event()["action"], "call")
-        self.prefs["attendance"]["method"] = "message"
-        self.client.put("/api/parent/preferences/mohammed", json=self.prefs)
-        self.assertEqual(self.event()["action"], "message")
-
-    def test_off_topic_is_skipped_and_preferences_persist(self):
-        self.prefs["grades"]["timing"] = "off"
-        self.client.put("/api/parent/preferences/mohammed", json=self.prefs)
-        self.assertEqual(self.event(type="grade", score=9)["action"], "skipped")
-        self.assertEqual(self.client.get("/api/parent/preferences/mohammed").json()["preferences"]["grades"]["timing"], "off")
-
-    def test_sibling_preferences_used_when_child_has_none(self):
-        self.client.put("/api/parent/preferences/mohammed", json=self.prefs)
-        self.assertEqual(self.event(student_id="reem")["action"], "call")
-
-    def test_school_attendance_event_reaches_parent_dashboard_and_agent(self):
-        before = backend.service.get_student_attendance("reem")
-        self.event(student_id="reem", subject="العلوم", status="absent")
-        dash = next(s for s in self.client.get("/api/parent/dashboard").json()["students"] if s["id"] == "reem")
-        week_today = dash["attendance"]["week"][-1]
-        self.assertEqual(week_today["status"], "absent")
-        self.assertEqual(dash["attendance"]["absent"], before["absent"] + 1)
-        self.assertEqual(dash["attendance"]["present"], before["present"] - 1)
-        # الـ Agent يقرأ من نفس المصدر
-        context = backend.service.retrieve_relevant_student_data("reem", "كم غيابها؟")
-        self.assertEqual(context["records"]["absent"], before["absent"] + 1)
-        lessons = backend.service.get_student("reem")["onlineLessons"]
-        self.assertTrue(any(x["subject"] == "العلوم" and x["status"] == "absent" and x["source"] == "school" for x in lessons))
-
-    def test_published_grade_and_exam_visible_everywhere(self):
-        self.event(type="grade", student_id="faisal", subject="الرياضيات", assessment="اختبار الوحدة", score=19, max_score=20)
-        self.event(type="exam", student_id="faisal", subject="العلوم", kind="اختبار قصير", day="الأحد", date="8 نوفمبر", period="الحصة الثالثة")
-        faisal = backend.service.get_student("faisal")
-        self.assertEqual(faisal["grades"][0]["assessment"], "اختبار الوحدة")
-        self.assertEqual(faisal["exams"][-1]["period"], "الحصة الثالثة")
-        dash = next(s for s in self.client.get("/api/school/students").json()["students"] if s["id"] == "faisal")
-        self.assertEqual(dash["grades"][0]["score"], 19)
-        self.assertIn("العلوم", dash["subjects"])
-
-    def test_every_event_is_logged_with_the_decision(self):
-        self.event()
-        events = self.client.get("/api/school/events").json()["events"]
-        self.assertEqual((len(events), events[0]["student_name"], events[0]["result"]["action"]), (1, "محمد", "skipped"))
 
 
 if __name__ == "__main__":

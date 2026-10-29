@@ -7,6 +7,11 @@
 Endpoints:
   POST /api/phone/voice   <- Twilio يستدعيه أول ما ولي الأمر يرد؛ نرجّع TwiML فيه <Stream>
   WS   /api/phone/media   <- Twilio يرسل/يستقبل الصوت هنا (G.711 mu-law, 8kHz)
+
+مساران:
+  - المسار القديم (make_call.py): معاملات الرابط وبيانات الطالب من supabase/data/madrasati-dataset.json، كما كان.
+  - مسار السياق (?ctx=<رمز>): من لوحة الديمو. نتحقق من توقيع Twilio، ونمرر الرمز فقط، ثم نحمّل
+    حقائق التحديث من Supabase (backend/call_context.py). لا بديل احتياطي ببيانات محمد.
 """
 from __future__ import annotations
 
@@ -16,15 +21,17 @@ import json
 import logging
 import os
 import re
+import uuid
 from pathlib import Path
 from typing import Any
-from xml.sax.saxutils import quoteattr
+from urllib.parse import urlencode
+from xml.sax.saxutils import escape, quoteattr
 
 import websockets
 from dotenv import load_dotenv
 from fastapi import APIRouter, Request, Response, WebSocket, WebSocketDisconnect
 
-from backend import store
+from backend.call_context import context_instructions, load_context
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -35,6 +42,8 @@ router = APIRouter(prefix="/api/phone")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY", "")
 OPENAI_WS_URL = os.getenv("OPENAI_LIVE_WS_URL", "wss://api.openai.com/v1/live/sessions")
 LIVE_MODEL = "gpt-live-1"
+# نفس ملف البيانات اللي يُستورد لـSupabase ويقرؤه الـ Agent (نسخة واحدة، مو نسخة ثانية).
+DATA_PATH = Path(os.getenv("MADRASATI_DATASET") or ROOT.parent / "supabase" / "data" / "madrasati-dataset.json")
 
 # أقصى مدة للمكالمة بالثواني (حماية للفاتورة). الـ PDF يقول 20-40 ثانية.
 MAX_CALL_SECONDS = int(os.getenv("MAX_CALL_SECONDS", "90"))
@@ -55,11 +64,11 @@ GOODBYE_RE = re.compile(r"(مع السلامة|يومك سعيد|يعطيك ال
 # البيانات والـ prompt
 # ----------------------------------------------------------------------------
 def _load_student(name: str) -> dict[str, Any] | None:
-    """سجل الطالب الحي من مصدر البيانات الوحيد (نفس اللي تشوفه صفحة ولي الأمر والمدرسة)."""
     try:
-        return store.find_student(name)
+        students = json.loads(DATA_PATH.read_text(encoding="utf-8")).get("students", [])
     except (OSError, ValueError):
         return None
+    return next((s for s in students if name in (s.get("id"), s.get("name"), s.get("firstName"))), None)
 
 
 def opening_line(p: dict[str, str]) -> str:
@@ -76,7 +85,7 @@ def opening_line(p: dict[str, str]) -> str:
                 f"{assess} في مادة {subject} لـ{student} صدرت، وتقدر تطلع عليها من حسابك المعتمد.")
     if scenario == "exam_reminder":
         return (f"{hello}، معك {name} من طمني. تذكير بسيط: {student} عنده اختبار {subject} "
-                f"يوم {p['day']}، {p['time']}، في المدرسة.")
+                f"يوم {p['day']}، الساعة {p['time']}، في المدرسة.")
     # الافتراضي: الغياب
     where = f"في حصة {subject}" if subject else "في المدرسة"
     return (f"{hello}، معك {name} من طمني. حابين {verb} إن {student} ما تسجل {pron} "
@@ -128,9 +137,42 @@ def _public_ws_url(request: Request) -> str:
     return base.replace("https://", "wss://").replace("http://", "ws://") + "/api/phone/media"
 
 
+def _twilio_signature_ok(request: Request, form: dict[str, str]) -> bool:
+    """Twilio signs the full public URL plus the POST form. Without the auth token we cannot check: refuse."""
+    token = os.getenv("TWILIO_AUTH_TOKEN", "")
+    signature = request.headers.get("x-twilio-signature", "")
+    base = os.getenv("PUBLIC_URL", "").rstrip("/")
+    if not token or not signature or not base:
+        return False
+    from twilio.request_validator import RequestValidator
+
+    url = f"{base}{request.url.path}" + (f"?{request.url.query}" if request.url.query else "")
+    return RequestValidator(token).validate(url, form, signature)
+
+
+async def _context_voice(request: Request, token: str) -> Response:
+    form: dict[str, str] = {}
+    if request.method == "POST":
+        form = {k: str(v) for k, v in (await request.form()).items()}
+    if not _twilio_signature_ok(request, form):
+        return Response(status_code=403)
+    ctx = await load_context(token)
+    if ctx is None or ctx["method"] != "call":
+        # No facts, no fallback: end the call politely without naming anyone.
+        return Response(content='<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>', media_type="application/xml")
+    twiml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<Response><Connect><Stream url={quoteattr(_public_ws_url(request))}>'
+        f'<Parameter name="ctx" value={quoteattr(token)}/></Stream></Connect></Response>'
+    )
+    return Response(content=twiml, media_type="application/xml")
+
+
 @router.api_route("/voice", methods=["GET", "POST"])
 async def voice(request: Request) -> Response:
     q = request.query_params
+    if "ctx" in q:
+        return await _context_voice(request, q["ctx"])
     params = {
         "persona": q.get("persona", "lulwa"),
         "student": q.get("student", "محمد"),
@@ -139,7 +181,7 @@ async def voice(request: Request) -> Response:
         "scenario": q.get("scenario", "absence"),
         "assessment": q.get("assessment", "الاختبار الأسبوعي"),
         "day": q.get("day", "الأحد"),
-        "time": q.get("time", "الحصة الأولى"),
+        "time": q.get("time", "٨:٠٠ صباحا"),
     }
     stream_params = "".join(
         f"<Parameter name={quoteattr(k)} value={quoteattr(v)}/>" for k, v in params.items()
@@ -242,13 +284,23 @@ async def media(twilio: WebSocket) -> None:
                     call["call_sid"] = msg["start"].get("callSid")
                     call["params"] = msg["start"].get("customParameters", {})
                     p = call["params"]
-                    p.setdefault("persona", "lulwa")
+                    if "ctx" in p:
+                        # Context path: facts come only from Supabase for this one update.
+                        ctx = await load_context(p["ctx"])
+                        if ctx is None or ctx["method"] != "call":
+                            log.warning("call context unavailable; hanging up without fallback")
+                            await hang_up()
+                            return
+                        instructions, persona = context_instructions(ctx), ctx["persona"]
+                    else:
+                        p.setdefault("persona", "lulwa")
+                        instructions, persona = build_instructions(p), p["persona"]
                     oa = await _connect_openai()
                     await send_oa({"type": "session.start", "session": {
                         "model": LIVE_MODEL,
-                        "instructions": build_instructions(p),
+                        "instructions": instructions,
                         "audio": {"format": {"type": "audio/pcmu", "rate": 8000},
-                                  "output": {"voice": VOICES.get(p["persona"], "marin")}},
+                                  "output": {"voice": VOICES.get(persona, "marin")}},
                     }})
                     tasks.append(asyncio.create_task(openai_to_twilio()))
                     tasks.append(asyncio.create_task(_watchdog()))

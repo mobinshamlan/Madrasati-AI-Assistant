@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { Student } from "@/components/dashboard/data";
-import { useDashboardData } from "@/lib/dashboard-data";
+import { savePreferencesToDb, useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import { ClockIcon, InfoIcon, MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
-import { ChoiceCard, StudentPicker, errorBox, primaryButton, secondaryButton } from "@/components/dashboard/ui";
+import { ChoiceCard, StudentPicker } from "@/components/dashboard/ui";
 import { AFTER_SCHOOL_TIME } from "./config";
 import {
   DAYS_OF_MONTH,
@@ -27,7 +26,6 @@ import {
   methodOptions,
   needsTime,
   problemsFor,
-  savePreferences,
   isPresetTime,
   joinTime,
   presetTimeOptions,
@@ -74,6 +72,11 @@ const toArabicDigits = (n: number) => String(n).replace(/\d/g, (d) => "٠١٢٣�
 const stepLabel = (step: Step) => `الخطوة ${toArabicDigits(step)} من ${toArabicDigits(STEPS.length)}`;
 export const confirmationHref = (studentId: string) => `/assistant/confirmation?student=${studentId}`;
 
+const primaryButton =
+  "inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-600 px-10 text-lg font-bold text-white transition-colors hover:bg-brand-700";
+const secondaryButton =
+  "inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white px-10 text-lg font-bold text-brand-700 transition-colors hover:bg-mint-100";
+const errorBox = "rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-4 font-bold text-[#b42318]";
 const legendClass = "mb-3 text-xl font-bold text-ink";
 
 const problemText = (problem: Problem) =>
@@ -93,9 +96,15 @@ export function AssistantSetup() {
 function Setup() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { students } = useDashboardData();
-  const student = students.find((s) => s.id === searchParams.get("student")) ?? students[0];
-  const saved = useSavedPreferences(student.id);
+  // The parent's children and saved preferences come from Supabase, as the signed-in parent.
+  const linked = useLinkedStudents();
+  const list = linked.status === "ready" ? linked.data : [];
+  const student = list.find((s) => s.id === searchParams.get("student")) ?? list[0] ?? null;
+  const dbPrefs = useStudentPreferences(student?.dbId ?? null);
+  // A record from the earlier browser-only version, for the same child. Read only; never deleted here.
+  const local = useSavedPreferences(student?.id ?? "-");
+  // The parent chose to bring that record in (it is saved to the account only on «حفظ التفضيلات»).
+  const [bringLocalFor, setBringLocalFor] = useState<string | null>(null);
   // A student chosen in step 1 stays on step 1, with focus back on the choice after the remount.
   const [pickedFor, setPickedFor] = useState<string | null>(null);
   const [savedFor, setSavedFor] = useState<string | null>(null);
@@ -110,9 +119,10 @@ function Setup() {
   /** `draft` is passed only when changing the student from the review: those choices move to the new student. */
   const selectStudent = (id: string, draft?: Preferences) => {
     setPickedFor(id);
-    const next = students.find((s) => s.id === id);
+    const next = list.find((s) => s.id === id);
     if (draft && next) {
-      const { preferences, cleared } = adaptToStudent(draft, next.assistantUnavailable);
+      // No per-student option limits are stored yet, so every choice carries over.
+      const { preferences, cleared } = adaptToStudent(draft, undefined);
       setCarried((c) => ({ seq: (c?.seq ?? 0) + 1, studentId: id, prefs: preferences, cleared }));
     } else {
       setCarried(null);
@@ -120,26 +130,10 @@ function Setup() {
     router.replace(`/assistant?student=${id}`, { scroll: false });
   };
   const onSaved = () => {
+    if (!student) return;
     setSavedFor(student.id);
     router.push(confirmationHref(student.id));
   };
-
-  const hasSaved = saved.status === "saved";
-  const carry = carried?.studentId === student.id ? carried : null;
-  // Saved choices are checked against this student's options too.
-  const fromSaved = adaptToStudent(hasSaved ? saved.preferences : defaultPreferences, student.assistantUnavailable);
-  // Remounting per student (and per saved version) keeps each student's draft separate.
-  const wizardKey = `${student.id}:${
-    saved.status === "saved" ? `${saved.preferences.savedAt}:${saved.legacy ? "legacy" : "v4"}` : saved.status
-  }`;
-
-  if (saved.status === "loading") {
-    return (
-      <p role="status" className="mx-auto max-w-3xl px-4 py-10 text-lg text-ink-soft">
-        جارٍ تحميل التفضيلات…
-      </p>
-    );
-  }
 
   return (
     <>
@@ -150,7 +144,7 @@ function Setup() {
               <ol className="flex items-center gap-2 text-ink-soft">
                 <li>
                   <Link
-                    href={`/?student=${student.id}`}
+                    href={student ? `/?student=${student.id}` : "/"}
                     className="inline-flex min-h-11 items-center font-bold text-brand-700 underline underline-offset-4 hover:text-brand-800"
                   >
                     الرئيسية
@@ -172,26 +166,55 @@ function Setup() {
       </section>
 
       <div className="mx-auto max-w-3xl px-4 py-8 text-lg">
-        {savedFor === student.id ? (
+        {linked.status === "error" ? (
+          <LoadProblem message={linked.message} onRetry={linked.reload} />
+        ) : linked.status === "loading" ? (
+          <p role="status" className="py-10 text-center text-ink-soft">جارٍ تحميل قائمة الأبناء…</p>
+        ) : !student ? (
+          <LoadProblem message="لا يوجد أبناء مرتبطون بهذا الحساب بعد." />
+        ) : savedFor === student.id ? (
           <p role="status" className="py-10 text-center font-bold text-brand-800">
             تم الحفظ. جارٍ فتح صفحة التأكيد…
           </p>
+        ) : dbPrefs.status === "error" ? (
+          // Never fall back to the defaults: they would look like the parent's saved choices.
+          <LoadProblem message={dbPrefs.message} onRetry={dbPrefs.reload} />
+        ) : dbPrefs.status === "loading" ? (
+          <p role="status" className="py-10 text-center text-ink-soft">جارٍ تحميل تفضيلات {student.firstName}…</p>
         ) : (
-          <Wizard
-            key={carry ? `${student.id}:carried:${carry.seq}` : wizardKey}
-            student={student}
-            initial={carry?.prefs ?? fromSaved.preferences}
-            cleared={carry?.cleared ?? fromSaved.cleared}
-            legacy={!carry && saved.status === "saved" ? saved.legacy : null}
-            hadInvalidData={!carry && saved.status === "invalid"}
-            startStep={carry ? 1 : hasSaved && pickedFor !== student.id ? 5 : 1}
-            startReturnToReview={carry !== null}
-            replacesSaved={carry !== null && saved.status === "saved"}
-            focusPicker={pickedFor === student.id}
-            cancelHref={hasSaved ? confirmationHref(student.id) : undefined}
-            onSelectStudent={selectStudent}
-            onSaved={onSaved}
-          />
+          (() => {
+            const hasSaved = dbPrefs.data.exists;
+            const carry = carried?.studentId === student.id ? carried : null;
+            const bringingLocal = !hasSaved && !carry && bringLocalFor === student.id && local.status === "saved";
+            const base = bringingLocal ? local.preferences : dbPrefs.data.exists ? dbPrefs.data.preferences : defaultPreferences;
+            const fromSaved = adaptToStudent(base, undefined);
+            // Remounting per student (and per saved version) keeps each student's draft separate.
+            const wizardKey = `${student.id}:${dbPrefs.data.exists ? dbPrefs.data.updatedAt : "none"}:${bringingLocal ? "local" : ""}`;
+            return (
+              <>
+                {!hasSaved && !carry && !bringingLocal && local.status === "saved" && (
+                  <BringLocalOffer firstName={student.firstName} onUse={() => setBringLocalFor(student.id)} />
+                )}
+                <Wizard
+                  key={carry ? `${student.id}:carried:${carry.seq}` : wizardKey}
+                  student={student}
+                  students={list}
+                  savedExists={hasSaved}
+                  initial={carry?.prefs ?? fromSaved.preferences}
+                  cleared={carry?.cleared ?? fromSaved.cleared}
+                  legacy={bringingLocal ? local.legacy : null}
+                  hadInvalidData={false}
+                  startStep={carry ? 1 : (hasSaved || bringingLocal) && pickedFor !== student.id ? 5 : 1}
+                  startReturnToReview={carry !== null}
+                  replacesSaved={carry !== null && hasSaved}
+                  focusPicker={pickedFor === student.id}
+                  cancelHref={hasSaved ? confirmationHref(student.id) : undefined}
+                  onSelectStudent={selectStudent}
+                  onSaved={onSaved}
+                />
+              </>
+            );
+          })()
         )}
       </div>
     </>
@@ -200,6 +223,8 @@ function Setup() {
 
 function Wizard({
   student,
+  students,
+  savedExists,
   initial,
   cleared,
   legacy,
@@ -212,7 +237,10 @@ function Wizard({
   onSelectStudent,
   onSaved,
 }: {
-  student: Student;
+  student: LinkedStudent;
+  students: LinkedStudent[];
+  /** The account already holds preferences for this child (update rather than insert). */
+  savedExists: boolean;
   initial: Preferences;
   /** Choices cleared because this student cannot use them. */
   cleared: ClearedChoice[];
@@ -235,6 +263,7 @@ function Wizard({
   // Errors appear only after the parent tries to continue, so a fresh step is never shown in red.
   const [attempted, setAttempted] = useState<Step[]>([]);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -285,15 +314,21 @@ function Wizard({
 
   const problems = allProblems(prefs);
   const noneEnabled = enabledTopics(prefs).length === 0;
+  // «تم الحفظ» only follows the database's confirmation; a failure keeps every choice on screen.
   const store = async () => {
-    if (await savePreferences(student.id, prefs)) {
-      setSaveFailed(false);
+    if (saving) return;
+    setSaving(true);
+    setSaveFailed(false);
+    const result = await savePreferencesToDb(student.dbId, prefs, savedExists);
+    if (result.ok) {
       onSaved();
     } else {
+      setSaving(false);
       setSaveFailed(true);
     }
   };
   const save = () => {
+    if (saving) return;
     if (problems.length > 0 || noneEnabled) {
       setAttempted([2, 3, 4, 5]);
       saveErrorsRef.current?.scrollIntoView({ block: "center" });
@@ -330,7 +365,7 @@ function Wizard({
 
       <div ref={bodyRef} className="space-y-8 p-5 sm:p-8">
         <div className="flex items-start gap-4 sm:gap-6">
-          <Character kind={step === 1 ? "both" : student.character} className="size-20 sm:size-28" />
+          <Character className="size-20 sm:size-28" />
           <div className="min-w-0 pt-1 sm:pt-3">
             <h2
               id="wizard-heading"
@@ -348,7 +383,7 @@ function Wizard({
         {(step === 1 || step === 5) && hadInvalidData && (
           <p className="flex gap-3 rounded-xl border border-[#fedf89] bg-[#fffaeb] p-4 text-[#7a2e0e]">
             <InfoIcon size={24} className="mt-1 shrink-0" />
-            تعذّرت قراءة الاختيارات المحفوظة سابقًا في النظام، لذلك عرضنا الاختيارات المقترحة. اضغط «حفظ التفضيلات» في
+            تعذّرت قراءة الاختيارات المحفوظة سابقًا على هذا الجهاز، لذلك عرضنا الاختيارات المقترحة. اضغط «حفظ التفضيلات» في
             الخطوة الأخيرة لحفظها من جديد.
           </p>
         )}
@@ -373,6 +408,7 @@ function Wizard({
         {step === 1 && (
           <div className="space-y-4">
             <StudentPicker
+              students={students}
               legend="اختر الابن أو الابنة"
               name="assistant-student"
               selectedId={student.id}
@@ -393,7 +429,7 @@ function Wizard({
             setPrefs={setPrefs}
             showErrors={attempted.includes(step)}
             previous={legacy?.needsReview.find((r) => r.topic === topic)}
-            unavailable={student.assistantUnavailable}
+            unavailable={undefined /* no per-student option limits are stored yet */}
             unavailableWas={cleared.find((c) => c.topic === topic)?.was}
             firstName={student.firstName}
           />
@@ -438,7 +474,7 @@ function Wizard({
 
             {saveFailed && (
               <p role="alert" className={errorBox}>
-                تعذّر الحفظ، فلم تُحفظ اختياراتك. تأكد أن الخادم يعمل، ثم اضغط «حفظ التفضيلات» مرة
+                تعذّر الحفظ في قاعدة البيانات، فلم تُحفظ اختياراتك. اختياراتك ما زالت هنا؛ تحقق من الاتصال ثم اضغط «حفظ التفضيلات» مرة
                 أخرى.
               </p>
             )}
@@ -455,8 +491,14 @@ function Wizard({
               <span className="hidden sm:block" />
             )}
             {step === 5 ? (
-              <button ref={saveButtonRef} type="button" onClick={save} className={primaryButton}>
-                حفظ التفضيلات
+              <button
+                ref={saveButtonRef}
+                type="button"
+                onClick={save}
+                aria-disabled={saving || undefined}
+                className={`${primaryButton} aria-disabled:cursor-wait`}
+              >
+                {saving ? "جارٍ الحفظ…" : "حفظ التفضيلات"}
               </button>
             ) : (
               <button type="button" onClick={goNext} className={primaryButton}>
@@ -478,7 +520,7 @@ function Wizard({
               </h2>
               <div className="space-y-5 px-5 py-5 text-lg">
                 <p id="replace-desc" className="leading-8 text-ink">
-                  لدى {student.firstName} تفضيلات محفوظة في النظام. الحفظ الآن يستبدلها بالاختيارات التي في هذه المراجعة،
+                  لدى {student.firstName} تفضيلات محفوظة على هذا الجهاز. الحفظ الآن يستبدلها بالاختيارات التي في هذه المراجعة،
                   ولا تتغير تفضيلات أي ابن آخر.
                 </p>
                 <div className="flex flex-col gap-3">
@@ -995,6 +1037,45 @@ function LegacyNotice({ legacy }: { legacy: LegacyInfo }) {
         </>
       )}
       <p className="mt-2">تبقى اختياراتك السابقة محفوظة كما هي حتى تحفظ الاختيارات الجديدة.</p>
+    </section>
+  );
+}
+
+function LoadProblem({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div role="alert" className={errorBox}>
+      <p>{message}</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 inline-flex min-h-12 items-center rounded-lg border-2 border-[#b42318] bg-white px-6 text-[#b42318] hover:bg-[#fff6f5]"
+        >
+          إعادة المحاولة
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Choices saved in this browser by the earlier version, for the same child. Brought in only on request. */
+function BringLocalOffer({ firstName, onUse }: { firstName: string; onUse: () => void }) {
+  return (
+    <section aria-labelledby="bring-local-title" className="mb-6 rounded-xl border-2 border-[#b2ddff] bg-[#eff8ff] p-5 leading-8 text-[#194185]">
+      <h2 id="bring-local-title" className="text-xl font-bold">
+        وجدنا اختيارات سابقة لـ{firstName} على هذا الجهاز
+      </h2>
+      <p className="mt-2">
+        حُفظت في نسخة سابقة من النموذج على هذا المتصفح فقط. يمكنك مراجعتها هنا؛ لا تُحفظ في حسابك إلا عند الضغط على «حفظ
+        التفضيلات»، ولا تُحذف من هذا الجهاز.
+      </p>
+      <button
+        type="button"
+        onClick={onUse}
+        className="mt-4 inline-flex min-h-12 items-center rounded-lg border-2 border-[#194185] bg-white px-6 font-bold text-[#194185] hover:bg-[#f5faff]"
+      >
+        مراجعة الاختيارات السابقة
+      </button>
     </section>
   );
 }

@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { topicSummary, topics, useSavedPreferences } from "@/components/assistant/preferences";
+import { topicSummary, topics } from "@/components/assistant/preferences";
+import { useDashboardStudent, useLinkedStudents, useStudentPreferences, type DashboardStudent, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import { useComingSoon } from "./coming-soon";
-import { useDashboardData } from "@/lib/dashboard-data";
-import type { Student } from "./data";
+import { parent, today, type AttendanceStatus, type Student } from "./data";
 import {
   AttendanceIcon,
   CheckIcon,
@@ -21,7 +21,7 @@ import {
   UserIcon,
 } from "./icons";
 import { PageShell } from "./page-shell";
-import { InfoRing, SectionTab, StudentPicker, Tile, statusStyles } from "./ui";
+import { SectionTab, StudentPicker } from "./ui";
 
 export function ParentDashboard() {
   return (
@@ -34,16 +34,26 @@ export function ParentDashboard() {
 }
 
 function DashboardBody() {
-  const { students } = useDashboardData();
   const router = useRouter();
   // The selected student lives in the address, so a refresh or a return from the assistant keeps it.
   const selectedId = useSearchParams().get("student");
-  const student = students.find((s) => s.id === selectedId) ?? students[0];
+  // The parent's children and their records come from Supabase (RLS: only this parent's children).
+  const linked = useLinkedStudents();
+  const list = linked.status === "ready" ? linked.data : [];
+  const current = list.find((s) => s.id === selectedId) ?? list[0] ?? null;
+  const record = useDashboardStudent(current);
   const setStudentId = (id: string) => router.replace(`/?student=${id}`, { scroll: false });
+
+  if (linked.status === "error") return <LoadProblem message={linked.message} onRetry={linked.reload} />;
+  if (linked.status === "loading") return <Loading />;
+  if (!current) return <LoadProblem message="لا يوجد أبناء مرتبطون بهذا الحساب بعد." />;
+  if (record.status === "error") return <LoadProblem message={record.message} onRetry={record.reload} />;
+  if (record.status === "loading") return <Loading />;
+  const student = record.data;
 
   return (
     <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-      <WelcomeBanner student={student} onSelect={setStudentId} />
+      <WelcomeBanner student={student} students={list} onSelect={setStudentId} />
       <p className="sr-only" aria-live="polite">
         يتم الآن عرض بيانات {student.name}
       </p>
@@ -55,17 +65,54 @@ function DashboardBody() {
           <GradesSection student={student} />
         </div>
         <aside className="space-y-6" aria-label="الإعلانات والمساعد الذكي والملف الشخصي">
-          <AssistantCard student={student} />
+          <AssistantCard student={current} />
           <AnnouncementsSection student={student} />
-          <ProfileCard />
+          <ProfileCard childCount={list.length} />
         </aside>
       </div>
     </main>
   );
 }
 
-function WelcomeBanner({ student, onSelect }: { student: Student; onSelect: (id: string) => void }) {
-  const { parent, today } = useDashboardData();
+function Loading() {
+  return (
+    <main id="main" className="flex-1 px-4 py-16 text-center text-lg">
+      <p role="status" className="text-ink-soft">
+        جارٍ تحميل بيانات الأبناء…
+      </p>
+    </main>
+  );
+}
+
+/** A failure says so; the page never falls back to bundled data. */
+function LoadProblem({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <main id="main" className="flex-1 px-4 py-16">
+      <div role="alert" className="mx-auto max-w-xl rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-5 text-lg font-bold text-[#b42318]">
+        <p>{message}</p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-4 inline-flex min-h-12 items-center rounded-lg border-2 border-[#b42318] bg-white px-6 text-[#b42318] hover:bg-[#fff6f5]"
+          >
+            إعادة المحاولة
+          </button>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function WelcomeBanner({
+  student,
+  students,
+  onSelect,
+}: {
+  student: DashboardStudent;
+  students: LinkedStudent[];
+  onSelect: (id: string) => void;
+}) {
   const rate = attendanceRate(student);
   const average = gradeAverage(student);
 
@@ -89,6 +136,7 @@ function WelcomeBanner({ student, onSelect }: { student: Student; onSelect: (id:
 
           <StudentPicker
             legend="اختر الابن لعرض بياناته"
+            students={students}
             legendClassName="mb-2 text-sm font-bold text-brand-800"
             selectedId={student.id}
             onSelect={onSelect}
@@ -114,6 +162,51 @@ function WelcomeBanner({ student, onSelect }: { student: Student; onSelect: (id:
   );
 }
 
+function InfoRing({ Icon, label, value }: { Icon: typeof UserIcon; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="grid size-14 shrink-0 place-items-center rounded-full border-2 border-brand-400 bg-white/50 text-brand-600">
+        <Icon size={26} />
+      </span>
+      <div className="min-w-0">
+        <dt className="text-sm text-ink-soft">{label}</dt>
+        <dd className="font-bold text-ink">{value}</dd>
+      </div>
+    </div>
+  );
+}
+
+function Tile({
+  href,
+  Icon,
+  color,
+  label,
+  value,
+}: {
+  href: string;
+  Icon: typeof UserIcon;
+  color: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <li>
+      <a
+        href={href}
+        className="flex h-full flex-col items-start gap-3 rounded-lg bg-brand-600 p-2.5 text-white shadow-sm transition-colors hover:bg-brand-700 sm:flex-row sm:items-center sm:gap-4"
+      >
+        <span className={`grid size-11 shrink-0 place-items-center rounded-md sm:size-14 ${color}`}>
+          <Icon size={28} />
+        </span>
+        <span>
+          <span className="block text-2xl font-extrabold leading-none">{value}</span>
+          <span className="mt-1 block font-bold">{label}</span>
+        </span>
+      </a>
+    </li>
+  );
+}
+
 function MoreButton({ title, label, description }: { title: string; label: string; description?: string }) {
   const openComingSoon = useComingSoon();
   return (
@@ -128,6 +221,13 @@ function MoreButton({ title, label, description }: { title: string; label: strin
     </button>
   );
 }
+
+const statusStyles: Record<AttendanceStatus, { label: string; className: string }> = {
+  present: { label: "حاضر", className: "bg-[#ecfdf3] text-[#067647] ring-[#abefc6]" },
+  absent: { label: "غائب", className: "bg-[#fef3f2] text-[#b42318] ring-[#fecdca]" },
+  late: { label: "متأخر", className: "bg-[#fffaeb] text-[#93370d] ring-[#fedf89]" },
+  excused: { label: "غياب بعذر", className: "bg-[#eff8ff] text-[#175cd3] ring-[#b2ddff]" },
+};
 
 function AttendanceSection({ student }: { student: Student }) {
   const a = student.attendance;
@@ -204,7 +304,7 @@ function ExamsSection({ student }: { student: Student }) {
       <div className="rounded-b-xl border border-t-0 border-line bg-white p-5">
         <ul className="space-y-4">
           {student.exams.map((e) => (
-            <li key={`${e.subject}-${e.day}-${e.date}-${e.period}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
+            <li key={`${e.subject}-${e.hijri}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
               <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-mint-100 text-brand-600">
                 <ExamIcon size={28} />
               </span>
@@ -215,7 +315,7 @@ function ExamsSection({ student }: { student: Student }) {
                 </p>
                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
                   <span>
-                    التاريخ: {e.day} {e.hijri && `${e.hijri} هـ`} {e.date && `(${e.date})`}
+                    التاريخ: {e.day} {e.hijri} هـ ({e.date})
                   </span>
                   <span aria-hidden="true" className="hidden sm:inline">•</span>
                   <span className="inline-flex items-center gap-1">
@@ -282,8 +382,9 @@ function GradesSection({ student }: { student: Student }) {
   );
 }
 
-function AssistantCard({ student }: { student: Student }) {
-  const saved = useSavedPreferences(student.id);
+function AssistantCard({ student }: { student: LinkedStudent }) {
+  const prefs = useStudentPreferences(student.dbId);
+  const saved = prefs.status === "ready" && prefs.data.exists ? prefs.data : null;
   const href = `/assistant?student=${student.id}`;
   return (
     <section
@@ -302,7 +403,11 @@ function AssistantCard({ student }: { student: Student }) {
         </div>
       </div>
       <div className="px-5 pb-5">
-        {saved.status === "saved" ? (
+        {prefs.status === "loading" ? (
+          <p role="status" className="text-ink-soft">جارٍ تحميل التفضيلات…</p>
+        ) : prefs.status === "error" ? (
+          <p role="alert" className="font-bold text-[#b42318]">{prefs.message}</p>
+        ) : saved ? (
           <>
             <p className="font-bold text-ink">تفضيلاتك المحفوظة لـ{student.firstName}:</p>
             <ul className="mt-3 space-y-2.5">
@@ -319,14 +424,7 @@ function AssistantCard({ student }: { student: Student }) {
                   </li>
                 ))}
             </ul>
-            {saved.legacy && (
-              <p className="mt-3 rounded-lg bg-[#eff8ff] px-3 py-2 text-sm font-bold text-[#194185]">
-                {saved.legacy.needsReview.length > 0
-                  ? "بعض الاختيارات تحتاج إلى بديل. افتح صفحة المساعد لاختياره."
-                  : "تغيّرت خيارات المساعد. راجعها واحفظها في صفحة المساعد."}
-              </p>
-            )}
-            <p className="mt-3 text-sm text-ink-soft">جميع الأوقات بتوقيت السعودية. محفوظة في النظام، ويقرؤها المساعد عند وصول تنبيه من المدرسة.</p>
+            <p className="mt-3 text-sm text-ink-soft">جميع الأوقات بتوقيت السعودية. محفوظة في حسابك التجريبي.</p>
           </>
         ) : (
           <>
@@ -351,7 +449,7 @@ function AssistantCard({ student }: { student: Student }) {
           href={href}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-3 font-bold text-white hover:bg-brand-700"
         >
-          {saved.status === "saved" ? "عرض التفضيلات وتعديلها" : "إعداد المساعد الذكي"}
+          {saved ? "عرض التفضيلات وتعديلها" : "إعداد المساعد الذكي"}
         </Link>
       </div>
     </section>
@@ -385,12 +483,11 @@ function AnnouncementsSection({ student }: { student: Student }) {
   );
 }
 
-function ProfileCard() {
-  const { parent, students } = useDashboardData();
+function ProfileCard({ childCount }: { childCount: number }) {
   const rows = [
     { label: "الاسم", value: parent.name },
     { label: "الصفة", value: `${parent.role} (${parent.relation})` },
-    { label: "عدد الأبناء", value: `${students.length}` },
+    { label: "عدد الأبناء", value: `${childCount}` },
     { label: "البريد الإلكتروني", value: parent.email, ltr: true },
     { label: "الجوال", value: parent.phone, ltr: true },
     { label: "آخر دخول", value: parent.lastLogin },
