@@ -87,7 +87,7 @@ class DispatchTests(unittest.TestCase):
         self.assertNotIn("900123", data["to_masked"])
 
     def test_calls_and_messages_go_to_their_own_numbers(self):
-        env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE": "+447700900111", "PARENT_PHONE_CALL": "+447700900222", "PARENT_PHONE_SMS": "+447700900333",
+        env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE": "+447700900222", "PARENT_PHONE1": "+447700900333",
                "TAMMENI_ALLOWED_DESTINATIONS": "+447700900222,+447700900333", "TWILIO_ACCOUNT_SID": "AC" + "0" * 32, "TWILIO_AUTH_TOKEN": "x" * 32,
                "TWILIO_FROM": "+447700900000", "PUBLIC_URL": "https://example.test"}
         fake = MagicMock()
@@ -102,7 +102,7 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual(fake.calls.create.call_args.kwargs["to"], "+447700900222")
 
     def test_each_number_must_be_on_the_allow_list(self):
-        env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE_SMS": "+447700900333", "TAMMENI_ALLOWED_DESTINATIONS": "+447700900222",
+        env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE": "+447700900222", "PARENT_PHONE1": "+447700900333", "TAMMENI_ALLOWED_DESTINATIONS": "+447700900222",
                "TWILIO_ACCOUNT_SID": "AC" + "0" * 32, "TWILIO_AUTH_TOKEN": "x" * 32}
         with patch.dict(os.environ, env), patch("backend.notify.load_context", AsyncMock(return_value=CTX)), patch("twilio.rest.Client") as twilio:
             r = self.post()

@@ -102,7 +102,7 @@ The mock provider is the default. Before the first real SMS or call:
 
 1. In `Test_AI_Agent_Upload/.env`, set:
    - `TAMMENI_PROVIDER=twilio`
-   - `PARENT_PHONE_CALL` (receives calls) and `PARENT_PHONE_SMS` (receives messages); each falls back to `PARENT_PHONE`
+   - `PARENT_PHONE` (receives calls) and `PARENT_PHONE1` (receives messages; falls back to `PARENT_PHONE`)
    - `TAMMENI_ALLOWED_DESTINATIONS` (comma-separated; must contain every number used)
    - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM`
    - for calls: `PUBLIC_URL` (the ngrok address)
