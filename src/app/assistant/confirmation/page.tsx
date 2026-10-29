@@ -4,8 +4,8 @@ import { AssistantConfirmation } from "@/components/assistant/assistant-confirma
 import { PageShell } from "@/components/dashboard/page-shell";
 
 export const metadata: Metadata = {
-  title: "تم حفظ التفضيلات | المساعد الذكي لولي الأمر",
-  description: "ملخص تفضيلات المساعد الذكي المحفوظة على هذا الجهاز — نموذج تعليمي تجريبي ببيانات خيالية.",
+  title: "تم حفظ التفضيلات | طمّني",
+  description: "ملخص تفضيلات طمّني المحفوظة في الحساب التجريبي — نموذج تعليمي تجريبي ببيانات خيالية.",
 };
 
 export default function AssistantConfirmationPage() {

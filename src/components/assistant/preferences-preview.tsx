@@ -38,13 +38,12 @@ export function PreferencesPreview({ studentId, preferences }: { studentId: stri
 
   return (
     <section aria-labelledby="preview-title" className="space-y-4 rounded-xl border border-mint-300 bg-white p-5">
-      <h2 id="preview-title" className="text-2xl font-extrabold text-ink">معاينة تحديثات المساعد</h2>
-      <p className="text-base leading-7 text-ink-soft">
-        اعرض محتوى تجريبيًا حسب اختياراتك المحفوظة. هذه معاينة فقط؛ لن تُرسل رسالة أو تُجرى مكالمة.
-        السجلات خيالية، ولا يتم تشغيل المواعيد أو إعادة الاتصال في هذه الخطوة.
+      <h2 id="preview-title" className="text-2xl font-extrabold text-ink">معاينة المحتوى — دون إرسال</h2>
+      <p className="text-lg leading-8 text-ink">
+        تعرض نص التحديث كما سيبدو حسب اختياراتك المحفوظة. هذه معاينة فقط: لا تُحفظ من جديد، ولا تُرسل رسالة، ولا تُجرى مكالمة.
+        المواعيد التلقائية وإعادة الاتصال غير مفعّلة هنا.
       </p>
-      <button type="button" disabled={busy} onClick={loadPreview}
-        className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-lg bg-brand-600 px-6 font-bold text-white hover:bg-brand-700 disabled:cursor-wait disabled:opacity-60">
+      <button type="button" disabled={busy} onClick={loadPreview} className="btn-secondary">
         {busy ? "جارٍ إعداد المعاينة…" : "معاينة حسب تفضيلاتي"}
       </button>
       {error && <p role="alert" className="text-base text-[#b42318]">{error}</p>}

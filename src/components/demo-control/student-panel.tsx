@@ -1,10 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { topicSummary, topics, type Preferences } from "@/components/assistant/preferences";
+import { MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
 import { EventForm } from "./event-form";
-import { NotificationCard, type NotificationRow, type AttemptRow } from "./notification-card";
-import { api, ConfirmDialog, dangerButton, ErrorNote, secondaryButton } from "./shared";
+import { NotificationCard, type AttemptRow, type NotificationRow } from "./notification-card";
+import { api, ConfirmDialog, dangerButton, ErrorNote, MethodLabel, secondaryButton, StatusBadge, type StudioView } from "./shared";
 
 export type Panel = {
   student: { id: string; key: string; name: string; firstName: string };
@@ -16,9 +18,22 @@ export type Panel = {
   absencesToExcuse: { eventId: string; label: string }[];
 };
 
-export function StudentPanel({ studentId, today, onSignedOut }: { studentId: string; today: string; onSignedOut: () => void }) {
-  const [panel, setPanel] = useState<{ state: "loading" } | { state: "error"; message: string } | { state: "ready"; data: Panel }>({ state: "loading" });
+export function StudentPanel({
+  studentId,
+  today,
+  view,
+  onSignedOut,
+}: {
+  studentId: string;
+  today: string;
+  view: StudioView;
+  onSignedOut: () => void;
+}) {
+  const [panel, setPanel] = useState<{ state: "loading" } | { state: "error"; message: string } | { state: "ready"; data: Panel }>({
+    state: "loading",
+  });
   const [notice, setNotice] = useState<string | null>(null);
+  const [freshId, setFreshId] = useState<string | null>(null);
 
   const load = useCallback(
     async (quiet = false) => {
@@ -37,113 +52,186 @@ export function StudentPanel({ studentId, today, onSignedOut }: { studentId: str
     void load();
   }, [load]);
 
-  if (panel.state === "loading") return <p role="status" className="text-lg text-ink-soft">جارٍ تحميل بيانات الطالب…</p>;
-  if (panel.state === "error")
+  if (panel.state === "loading") {
+    return (
+      <p role="status" className="text-sm text-[var(--studio-muted)]">
+        جارٍ تحميل بيانات الطالب…
+      </p>
+    );
+  }
+  if (panel.state === "error") {
     return (
       <div className="space-y-3">
         <ErrorNote>{panel.message}</ErrorNote>
-        <button type="button" onClick={() => load()} className={secondaryButton}>إعادة المحاولة</button>
+        <button type="button" onClick={() => load()} className={secondaryButton}>
+          إعادة المحاولة
+        </button>
       </div>
     );
+  }
 
   const p = panel.data;
   const attemptsFor = (id: string) => p.attempts.filter((a) => a.notification_id === id);
-  // Attempts whose events were cleared stay on record: clearing never recalls what was sent.
   const shown = new Set(p.events.flatMap((e) => (e.notification ? [e.notification.id] : [])));
   const earlier = p.attempts.filter((a) => !shown.has(a.notification_id));
+  const latest = p.events[0];
+
   return (
-    <section aria-labelledby="panel-title" className="space-y-8">
-      <h2 id="panel-title" className="text-2xl font-extrabold text-ink">
-        {p.student.name}
-      </h2>
+    <div className="space-y-4">
       {notice && (
-        <p role="status" className="rounded-xl bg-mint-100 p-4 font-bold text-brand-800">
+        <p role="status" className="studio-alert studio-saved">
           {notice}
         </p>
       )}
 
-      <PreferencesCard panel={p} />
-
-      <EventForm
-        panel={p}
-        today={today}
-        onSaved={() => {
-          setNotice(null);
-          void load(true);
-        }}
-      />
-
-      <section aria-labelledby="log-title" className="space-y-4">
-        <h3 id="log-title" className="text-xl font-bold text-ink">
-          أحداث {p.student.firstName} وتحديثاتها
-        </h3>
-        {p.events.length === 0 ? (
-          <p className="rounded-xl border-2 border-dashed border-[#9da4ae] p-5 text-lg text-ink">لا توجد أحداث محاكاة لهذا الطالب بعد. سجّل حدثًا من الأعلى.</p>
-        ) : (
-          <ul className="space-y-4">
-            {p.events.map((e) => (
-              <li key={e.id}>
+      {view === "run" && (
+        <>
+          <div className="studio-board">
+            <EventForm
+              panel={p}
+              today={today}
+              onSaved={() => {
+                setNotice(null);
+                setFreshId("pending");
+                void load(true).then(() => setFreshId("ready"));
+              }}
+            />
+            <PreferencesCard panel={p} />
+          </div>
+          {latest ? (
+            <section aria-labelledby="latest-title" className="studio-panel">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 id="latest-title">آخر حدث لـ{p.student.firstName}</h2>
+                <a href="#log" className="studio-btn-secondary">
+                  سجل المحاولات
+                </a>
+              </div>
+              <div className={freshId ? "studio-row-in" : undefined}>
                 <NotificationCard
                   studentName={p.student.firstName}
-                  event={e}
-                  attempts={e.notification ? attemptsFor(e.notification.id) : []}
+                  event={latest}
+                  attempts={latest.notification ? attemptsFor(latest.notification.id) : []}
                   onChanged={() => load(true)}
                 />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              </div>
+            </section>
+          ) : (
+            <div className="studio-empty">
+              <Image src="/characters/combined.png" alt="" width={72} height={72} />
+              <p className="m-0 text-sm leading-6">
+                لا أحداث محاكاة لـ{p.student.firstName} بعد. سجّل حدثًا من النموذج أعلاه — الحفظ لا يرسل شيئًا.
+              </p>
+            </div>
+          )}
+        </>
+      )}
 
-      {earlier.length > 0 && (
-        <section aria-labelledby="earlier-title" className="space-y-2 rounded-xl border border-line bg-white p-5">
-          <h3 id="earlier-title" className="text-xl font-bold text-ink">محاولات سابقة لأحداث ممسوحة</h3>
-          <p className="text-base text-ink">مسح الأحداث لا يلغي ما أُرسل. هذه المحاولات باقية للمراجعة.</p>
-          <ul className="space-y-1 text-base text-ink">
-            {earlier.map((a) => (
-              <li key={a.id}>
-                {a.method === "call" ? "اتصال" : "رسالة"} — {a.provider === "mock" ? "مزود وهمي" : "Twilio"} — {statusWords[a.status] ?? a.status}
-                {a.destination_masked ? ` — ${a.destination_masked}` : ""}
-              </li>
-            ))}
-          </ul>
+      {view === "log" && (
+        <section aria-labelledby="log-title" className="space-y-3">
+          <h2 id="log-title" className="text-lg font-extrabold">
+            سجل {p.student.firstName}
+          </h2>
+          {p.events.length === 0 ? (
+            <div className="studio-empty">
+              <Image src="/characters/combined.png" alt="" width={72} height={72} />
+              <p className="m-0 text-sm">لا توجد أحداث بعد. ارجع إلى التشغيل لتسجيل حدث.</p>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {p.events.map((e, i) => (
+                <li key={e.id} className="studio-panel studio-row-in" style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}>
+                  <NotificationCard
+                    studentName={p.student.firstName}
+                    event={e}
+                    attempts={e.notification ? attemptsFor(e.notification.id) : []}
+                    onChanged={() => load(true)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          {earlier.length > 0 && <ArchivedAttempts attempts={earlier} />}
         </section>
       )}
 
-      <DangerZone panel={p} onDone={(msg) => { setNotice(msg); void load(true); }} />
-    </section>
+      {view === "manage" && <DangerZone panel={p} onDone={(msg) => { setNotice(msg); void load(true); }} />}
+    </div>
   );
 }
 
 function PreferencesCard({ panel }: { panel: Panel }) {
   return (
-    <section aria-labelledby="prefs-title" className="rounded-xl border border-line bg-white p-5">
-      <h3 id="prefs-title" className="text-xl font-bold text-ink">
-        تفضيلات {panel.student.firstName} المحفوظة (للقراءة)
-      </h3>
+    <section aria-labelledby="prefs-title" className="studio-panel">
+      <h2 id="prefs-title">تفضيلات {panel.student.firstName}</h2>
+      <p className="studio-lede">للقراءة فقط — الإرسال التلقائي غير مفعّل.</p>
       {!panel.preferences ? (
-        <p className="mt-2 text-lg text-ink">لم يحفظ ولي الأمر تفضيلات لهذا الطالب بعد، فلن يُرسل أي تحديث عنه.</p>
+        <p className="mt-3 text-sm">لم تُحفظ تفضيلات لهذا الطالب، فلن يُرسل أي تحديث عنه.</p>
       ) : (
-        <ul className="mt-3 space-y-2 text-lg">
+        <dl className="mt-2">
           {topics.map((t) => {
             const s = topicSummary(panel.preferences!, t);
+            const off = s.status === "off";
             return (
-              <li key={t} className="flex flex-wrap gap-x-2">
-                <strong className="text-brand-800">{s.label}:</strong>
-                <span className="text-ink">{s.status === "off" ? "متوقف" : `${s.short} — ${s.method}`}</span>
-              </li>
+              <div key={t} className="studio-pref">
+                <dt>{s.label}</dt>
+                <dd className="studio-status" data-tone={off ? "off" : "ready"}>
+                  {off ? "متوقف" : "مفعّل"}
+                </dd>
+                <dd className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.82rem] text-[var(--studio-muted)]">
+                  {off ? (
+                    "لن يُرسل تحديث عن هذا النوع"
+                  ) : (
+                    <>
+                      {s.method === "اتصال" ? <PhoneIcon size={14} /> : s.method === "رسالة" ? <MessageIcon size={14} /> : null}
+                      <span>{s.method}</span>
+                      <span>{s.when ?? s.short}</span>
+                    </>
+                  )}
+                </dd>
+              </div>
             );
           })}
           {panel.preferences.retryUnansweredCall && (
-            <li className="text-ink">إعادة الاتصال مرة بعد ٥ دقائق: مختارة (غير مفعّلة تلقائيًا في هذه النسخة).</li>
+            <div className="studio-pref">
+              <dt>إعادة الاتصال</dt>
+              <dd className="studio-status" data-tone="off">
+                محفوظة فقط
+              </dd>
+              <dd className="col-span-2 text-[0.82rem] text-[var(--studio-muted)]">مرة بعد ٥ دقائق — غير منفّذة تلقائيًا.</dd>
+            </div>
           )}
-        </ul>
+        </dl>
       )}
     </section>
   );
 }
 
-const statusWords: Record<string, string> = { sending: "قيد الإرسال", accepted: "قُبل لدى المزود", delivered: "تم التسليم", failed: "فشل" };
+function ArchivedAttempts({ attempts }: { attempts: AttemptRow[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section aria-labelledby="earlier-title" className="studio-panel">
+      <h3 id="earlier-title">محاولات لأحداث ممسوحة</h3>
+      <p className="studio-lede">مسح الأحداث لا يلغي ما أُرسل. هذه المحاولات باقية للمراجعة.</p>
+      <button type="button" className="studio-btn-secondary mt-3" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {open ? "إخفاء التفاصيل" : `عرض ${attempts.length} محاولة`}
+      </button>
+      {open && (
+        <ul className="studio-timeline mt-3">
+          {attempts.map((a) => (
+            <li key={a.id}>
+              <p className="m-0 flex flex-wrap items-center gap-2 text-sm">
+                <MethodLabel method={a.method} />
+                <StatusBadge status={a.status} />
+                <span>{a.provider === "mock" ? "مزود وهمي" : "Twilio"}</span>
+                {a.destination_masked ? <span dir="ltr">{a.destination_masked}</span> : null}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
 
 const DEFAULTS_SUMMARY = [
   "الحضور والغياب: بعد نهاية اليوم (2:00 مساءً) — اتصال",
@@ -170,13 +258,13 @@ function DangerZone({ panel, onDone }: { panel: Panel; onDone: (message: string)
   };
 
   return (
-    <section aria-labelledby="danger-title" className="space-y-4 rounded-xl border-2 border-[#fecdca] bg-[#fffbfa] p-5">
-      <h3 id="danger-title" className="text-xl font-bold text-[#b42318]">
-        إعادة الضبط — {name}
-      </h3>
-      <p className="text-base leading-7 text-ink">تؤثر هذه الإجراءات في {name} فقط، ولا تحذف الطالب أو حساب ولي الأمر أو بيانات إخوته أو البيانات المستوردة.</p>
+    <section aria-labelledby="danger-title" className="studio-panel max-w-xl">
+      <h2 id="danger-title">إدارة التجربة — {name}</h2>
+      <p className="studio-lede">
+        تؤثر هذه الإجراءات في {name} فقط، ولا تحذف الطالب أو حساب ولي الأمر أو بيانات إخوته أو البيانات المستوردة.
+      </p>
       {error && <ErrorNote>{error}</ErrorNote>}
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="studio-manage">
         <button type="button" onClick={() => setOpen("reset")} className={dangerButton}>
           إعادة ضبط تفضيلات {name}
         </button>
@@ -200,7 +288,9 @@ function DangerZone({ panel, onDone }: { panel: Panel; onDone: (message: string)
       >
         <p>تعود تفضيلات {name} في حساب ولي الأمر إلى:</p>
         <ul className="list-disc space-y-1 ps-6">
-          {DEFAULTS_SUMMARY.map((l) => <li key={l}>{l}</li>)}
+          {DEFAULTS_SUMMARY.map((l) => (
+            <li key={l}>{l}</li>
+          ))}
         </ul>
         <p>تفضيلات بقية الأبناء والأحداث لا تتغير.</p>
       </ConfirmDialog>

@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { AttendanceIcon, CheckIcon, CloseIcon, ExamIcon, GradesIcon } from "@/components/dashboard/icons";
 import { arabicDay, arabicTime } from "@/lib/tammeni/evaluate";
 import type { Panel } from "./student-panel";
 import { api, ErrorNote, fieldClass, labelClass, MethodLabel, newKey, primaryButton, StatusBadge } from "./shared";
 
 type Kind = "attendance" | "grade_published" | "exam_added" | "exam_cancelled" | "excuse_accepted";
-const kinds: { value: Kind; label: string }[] = [
-  { value: "attendance", label: "حضور وغياب" },
-  { value: "grade_published", label: "نشر درجة" },
-  { value: "exam_added", label: "اختبار جديد" },
-  { value: "exam_cancelled", label: "إلغاء اختبار" },
-  { value: "excuse_accepted", label: "قبول عذر" },
+const kinds: { value: Kind; label: string; Icon: typeof AttendanceIcon }[] = [
+  { value: "attendance", label: "حضور وغياب", Icon: AttendanceIcon },
+  { value: "grade_published", label: "نشر درجة", Icon: GradesIcon },
+  { value: "exam_added", label: "اختبار جديد", Icon: ExamIcon },
+  { value: "exam_cancelled", label: "إلغاء اختبار", Icon: CloseIcon },
+  { value: "excuse_accepted", label: "قبول عذر", Icon: CheckIcon },
 ];
 const statusOptions = [
   { value: "absent", label: "غياب" },
@@ -43,7 +44,6 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
     examId: "",
     attendanceEventId: "",
   });
-  // One key per submit intent; it changes only after a save succeeds, so a retry or double click is one event.
   const [key, setKey] = useState(newKey);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -72,7 +72,7 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
     if (kind === "excuse_accepted") event.attendanceEventId = f.attendanceEventId;
     const r = await api<Result>(`/api/demo-control/students/${panel.student.id}/events`, { method: "POST", body: { event, idempotencyKey: key } });
     setBusy(false);
-    if (!r.ok) return setError(r.error); // inputs stay as typed
+    if (!r.ok) return setError(r.error);
     setResult(r.data);
     setKey(newKey());
     onSaved();
@@ -80,45 +80,72 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
 
   const field = (id: string, label: string, input: React.ReactNode, hint?: string) => (
     <div>
-      <label htmlFor={id} className={labelClass}>{label}</label>
+      <label htmlFor={id} className={labelClass}>
+        {label}
+      </label>
       {input}
-      {hint && <p className="mt-1 text-base text-ink">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-[var(--studio-muted)]">{hint}</p>}
     </div>
   );
 
   return (
-    <section aria-labelledby="event-title" className="rounded-xl border border-line bg-white p-5">
-      <h3 id="event-title" className="text-xl font-bold text-ink">
-        تسجيل حدث لـ{name}
-      </h3>
-      <p className="mt-1 text-base text-ink">«حفظ الحدث» يسجله ويقيّمه فقط. لا يتصل بأحد ولا يرسل شيئًا.</p>
+    <section aria-labelledby="event-title" className="studio-panel">
+      <h2 id="event-title">تسجيل حدث</h2>
+      <p className="studio-lede">
+        لـ{name} — «حفظ الحدث» يسجّله ويقيّمه فقط. لا يتصل ولا يرسل.
+      </p>
 
-      <fieldset className="mt-4">
-        <legend className="sr-only">نوع الحدث</legend>
-        <div className="flex flex-wrap gap-2">
+      <p className="studio-pipe" aria-hidden="true">
+        <span data-on="true">حفظ الحدث</span>
+        <span>←</span>
+        <span data-on={result ? "true" : "false"}>معاينة التحديث</span>
+        <span>←</span>
+        <span>تشغيل الآن</span>
+      </p>
+
+      <fieldset className="mt-3">
+        <legend className="studio-label">نوع الحدث</legend>
+        <div className="studio-kinds">
           {kinds.map((k) => (
-            <label
-              key={k.value}
-              className={`inline-flex min-h-12 cursor-pointer items-center rounded-full border-2 px-4 font-bold has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-tile-navy ${
-                kind === k.value ? "border-brand-600 bg-brand-600 text-white" : "border-[#9da4ae] bg-white text-ink hover:border-brand-500"
-              }`}
-            >
-              <input type="radio" name="event-kind" value={k.value} checked={kind === k.value} onChange={() => { setKind(k.value); setResult(null); setError(""); }} className="sr-only" />
+            <label key={k.value} className="studio-kind">
+              <input
+                type="radio"
+                name="event-kind"
+                value={k.value}
+                checked={kind === k.value}
+                onChange={() => {
+                  setKind(k.value);
+                  setResult(null);
+                  setError("");
+                }}
+              />
+              <k.Icon size={18} />
               {k.label}
             </label>
           ))}
         </div>
       </fieldset>
 
-      <form onSubmit={submit} className="mt-5 space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {field("ev-date", kind === "grade_published" ? "تاريخ النشر" : "تاريخ الحدث (يوم دراسي)", <input id="ev-date" type="date" value={f.date} onChange={set("date")} className={fieldClass} required />)}
+      <form onSubmit={submit} className="mt-4 space-y-3">
+        <div key={kind} className="studio-swap grid gap-3 sm:grid-cols-2">
+          {field(
+            "ev-date",
+            kind === "grade_published" ? "تاريخ النشر" : "تاريخ الحدث (يوم دراسي)",
+            <input id="ev-date" type="date" value={f.date} onChange={set("date")} className={fieldClass} required />,
+          )}
           {kind === "attendance" &&
-            field("ev-status", "الحالة", (
+            field(
+              "ev-status",
+              "الحالة",
               <select id="ev-status" value={f.status} onChange={set("status")} className={fieldClass}>
-                {statusOptions.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            ), "حضور اليوم المدرسي (وليس حصة إلكترونية).")}
+                {statusOptions.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>,
+              "حضور اليوم المدرسي (وليس حصة إلكترونية).",
+            )}
           {(kind === "grade_published" || kind === "exam_added") &&
             field("ev-subject", "المادة", <input id="ev-subject" value={f.subject} onChange={set("subject")} className={fieldClass} maxLength={80} required />)}
           {kind === "grade_published" && (
@@ -136,23 +163,37 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
             </>
           )}
           {kind === "exam_cancelled" &&
-            field("ev-exam", "الاختبار", (
+            field(
+              "ev-exam",
+              "الاختبار",
               <select id="ev-exam" value={f.examId} onChange={set("examId")} className={fieldClass} required>
                 <option value="">اختر الاختبار</option>
-                {panel.examsToCancel.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
-              </select>
-            ), panel.examsToCancel.length === 0 ? "لا توجد اختبارات مجدولة." : undefined)}
+                {panel.examsToCancel.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.label}
+                  </option>
+                ))}
+              </select>,
+              panel.examsToCancel.length === 0 ? "لا توجد اختبارات مجدولة." : undefined,
+            )}
           {kind === "excuse_accepted" &&
-            field("ev-absence", "الغياب الذي قُبل عذره", (
+            field(
+              "ev-absence",
+              "الغياب الذي قُبل عذره",
               <select id="ev-absence" value={f.attendanceEventId} onChange={set("attendanceEventId")} className={fieldClass} required>
                 <option value="">اختر الغياب</option>
-                {panel.absencesToExcuse.map((a) => <option key={a.eventId} value={a.eventId}>{a.label}</option>)}
-              </select>
-            ), panel.absencesToExcuse.length === 0 ? "سجّل غيابًا أو تأخرًا من هذه اللوحة أولًا." : "يتحول الغياب إلى «غياب بعذر» ويُلغى تحديثه إن لم يُرسل.")}
+                {panel.absencesToExcuse.map((a) => (
+                  <option key={a.eventId} value={a.eventId}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>,
+              panel.absencesToExcuse.length === 0 ? "سجّل غيابًا أو تأخرًا من هذه اللوحة أولًا." : "يتحول الغياب إلى «غياب بعذر» ويُلغى تحديثه إن لم يُرسل.",
+            )}
         </div>
 
-        <p className="rounded-xl bg-mint-100 p-4 text-lg text-ink">
-          <strong className="text-brand-800">سيُسجَّل لـ{panel.student.name}:</strong> {summary}
+        <p className="studio-summary">
+          <strong>سيُسجَّل لـ{name}:</strong> {summary}
         </p>
         {error && <ErrorNote>{error}</ErrorNote>}
         <button type="submit" aria-disabled={busy || undefined} className={primaryButton}>
@@ -161,18 +202,30 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
       </form>
 
       {result && <EvaluationResult result={result} name={name} />}
+
+      <p className="studio-lede mt-3">الجدولة التلقائية وإعادة الاتصال: غير مفعّلتين في هذه النسخة.</p>
+      <details className="studio-help">
+        <summary>إرشادات المواعيد</summary>
+        <div className="studio-help-body">
+          <ul>
+            <li>حفظ الحدث يقيّم الموعد من التفضيلات المحفوظة، بتوقيت الرياض.</li>
+            <li>المعاينة ثم «تشغيل الآن» يتجاوزان الانتظار يدويًا للديمو، ولا يتجاوزان موضوعًا متوقفًا.</li>
+            <li>لا يُرسل شيء في الخلفية عند حلول الموعد، ولا تُعاد المكالمات تلقائيًا.</li>
+          </ul>
+        </div>
+      </details>
     </section>
   );
 }
 
 function EvaluationResult({ result, name }: { result: Result; name: string }) {
   return (
-    <div role="status" className="mt-5 space-y-2 rounded-xl border-2 border-mint-300 p-4 text-lg">
-      <p className="font-bold text-ink">
+    <div role="status" className="studio-saved mt-4 space-y-2 rounded-lg bg-[var(--studio-ground)] p-3 text-sm">
+      <p className="m-0 font-extrabold">
         {result.duplicate ? "هذا الحدث محفوظ سابقًا (لم يُكرر):" : "حُفظ الحدث:"} {result.event.summary}
       </p>
       {result.excuse ? (
-        <p className="text-ink">
+        <p className="m-0">
           {result.excuse.outcome === "cancelled"
             ? `أصبح الغياب «غياب بعذر» وأُلغي تحديث ${name} قبل إرساله.`
             : result.excuse.outcome === "already-sent"
@@ -181,14 +234,13 @@ function EvaluationResult({ result, name }: { result: Result; name: string }) {
         </p>
       ) : result.notification ? (
         <>
-          <p className="flex flex-wrap items-center gap-3">
-            <span className="font-bold text-ink">نتيجة التقييم:</span>
+          <p className="m-0 flex flex-wrap items-center gap-2">
             <StatusBadge status={result.notification.status} />
             <MethodLabel method={result.notification.method} />
           </p>
-          <p className="text-ink">{result.notification.reason}</p>
-          {result.notification.dueLabel && <p className="text-ink">الموعد: {result.notification.dueLabel} بتوقيت السعودية.</p>}
-          <p className="text-base text-ink">للمعاينة أو التشغيل استخدم بطاقة الحدث في السجل أدناه.</p>
+          <p className="m-0">{result.notification.reason}</p>
+          {result.notification.dueLabel && <p className="m-0">الموعد: {result.notification.dueLabel} بتوقيت السعودية.</p>}
+          <p className="m-0 text-[var(--studio-muted)]">المعاينة والتشغيل من بطاقة الحدث.</p>
         </>
       ) : null}
     </div>

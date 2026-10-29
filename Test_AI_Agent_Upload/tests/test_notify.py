@@ -86,6 +86,17 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual((data["status"], data["provider_status"]), ("accepted", "queued"))
         self.assertNotIn("900123", data["to_masked"])
 
+    def test_force_mock_never_calls_twilio_even_when_the_provider_is_twilio(self):
+        env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE": "+447700900123", "TAMMENI_ALLOWED_DESTINATIONS": "+447700900123",
+               "TWILIO_ACCOUNT_SID": "AC" + "0" * 32, "TWILIO_AUTH_TOKEN": "x" * 32}
+        with patch.dict(os.environ, env), patch("backend.notify.load_context", AsyncMock(return_value=CTX)), patch("twilio.rest.Client") as twilio:
+            r = self.post({**BODY, "force_mock": True})
+        twilio.assert_not_called()
+        data = r.json()
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(data["provider"], "mock")
+        self.assertTrue(data["provider_sid"].startswith("MOCK-"))
+
     def test_status_of_a_mock_attempt_never_claims_delivery(self):
         r = self.client.post("/api/notify/status", json={"provider_sid": "MOCK-" + "a" * 24, "method": "message"}, headers={"X-Tammeni-Dispatch-Secret": SECRET})
         self.assertEqual(r.json()["status"], "accepted")

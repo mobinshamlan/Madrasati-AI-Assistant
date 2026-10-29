@@ -71,9 +71,9 @@ export function DemoNotice() {
   return (
     <p
       role="note"
-      className="flex items-center justify-center gap-2 bg-[#fffaeb] px-4 py-2 text-center text-sm font-bold text-[#7a2e0e] border-b border-[#fedf89]"
+      className="flex items-center justify-center gap-2 border-b-2 border-warn-line bg-warn-bg px-4 py-3 text-center text-base font-bold text-warn"
     >
-      <InfoIcon size={18} className="shrink-0" />
+      <InfoIcon size={20} className="shrink-0" />
       نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية
     </p>
   );
@@ -81,7 +81,8 @@ export function DemoNotice() {
 
 export function Footer() {
   return (
-    <footer className="mt-auto border-t border-mint-300 bg-mint-100 px-4 py-4 text-center text-sm text-ink-soft">
+    <footer className="mt-auto border-t border-mint-300 bg-mint-100 px-4 py-5 text-center text-base text-ink">
+      <p className="tammeni-mark mb-1 text-xl">طمّني</p>
       نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية ولا يمثل خدمة صادرة عن وزارة التعليم.
     </footer>
   );
@@ -93,9 +94,14 @@ function AccessibilityButton() {
     <button
       type="button"
       aria-haspopup="dialog"
-      aria-label="أدوات إمكانية الوصول"
-      onClick={() => openComingSoon({ title: "إمكانية الوصول", description: "أدوات التخصيص وإمكانية الوصول ستتوفر قريبًا." })}
-      className="fixed bottom-4 left-4 z-20 hidden size-12 place-items-center rounded-full bg-brand-600 text-white shadow-lg hover:bg-brand-700 lg:grid"
+      aria-label="أدوات إمكانية الوصول — غير متوفرة بعد في هذه النسخة"
+      onClick={() =>
+        openComingSoon({
+          title: "إمكانية الوصول",
+          description: "هذه الأداة غير جاهزة بعد. حجم الخط والتباين مضبوطان من الصفحة نفسها؛ أدوات التخصيص ستتوفر لاحقًا.",
+        })
+      }
+      className="fixed bottom-4 left-4 z-20 hidden size-14 cursor-pointer place-items-center rounded-full bg-brand-600 text-white hover:bg-brand-700 lg:grid"
     >
       <AccessibilityIcon size={26} />
     </button>

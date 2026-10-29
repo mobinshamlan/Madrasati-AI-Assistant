@@ -42,24 +42,20 @@ export function ComingSoonProvider({ children }: { children: React.ReactNode }) 
             type="button"
             onClick={close}
             aria-label="إغلاق"
-            className="grid size-9 place-items-center rounded-full bg-white text-brand-700 hover:bg-mint-100"
+            className="grid size-12 cursor-pointer place-items-center rounded-full bg-white text-brand-700 hover:bg-mint-100"
           >
             <CloseIcon size={18} />
           </button>
         </div>
         <div className="space-y-4 px-5 py-5">
-          <p className="inline-flex items-center gap-2 rounded-full bg-tile-navy px-3 py-1 text-sm font-bold text-white">
+          <p className="inline-flex items-center gap-2 rounded-full bg-tile-navy px-3 py-1 text-base font-bold text-white">
             <ClockIcon size={16} />
-            قريبًا
+            غير متوفر في هذه النسخة
           </p>
-          <p id="coming-soon-desc" className="leading-7 text-ink-soft">
-            {content.description ?? "هذا القسم قيد الإعداد في النموذج التجريبي وسيتوفر في مرحلة لاحقة."}
+          <p id="coming-soon-desc" className="text-lg leading-8 text-ink">
+            {content.description ?? "هذا القسم غير جاهز في النموذج التجريبي. يمكنك متابعة الحضور والاختبارات والدرجات من الصفحة الرئيسية، وإعداد طمّني من قائمة طمّني."}
           </p>
-          <button
-            type="button"
-            onClick={close}
-            className="w-full rounded-md bg-brand-600 px-4 py-2.5 font-bold text-white hover:bg-brand-700"
-          >
+          <button type="button" onClick={close} className="btn-primary w-full">
             حسنًا
           </button>
         </div>

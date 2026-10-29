@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { arabicDay, arabicMoment } from "@/lib/tammeni/evaluate";
 import { api, ConfirmDialog, ErrorNote, MethodLabel, newKey, primaryButton, secondaryButton, StatusBadge } from "./shared";
@@ -58,9 +59,9 @@ export function NotificationCard({
   const [busy, setBusy] = useState<null | "preview" | "run" | "refresh">(null);
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState<null | { resendOf: string | null }>(null);
-  // One key per run intent: retrying the same click never sends twice; a new key only after a result.
   const [runKey, setRunKey] = useState(newKey);
   const [outcome, setOutcome] = useState<string | null>(null);
+  const [openAttempts, setOpenAttempts] = useState(false);
 
   const loadPreview = async () => {
     if (!n || busy) return;
@@ -85,7 +86,6 @@ export function NotificationCard({
     setBusy(null);
     setConfirm(null);
     if (!r.ok) {
-      // Preferences changed since the preview: show the new preview; nothing was sent.
       if (r.extra.changed && r.extra.preview) setPreview(r.extra.preview as Preview);
       setError(r.error);
       onChanged();
@@ -101,6 +101,7 @@ export function NotificationCard({
           ? `قُبل لدى المزود الوهمي${where}. لم يُرسل شيء فعليًا.`
           : `قُبل الطلب لدى Twilio${where}. هذا قبول للطلب وليس تأكيد تسليم؛ استخدم «تحديث الحالة».`,
     );
+    setOpenAttempts(true);
     onChanged();
   };
 
@@ -118,76 +119,99 @@ export function NotificationCard({
   const lastAttempt = attempts[0];
 
   return (
-    <article className="space-y-3 rounded-xl border border-line bg-white p-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <article className="studio-event">
+      <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-lg font-bold text-ink">{event.summary}</p>
-          <p className="text-base text-ink">تاريخ الحدث: {arabicDay(event.event_date)}</p>
+          <p className="m-0 text-base font-extrabold">{event.summary}</p>
+          <p className="m-0 text-xs text-[var(--studio-muted)]">تاريخ الحدث: {arabicDay(event.event_date)}</p>
         </div>
-        {n && <StatusBadge status={n.status} label={n.status === "suppressed" ? "متوقف" : undefined} />}
+        {n && <StatusBadge status={n.status} />}
       </header>
 
       {!n ? (
-        <p className="text-base text-ink">هذا الحدث لا ينتج تحديثًا مستقلًا (قبول عذر).</p>
+        <p className="m-0 text-sm">هذا الحدث لا ينتج تحديثًا مستقلًا (قبول عذر).</p>
       ) : (
         <>
-          <dl className="space-y-1 text-lg">
-            <div className="flex flex-wrap gap-x-2"><dt className="font-bold text-brand-800">السبب:</dt><dd className="text-ink">{n.reason}</dd></div>
-            {n.method && <div className="flex flex-wrap gap-x-2"><dt className="font-bold text-brand-800">الطريقة:</dt><dd><MethodLabel method={n.method} /></dd></div>}
-            {n.due_at && <div className="flex flex-wrap gap-x-2"><dt className="font-bold text-brand-800">الموعد:</dt><dd className="text-ink">{arabicMoment(n.due_at)} بتوقيت السعودية</dd></div>}
-          </dl>
+          <p className="m-0 text-sm leading-6">{n.reason}</p>
+          <p className="m-0 flex flex-wrap items-center gap-3 text-sm">
+            {n.method && <MethodLabel method={n.method} />}
+            {n.due_at && <span>الموعد: {arabicMoment(n.due_at)}</span>}
+          </p>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             <button type="button" onClick={loadPreview} aria-disabled={busy !== null || undefined} className={secondaryButton}>
               {busy === "preview" ? "جارٍ إعداد المعاينة…" : "معاينة التحديث"}
             </button>
             {canRun && (
               <button type="button" onClick={() => setConfirm({ resendOf: null })} className={primaryButton}>
-                تشغيل التحديث الآن — للديمو
+                تشغيل التحديث الآن
               </button>
             )}
           </div>
           {!preview && n.status !== "suppressed" && n.status !== "cancelled" && !SENT.has(n.status) && (
-            <p className="text-base text-ink">اعرض المعاينة أولًا؛ التشغيل يستخدم آخر تفضيلات محفوظة.</p>
+            <p className="m-0 text-xs text-[var(--studio-muted)]">اعرض المعاينة أولًا؛ التشغيل يستخدم آخر تفضيلات محفوظة.</p>
           )}
 
           {preview && <PreviewBox preview={preview} />}
-          {outcome && <p role="status" className="rounded-xl bg-mint-100 p-4 font-bold text-brand-800">{outcome}</p>}
+          {outcome && (
+            <p role="status" className="studio-alert studio-saved m-0">
+              {outcome}
+            </p>
+          )}
           {error && <ErrorNote>{error}</ErrorNote>}
 
           {attempts.length > 0 && (
-            <section aria-label={`سجل محاولات «${event.summary}»`} className="space-y-2">
-              <h4 className="font-bold text-ink">المحاولات</h4>
-              <ul className="space-y-2">
-                {attempts.map((a) => (
-                  <li key={a.id} className="space-y-1 rounded-lg bg-[#f9fafb] p-3 text-base">
-                    <p className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={a.status} label={a.status === "accepted" && a.provider === "mock" ? "قُبل لدى المزود الوهمي" : undefined} />
-                      <MethodLabel method={a.method} />
-                      <span className="text-ink">{a.kind === "resend" ? "إعادة إرسال مقصودة" : "إرسال"} — {a.provider === "mock" ? "مزود وهمي" : "Twilio"}</span>
-                    </p>
-                    <p className="text-ink">
-                      {arabicMoment(a.created_at)}
-                      {a.destination_masked ? ` — إلى ${a.destination_masked}` : ""}
-                      {a.provider_status ? ` — حالة المزود: ${a.provider_status}` : ""}
-                    </p>
-                    {a.ran_early && a.original_due_at && <p className="text-ink">شُغّل مبكرًا للديمو؛ الموعد الأصلي {arabicMoment(a.original_due_at)}.</p>}
-                    {a.error_message && <p className="font-bold text-[#b42318]">{a.error_message}</p>}
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {a.provider === "twilio" && (a.status === "accepted" || a.status === "sending") && (
-                        <button type="button" onClick={() => refresh(a.id)} className="min-h-11 rounded-lg px-3 font-bold text-brand-700 underline underline-offset-4">
-                          تحديث الحالة من المزود
-                        </button>
+            <section aria-label={`سجل محاولات «${event.summary}»`}>
+              <button
+                type="button"
+                className="studio-btn-secondary"
+                aria-expanded={openAttempts}
+                onClick={() => setOpenAttempts((v) => !v)}
+              >
+                {openAttempts ? "إخفاء المحاولات" : `المحاولات (${attempts.length})`}
+              </button>
+              {openAttempts && (
+                <ul className="studio-timeline mt-2">
+                  {attempts.map((a) => (
+                    <li key={a.id} className="studio-swap">
+                      <p className="m-0 flex flex-wrap items-center gap-2 text-sm">
+                        <StatusBadge
+                          status={a.status}
+                          label={a.status === "accepted" && a.provider === "mock" ? "قُبل لدى المزود الوهمي" : undefined}
+                        />
+                        <MethodLabel method={a.method} />
+                        <span>{a.kind === "resend" ? "إعادة إرسال" : "إرسال"}</span>
+                        <span>{a.provider === "mock" ? "وهمي" : "Twilio"}</span>
+                      </p>
+                      <p className="m-0 mt-1 text-xs text-[var(--studio-muted)]">
+                        {arabicMoment(a.created_at)}
+                        {a.destination_masked ? ` — إلى ${a.destination_masked}` : ""}
+                        {a.provider_status ? ` — ${a.provider_status}` : ""}
+                      </p>
+                      {a.ran_early && a.original_due_at && (
+                        <p className="m-0 text-xs">شُغّل مبكرًا؛ الموعد الأصلي {arabicMoment(a.original_due_at)}.</p>
                       )}
-                      {a.id === lastAttempt?.id && preview && preview.status !== "suppressed" && (
-                        <button type="button" onClick={() => setConfirm({ resendOf: a.id })} className="min-h-11 rounded-lg px-3 font-bold text-[#b42318] underline underline-offset-4">
-                          {a.status === "failed" ? "إعادة المحاولة" : "إعادة إرسال مقصودة"}
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      {a.error_message && <p className="m-0 text-sm font-bold text-[#b42318]">{a.error_message}</p>}
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {a.provider === "twilio" && (a.status === "accepted" || a.status === "sending") && (
+                          <button type="button" onClick={() => refresh(a.id)} className="min-h-10 text-sm font-bold text-[var(--studio-teal)] underline underline-offset-4">
+                            تحديث الحالة من المزود
+                          </button>
+                        )}
+                        {a.id === lastAttempt?.id && preview && preview.status !== "suppressed" && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirm({ resendOf: a.id })}
+                            className="min-h-10 text-sm font-bold text-[#b42318] underline underline-offset-4"
+                          >
+                            {a.status === "failed" ? "إعادة المحاولة" : "إعادة إرسال مقصودة"}
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           )}
         </>
@@ -203,10 +227,12 @@ export function NotificationCard({
       >
         {preview && (
           <>
-            <p className="flex flex-wrap items-center gap-2"><strong>الطريقة:</strong> <MethodLabel method={preview.method} /></p>
+            <p className="flex flex-wrap items-center gap-2">
+              <strong>الطريقة:</strong> <MethodLabel method={preview.method} />
+            </p>
             {preview.status === "waiting" && preview.dueLabel && <p>الموعد الأصلي {preview.dueLabel}؛ سيُتجاوز الانتظار للديمو فقط.</p>}
-            <p className="whitespace-pre-line rounded-lg bg-mint-100 p-3">{preview.method === "call" ? preview.callOpening : preview.message}</p>
-            <p className="text-base">يُرسل إلى رقم الاختبار المضبوط في خادم Python فقط (لا يُختار من هنا). المزود الافتراضي وهمي ولا يرسل شيئًا.</p>
+            <p className="whitespace-pre-line rounded-lg bg-[var(--studio-ground)] p-3">{preview.method === "call" ? preview.callOpening : preview.message}</p>
+            <p className="text-sm">يُرسل إلى رقم الاختبار المضبوط في خادم Python فقط. المزود الافتراضي وهمي ولا يرسل شيئًا.</p>
           </>
         )}
       </ConfirmDialog>
@@ -215,22 +241,42 @@ export function NotificationCard({
 }
 
 function PreviewBox({ preview }: { preview: Preview }) {
+  const isCall = preview.method === "call";
   return (
-    <div role="status" className="space-y-2 rounded-xl border-2 border-mint-300 p-4 text-lg">
-      <p className="flex flex-wrap items-center gap-2">
-        <span className="font-bold text-ink">المعاينة:</span>
+    <div role="status" className="studio-preview studio-swap text-sm">
+      <p className="m-0 flex flex-wrap items-center gap-2">
+        <strong>المعاينة</strong>
         <StatusBadge status={preview.status} />
         <MethodLabel method={preview.method} />
       </p>
-      <p className="text-ink">{preview.reason}</p>
-      {preview.note && <p className="font-bold text-ink">{preview.note}</p>}
-      {preview.dueLabel && <p className="text-ink">الموعد: {preview.dueLabel} بتوقيت السعودية.</p>}
-      {preview.window && <p className="text-ink">فترة الملخص الشهري: من {preview.window.start} إلى {preview.window.end}.</p>}
+      <p className="mt-2 mb-0">{preview.reason}</p>
+      {preview.note && <p className="mt-1 mb-0 font-bold">{preview.note}</p>}
+      {preview.dueLabel && <p className="mt-1 mb-0">الموعد: {preview.dueLabel} بتوقيت السعودية.</p>}
+      {preview.window && (
+        <p className="mt-1 mb-0">
+          فترة الملخص الشهري: من {preview.window.start} إلى {preview.window.end}.
+        </p>
+      )}
       {preview.status !== "suppressed" && (
-        <>
-          <p className="font-bold text-brand-800">{preview.method === "call" ? "أول ما تقوله لولوة في المكالمة:" : "نص الرسالة:"}</p>
-          <p className="whitespace-pre-line rounded-lg bg-mint-100 p-3 text-ink">{preview.method === "call" ? preview.callOpening : preview.message}</p>
-        </>
+        <div className="studio-call-preview mt-3">
+          {isCall && (
+            <div className="shrink-0 text-center">
+              <Image src="/characters/combined.png" alt="" width={56} height={56} />
+              <div className="studio-bars" aria-hidden="true">
+                <i style={{ height: "40%" }} />
+                <i style={{ height: "70%" }} />
+                <i style={{ height: "55%" }} />
+                <i style={{ height: "90%" }} />
+                <i style={{ height: "45%" }} />
+              </div>
+              <p className="m-0 text-[0.65rem] font-bold text-[var(--studio-muted)]">معاينة — بلا صوت</p>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="m-0 font-extrabold text-[var(--studio-teal)]">{isCall ? "أول ما تقوله لولوة:" : "نص الرسالة:"}</p>
+            <p className="mt-1 mb-0 whitespace-pre-line leading-7">{isCall ? preview.callOpening : preview.message}</p>
+          </div>
+        </div>
       )}
     </div>
   );

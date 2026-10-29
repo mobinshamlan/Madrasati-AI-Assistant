@@ -16,16 +16,16 @@ export function WelcomeCharacter() {
   const first = greetings === 0;
 
   return (
-    <div className="flex items-center gap-4 lg:flex-col-reverse lg:items-center lg:gap-6">
+    <div className="flex min-w-0 flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4 lg:flex-col-reverse lg:gap-6">
       <button
         type="button"
         aria-label="حيِّ لولوة وتركي"
         onClick={() => setGreetings((n) => n + 1)}
-        className="welcome-character welcome-enter relative w-40 shrink-0 sm:w-48 md:w-60 lg:w-[440px]"
+        className="welcome-character welcome-enter relative w-[160px] max-w-full shrink-0 sm:w-[192px] md:w-[240px] lg:w-[440px]"
       >
         {/* A flat disc the character stands in front of. */}
         <span aria-hidden="true" className="absolute inset-x-[6%] top-[10%] bottom-0 rounded-full bg-mint-300" />
-        <span className="welcome-float relative">
+        <span className="relative">
           {/* Remounted on each press so the greeting plays again. */}
           <span key={greetings} className={first ? "welcome-wave-first" : "welcome-wave"}>
             <Image

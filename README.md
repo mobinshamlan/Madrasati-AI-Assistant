@@ -21,6 +21,7 @@ Website (`.env.local` from `.env.example`):
 - `TAMMENI_BACKEND_URL` — defaults to `http://127.0.0.1:8000`
 - `TAMMENI_DEMO_PARENT_*` / `TAMMENI_DEMO_OPERATOR_*` — fictional demo Auth accounts (server-only; ask the team lead for values, never put them in docs or git)
 - `TAMMENI_LOCAL_OPERATOR` — leave empty unless you want local auto-open of `/demo-control` under `npm run dev` on this machine only
+- `TAMMENI_SHARED_DEMO` — set to `1` so teammates open `/demo-control` without a password on the shared URL too. Those automatic sends stay mock-only. Leave empty for the password form and the separate real-dispatch path
 - `TAMMENI_DISPATCH_SECRET` — shared with the Python backend; long and random
 
 Python backend (`Test_AI_Agent_Upload/.env` from that folder’s `.env.example`):
@@ -42,8 +43,8 @@ Structure and RLS notes: `docs/database.md`. Demo roles, control panel, and limi
 
 1. Start the Python backend from `Test_AI_Agent_Upload` (venv + `uvicorn` on port 8000) — see `docs/demo-control.md`.
 2. Start the website (`npm run dev`).
-3. Parent path: open `/welcome`, then «ابدأ مع طمّني».
-4. Operator / demo control: open `/demo-control` and sign in as the operator (or use local operator mode if configured).
+3. Parent path: open `/welcome` (localhost or the shared URL), then «ابدأ مع طمّني». No password.
+4. Operator / demo control: open `/demo-control`. It opens directly when `TAMMENI_SHARED_DEMO=1` or local operator mode is on; otherwise sign in with the operator password.
 
 Automatic background scheduling and unanswered-call retry workers are **not** implemented. Manual «تشغيل التحديث الآن — للديمو» with the **mock** provider records a log entry and does not send SMS or place calls.
 

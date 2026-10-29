@@ -33,43 +33,41 @@ type NavItem = {
   Icon: typeof HomeIcon;
   page?: PageKey;
   href?: string;
-  isNew?: boolean;
   description?: string;
 };
 
 const navItems: NavItem[] = [
   { label: "الرئيسية", Icon: HomeIcon, page: "home", href: "/" },
-  { label: "أبنائي", Icon: ChildrenIcon, description: "صفحة أبنائي ستعرض ملفات الأبناء وبياناتهم المدرسية بالتفصيل." },
-  { label: "الحضور والغياب", Icon: AttendanceIcon, description: "سجل الحضور والغياب التفصيلي لكل فصل دراسي سيتوفر قريبًا." },
-  { label: "الاختبارات", Icon: ExamIcon, description: "جدول الاختبارات الكامل ونتائجها سيتوفر قريبًا." },
-  { label: "الدرجات", Icon: GradesIcon, description: "كشف الدرجات التفصيلي لجميع المواد سيتوفر قريبًا." },
-  { label: "المساعد الذكي", Icon: SparkleIcon, page: "assistant", href: "/assistant", isNew: true },
+  { label: "أبنائي", Icon: ChildrenIcon, description: "صفحة أبنائي ستعرض ملفات الأبناء وبياناتهم المدرسية بالتفصيل. غير متوفرة في هذه النسخة التجريبية." },
+  { label: "الحضور والغياب", Icon: AttendanceIcon, description: "سجل الحضور والغياب التفصيلي لكل فصل دراسي غير متوفر في هذه النسخة. الملخص يظهر في الرئيسية." },
+  { label: "الاختبارات", Icon: ExamIcon, description: "جدول الاختبارات الكامل غير متوفر في هذه النسخة. الاختبارات القادمة تظهر في الرئيسية." },
+  { label: "الدرجات", Icon: GradesIcon, description: "كشف الدرجات التفصيلي غير متوفر في هذه النسخة. آخر الدرجات تظهر في الرئيسية." },
+  { label: "طمّني", Icon: SparkleIcon, page: "assistant", href: "/assistant" },
 ];
 
 const utilityActions = [
   { label: "بحث", Icon: SearchIcon },
   { label: "الرسائل", Icon: MailIcon },
-  { label: "التنبيهات", Icon: BellIcon, count: 2 },
+  { label: "التنبيهات", Icon: BellIcon },
   { label: "الدعم الفني", Icon: HeadsetIcon },
 ];
 
-function NewBadge() {
+function BrandMark() {
   return (
-    <span className="rounded-md bg-tile-navy px-1.5 py-0.5 text-[11px] leading-none font-bold text-white">جديد</span>
-  );
-}
-
-function Logo() {
-  return (
-    <Image
-      src="/brand/madrasati-logo.svg"
-      alt="شعار منصة مدرستي"
-      width={114}
-      height={58}
-      unoptimized
-      priority
-      className="h-10 w-auto lg:h-12"
-    />
+    <div className="flex items-center gap-3">
+      <p className="tammeni-mark text-[1.75rem] sm:text-[2rem]">طمّني</p>
+      <span className="hidden h-10 w-px bg-brand-400 sm:block" aria-hidden="true" />
+      <Image
+        src="/brand/madrasati-logo.svg"
+        alt=""
+        width={114}
+        height={58}
+        unoptimized
+        priority
+        className="hidden h-9 w-auto sm:block lg:h-11"
+      />
+      <span className="sr-only">نموذج تعليمي مستوحى من واجهة مدرستي، غير تابع للمنصة الرسمية</span>
+    </div>
   );
 }
 
@@ -78,7 +76,7 @@ export function BrandHeader() {
   return (
     <header className="border-b border-mint-300 bg-mint-200">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center px-4 lg:h-[72px] lg:px-6">
-        <Logo />
+        <BrandMark />
       </div>
     </header>
   );
@@ -123,7 +121,7 @@ export function SiteHeader({ current }: { current: PageKey }) {
     <header className="relative z-30 border-b border-mint-300 bg-mint-200">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-4 px-4 lg:h-[72px] lg:px-6">
         <div className="shrink-0">
-          <Logo />
+          <BrandMark />
         </div>
 
         <nav aria-label="القائمة الرئيسة" className="hidden h-full flex-1 lg:block">
@@ -140,14 +138,13 @@ export function SiteHeader({ current }: { current: PageKey }) {
                   >
                     <item.Icon size={19} className="text-brand-700" />
                     {item.label}
-                    {item.isNew && <NewBadge />}
                   </Link>
                 ) : (
                   <button
                     type="button"
                     aria-haspopup="dialog"
                     onClick={() => openItem(item)}
-                    className="flex items-center gap-2 border-b-[3px] border-transparent px-3 text-[15px] font-bold text-ink hover:bg-mint-300/60 xl:px-4"
+                    className="flex cursor-pointer items-center gap-2 border-b-[3px] border-transparent px-3 text-[15px] font-bold text-ink hover:bg-mint-300/60 xl:px-4"
                   >
                     <item.Icon size={19} className="text-brand-700" />
                     {item.label}
@@ -160,21 +157,16 @@ export function SiteHeader({ current }: { current: PageKey }) {
 
         <div className="ms-auto flex items-center gap-2 lg:ms-0">
           <ul className="hidden items-center gap-2 lg:flex" aria-label="أدوات المساعدة">
-            {utilityActions.map(({ label, Icon, count }) => (
+            {utilityActions.map(({ label, Icon }) => (
               <li key={label}>
                 <button
                   type="button"
                   aria-haspopup="dialog"
-                  aria-label={count ? `${label} (${count} جديدة)` : label}
+                  aria-label={`${label} — غير متوفر بعد في هذه النسخة`}
                   onClick={() => openUtility(label)}
-                  className="relative grid size-10 place-items-center rounded-full bg-white text-brand-600 shadow-sm hover:bg-mint-50"
+                  className="relative grid size-12 cursor-pointer place-items-center rounded-full bg-white text-brand-600 hover:bg-mint-50"
                 >
-                  <Icon size={19} />
-                  {count ? (
-                    <span className="absolute -top-1.5 -end-1 grid size-5 place-items-center rounded-full bg-[#f5a524] text-[11px] font-bold text-ink">
-                      {count}
-                    </span>
-                  ) : null}
+                  <Icon size={20} />
                 </button>
               </li>
             ))}
@@ -190,8 +182,8 @@ export function SiteHeader({ current }: { current: PageKey }) {
               <UserIcon size={20} />
             </span>
             <span className="text-start leading-tight">
-              <span className="block text-sm font-bold text-brand-800">{parent.shortName}</span>
-              <span className="block text-xs text-ink-soft">{parent.role}</span>
+              <span className="block text-base font-bold text-brand-800">{parent.shortName}</span>
+              <span className="block text-base text-ink">{parent.role}</span>
             </span>
             <ChevronDownIcon size={16} className="text-ink-soft" />
           </button>
@@ -199,7 +191,7 @@ export function SiteHeader({ current }: { current: PageKey }) {
           <button
             type="button"
             onClick={leave}
-            className="hidden min-h-10 items-center gap-1.5 rounded-full border border-brand-600 bg-white px-3 text-sm font-bold text-brand-700 hover:bg-mint-50 lg:flex"
+            className="hidden min-h-12 cursor-pointer items-center gap-1.5 rounded-full border-2 border-brand-600 bg-white px-4 text-base font-bold text-brand-700 hover:bg-mint-50 lg:flex"
           >
             <LogoutIcon size={18} />
             خروج
@@ -208,14 +200,11 @@ export function SiteHeader({ current }: { current: PageKey }) {
           <button
             type="button"
             aria-haspopup="dialog"
-            aria-label="التنبيهات (2 جديدة)"
+            aria-label="التنبيهات — غير متوفرة بعد في هذه النسخة"
             onClick={() => openUtility("التنبيهات")}
-            className="relative grid size-10 place-items-center rounded-full bg-white text-brand-600 shadow-sm lg:hidden"
+            className="relative grid size-12 cursor-pointer place-items-center rounded-full bg-white text-brand-600 lg:hidden"
           >
-            <BellIcon size={19} />
-            <span className="absolute -top-1.5 -end-1 grid size-5 place-items-center rounded-full bg-[#f5a524] text-[11px] font-bold text-ink">
-              2
-            </span>
+            <BellIcon size={20} />
           </button>
           <button
             ref={toggleRef}
@@ -224,7 +213,7 @@ export function SiteHeader({ current }: { current: PageKey }) {
             aria-controls="mobile-menu"
             aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"}
             onClick={() => setMenuOpen((v) => !v)}
-            className="grid size-10 place-items-center rounded-full bg-brand-600 text-white lg:hidden"
+            className="grid size-12 cursor-pointer place-items-center rounded-full bg-brand-600 text-white lg:hidden"
           >
             {menuOpen ? <CloseIcon size={20} /> : <MenuIcon size={20} />}
           </button>
@@ -260,18 +249,17 @@ export function SiteHeader({ current }: { current: PageKey }) {
                   >
                     <item.Icon size={20} className="text-brand-700" />
                     {item.label}
-                    {item.isNew && <NewBadge />}
                   </Link>
                 ) : (
                   <button
                     type="button"
                     aria-haspopup="dialog"
                     onClick={() => openItem(item)}
-                    className="flex w-full items-center gap-3 rounded-md border-s-4 border-transparent px-3 py-3 text-start font-bold hover:bg-mint-100"
+                    className="flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-md border-s-4 border-transparent px-3 py-3 text-start font-bold hover:bg-mint-100"
                   >
                     <item.Icon size={20} className="text-brand-700" />
                     {item.label}
-                    <span className="ms-auto text-xs font-medium text-ink-soft">قريبًا</span>
+                    <span className="ms-auto text-sm font-medium text-ink-soft">غير متوفر</span>
                   </button>
                 )}
               </li>
@@ -279,16 +267,15 @@ export function SiteHeader({ current }: { current: PageKey }) {
           </ul>
         </nav>
         <ul className="flex flex-wrap gap-2 border-t border-mint-200 px-4 py-3" aria-label="أدوات المساعدة">
-          {[...utilityActions.filter(({ count }) => !count), { label: "إمكانية الوصول", Icon: AccessibilityIcon }].map(
-            ({ label, Icon }) => (
+          {[...utilityActions, { label: "إمكانية الوصول", Icon: AccessibilityIcon }].map(({ label, Icon }) => (
               <li key={label}>
                 <button
                   type="button"
                   aria-haspopup="dialog"
                   onClick={() => openUtility(label)}
-                  className="flex items-center gap-2 rounded-full bg-mint-100 px-3 py-2 text-sm font-bold text-brand-700"
+                  className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-mint-100 px-3 py-2 text-base font-bold text-brand-700"
                 >
-                  <Icon size={17} />
+                  <Icon size={18} />
                   {label}
                 </button>
               </li>
@@ -298,7 +285,7 @@ export function SiteHeader({ current }: { current: PageKey }) {
           <button
             type="button"
             onClick={leave}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white font-bold text-brand-700 hover:bg-mint-100"
+            className="btn-secondary w-full"
           >
             <LogoutIcon size={20} />
             خروج من الدخول التجريبي
