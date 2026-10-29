@@ -6,6 +6,9 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
+from starlette.responses import JSONResponse
+from backend.supabase_students import current_dataset, load_dataset, snapshot
 from pydantic import BaseModel, Field
 from backend.notify import router as notify_router
 from backend.parent_preview import router as parent_preview_router
@@ -48,10 +51,13 @@ CATEGORY_TERMS = {
 class StudentDataService:
     """Access the canonical dataset and return only the selected student's records."""
 
-    def __init__(self, path: Path = DATA_PATH):
-        self.path = Path(path)
+    def __init__(self, path: Path | None = None):
+        self.live = path is None
+        self.path = Path(path) if path is not None else DATA_PATH
 
     def _dataset(self) -> dict[str, Any]:
+        if self.live:
+            return current_dataset()
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or not isinstance(data.get("students"), list):
@@ -253,6 +259,24 @@ class StudentDataService:
 service = StudentDataService()
 
 
+@app.middleware("http")
+async def live_student_snapshot(request, call_next):
+    path = request.url.path
+    needs_data = path.startswith(("/api/students", "/api/student/", "/api/conversations")) or path == "/api/live/session"
+    if not needs_data or not service.live or request.method == "DELETE":
+        return await call_next(request)
+    try:
+        data = await run_in_threadpool(load_dataset)
+    except HTTPException as exc:
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+    token = snapshot.set(data)
+    try:
+        return await call_next(request)
+    finally:
+        snapshot.reset(token)
+
+
+
 class StartRequest(BaseModel):
     student_id: str = Field(min_length=1, max_length=100)
     previous_conversation_id: str | None = Field(default=None, max_length=100)
@@ -299,6 +323,10 @@ def _attendance_text(records: Any, name: str, question: str = "") -> str:
     if records.get("schoolDays") is not None:
         result += f"، من أصل {records['schoolDays']} يوم دراسي"
     result += f" خلال {records.get('termLabel', 'الفترة المسجلة')}."
+    latest = records.get("latestRecord")
+    if latest:
+        status = {"present": "حضور", "absent": "غياب", "late": "تأخر", "excused": "غياب بعذر"}.get(latest.get("status"), "غير محدد")
+        result += f" آخر سجل يوم {latest['day']}: {status}."
     if any(normalize(term) in query for term in ("اسبوع", "هالاسبوع", "هذا الاسبوع", "week")):
         week = records.get("week")
         if isinstance(week, list) and week:
@@ -397,9 +425,10 @@ async def answer(message: str, data: dict[str, Any], history: list[dict[str, str
     messages = [{
         "role": "system",
 
-        "content": "You are Lulwa. Reply in concise, natural Saudi Arabic. Treat selected-student records and status as the only source of truth. Answer verified information before naming missing fields. Missing records never mean absence, zero, or non-submission. Label demo=true or source=synthetic_demo records as synthetic examples. Never claim Noor access; suggest that the parent check Noor or contact the selected school when relevant. Daily attendance is not lesson-by-lesson attendance. Do not infer behavior or motivation, reveal another student, or invent facts.",
+        "content": "You are Lulwa. Reply in concise, natural Saudi Arabic. Treat the latest selected-student records and status as the only source of truth; earlier conversation facts may be outdated. Answer verified information before naming missing fields. Missing records never mean absence, zero, or non-submission. Label demo=true or source=synthetic_demo records as synthetic examples. Never claim Noor access; suggest that the parent check Noor or contact the selected school when relevant. Daily attendance is not lesson-by-lesson attendance. Do not infer behavior or motivation, reveal another student, or invent facts.",
     }]
-    messages += history[-8:] + [{"role": "user", "content": f"سؤال ولي الأمر: {message}\nبيانات الطالب المحدد فقط: {context}"}]
+    # Old assistant facts must not override the fresh database snapshot.
+    messages += [x for x in history[-8:] if x.get("role") == "user"] + [{"role": "user", "content": f"سؤال ولي الأمر: {message}\nبيانات الطالب المحدد فقط: {context}"}]
     try:
         async with httpx.AsyncClient(timeout=25) as client:
             response = await client.post("https://api.openai.com/v1/chat/completions", headers={"Authorization": f"Bearer {OPENAI_API_KEY}"}, json={"model": TEXT_MODEL, "messages": messages, "temperature": 0.2})
@@ -424,7 +453,7 @@ async def health() -> dict[str, str]:
 
 @app.get("/api/status")
 async def status() -> dict[str, Any]:
-    return {"model": LIVE_MODEL, "text_model": TEXT_MODEL, "api_key_configured": bool(OPENAI_API_KEY), "dataset_name": DATA_PATH.name, "dataset_loaded": DATA_PATH.is_file()}
+    return {"model": LIVE_MODEL, "text_model": TEXT_MODEL, "api_key_configured": bool(OPENAI_API_KEY), "data_source": "supabase" if service.live else "fixture", "dataset_name": None if service.live else DATA_PATH.name}
 
 
 @app.get("/api/students")
