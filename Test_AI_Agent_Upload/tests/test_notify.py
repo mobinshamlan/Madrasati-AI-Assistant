@@ -29,7 +29,8 @@ BODY = {"token": TOKEN, "method": "message", "idempotency_key": "key-12345678"}
 class DispatchTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
-        self.env = patch.dict(os.environ, {"TAMMENI_DISPATCH_SECRET": SECRET, "TAMMENI_PROVIDER": "mock"}, clear=False)
+        self.env = patch.dict(os.environ, {"TAMMENI_DISPATCH_SECRET": SECRET, "TAMMENI_PROVIDER": "mock",
+                                               "PARENT_PHONE1": "", "TWILIO_SMS_FROM": "Tammeni"}, clear=False)
         self.env.start()
 
     def tearDown(self):
