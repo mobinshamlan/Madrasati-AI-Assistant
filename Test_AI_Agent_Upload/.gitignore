@@ -5,3 +5,6 @@ __pycache__/
 .pytest_cache/
 backend/audio/
 backend/.sessions/
+Data/runtime_state.json
+Data/public_url.txt
+.demo/

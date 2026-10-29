@@ -9,7 +9,7 @@ Endpoints:
   WS   /api/phone/media   <- Twilio يرسل/يستقبل الصوت هنا (G.711 mu-law, 8kHz)
 
 مساران:
-  - المسار القديم (make_call.py): معاملات الرابط وبيانات Data/BasicData.json، كما كان.
+  - المسار القديم (make_call.py): معاملات الرابط وبيانات الطالب من supabase/data/madrasati-dataset.json، كما كان.
   - مسار السياق (?ctx=<رمز>): من لوحة الديمو. نتحقق من توقيع Twilio، ونمرر الرمز فقط، ثم نحمّل
     حقائق التحديث من Supabase (backend/call_context.py). لا بديل احتياطي ببيانات محمد.
 """
@@ -42,7 +42,8 @@ router = APIRouter(prefix="/api/phone")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY", "")
 OPENAI_WS_URL = os.getenv("OPENAI_LIVE_WS_URL", "wss://api.openai.com/v1/live/sessions")
 LIVE_MODEL = "gpt-live-1"
-DATA_PATH = ROOT / "Data" / "BasicData.json"
+# نفس ملف البيانات اللي يُستورد لـSupabase ويقرؤه الـ Agent (نسخة واحدة، مو نسخة ثانية).
+DATA_PATH = Path(os.getenv("MADRASATI_DATASET") or ROOT.parent / "supabase" / "data" / "madrasati-dataset.json")
 
 # أقصى مدة للمكالمة بالثواني (حماية للفاتورة). الـ PDF يقول 20-40 ثانية.
 MAX_CALL_SECONDS = int(os.getenv("MAX_CALL_SECONDS", "90"))
@@ -67,7 +68,7 @@ def _load_student(name: str) -> dict[str, Any] | None:
         students = json.loads(DATA_PATH.read_text(encoding="utf-8")).get("students", [])
     except (OSError, ValueError):
         return None
-    return next((s for s in students if s.get("student_name") == name), None)
+    return next((s for s in students if name in (s.get("id"), s.get("name"), s.get("firstName"))), None)
 
 
 def opening_line(p: dict[str, str]) -> str:
