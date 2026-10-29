@@ -6,11 +6,10 @@ import { useEffect, useRef } from "react";
 import { CheckIcon } from "@/components/dashboard/icons";
 import { useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import type { Preferences } from "./preferences";
-import { PreferencesPreview } from "./preferences-preview";
-import { Character, DeliveryNotes, DemoLabel, formatSavedAt, ReviewList } from "./summary";
+import { Character, DemoLabel, ReviewList } from "./summary";
 
-const primaryButton = "btn-primary px-10";
-const secondaryButton = "btn-secondary px-10";
+const primaryButton = "btn-primary w-full px-6 text-center";
+const secondaryButton = "btn-secondary w-full px-6 text-center";
 
 const setupHref = (studentId: string) => `/assistant?student=${studentId}`;
 const homeHref = (studentId: string) => `/?student=${studentId}`;
@@ -93,13 +92,14 @@ function Success({ student, preferences }: { student: LinkedStudent; preferences
                 id="confirmation-title"
                 ref={headingRef}
                 tabIndex={-1}
+                style={{ outline: "none" }}
                 className="tammeni-saved flex items-start gap-2 text-2xl leading-tight font-extrabold text-ink focus:outline-none sm:text-3xl"
               >
                 <CheckIcon size={26} strokeWidth={3} className="mt-0.5 shrink-0 text-[#067647]" />
                 تم حفظ التفضيلات
               </h1>
               <p className="mt-2 text-lg leading-8 text-ink">
-                اختيارات <strong>{student.name}</strong> — {student.grade}.
+                حفظنا اختيارات <strong>{student.firstName}</strong>. تقدر تعدّلها في أي وقت.
               </p>
             </div>
           </div>
@@ -107,7 +107,7 @@ function Success({ student, preferences }: { student: LinkedStudent; preferences
       </section>
 
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 text-lg">
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Link href={homeHref(student.id)} className={primaryButton}>
             العودة إلى الرئيسية
           </Link>
@@ -120,20 +120,13 @@ function Success({ student, preferences }: { student: LinkedStudent; preferences
           <h2 id="summary-title" className="text-2xl font-extrabold text-ink">
             ملخص اختياراتك
           </h2>
-          <ReviewList preferences={preferences} student={student} legacy={null} showRetry />
-          {preferences.savedAt && (
-            <p className="text-base text-ink-soft">آخر حفظ: {formatSavedAt(preferences.savedAt)} بتوقيت السعودية</p>
-          )}
+          <ReviewList preferences={preferences} student={student} legacy={null} showRetry={preferences.retryUnansweredCall} />
+
         </section>
 
-        <PreferencesPreview key={JSON.stringify(preferences)} studentId={student.id} preferences={preferences} />
-
-        <section aria-labelledby="notes-title" className="space-y-4">
-          <h2 id="notes-title" className="text-2xl font-extrabold text-ink">
-            معلومات مهمة
-          </h2>
-          <DeliveryNotes student={student} />
-        </section>
+        <p className="border-s-2 border-mint-300 ps-4 text-base leading-7 text-ink-soft">
+          في هذا الديمو، التحديثات تُشغّل يدويًا ولا تُرسل تلقائيًا. جميع المواعيد بتوقيت الرياض.
+        </p>
       </div>
     </>
   );
