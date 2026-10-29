@@ -488,6 +488,7 @@ export function savePreferences(studentId: string, preferences: Preferences): bo
   } catch {
     return false;
   }
+  void pushToServer(studentId, preferences);
   try {
     for (const key of [KEYS.v3, KEYS.v2, KEYS.v1]) window.localStorage.removeItem(key + studentId);
   } catch {
@@ -495,6 +496,42 @@ export function savePreferences(studentId: string, preferences: Preferences): bo
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
   return true;
+}
+
+// ---------- backend sync ----------
+// The backend is the source of truth: it reads these preferences when the school records an event.
+// localStorage stays only as a local cache so the wizard keeps working if the backend is unreachable.
+
+const serverUrl = (studentId: string) => `/api/parent/preferences/${encodeURIComponent(studentId)}`;
+
+export async function pushToServer(studentId: string, preferences: Preferences): Promise<boolean> {
+  try {
+    const res = await fetch(serverUrl(studentId), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(preferences),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Copies the backend's saved preferences into the local cache; the UI refreshes via CHANGE_EVENT. */
+export async function pullFromServer(studentId: string): Promise<void> {
+  try {
+    const res = await fetch(serverUrl(studentId), { cache: "no-store" });
+    if (!res.ok) return;
+    const { preferences } = (await res.json()) as { preferences: unknown };
+    if (!preferences) return;
+    const raw = JSON.stringify({ version: 4, ...(preferences as object) });
+    if (parseV4(raw).status !== "saved") return;
+    if (window.localStorage.getItem(KEYS.v4 + studentId) === raw) return;
+    window.localStorage.setItem(KEYS.v4 + studentId, raw);
+    window.dispatchEvent(new Event(CHANGE_EVENT));
+  } catch {
+    // Offline or blocked storage: keep whatever is cached.
+  }
 }
 
 // ---------- validation ----------

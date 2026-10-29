@@ -42,6 +42,12 @@ export const parent = {
   lastLogin: "الأربعاء 17/05/1448 هـ — 08:12 ص",
 };
 
+export const school = {
+  name: "مدرسة رياض النخبة",
+  adminName: "مسؤول المدرسة",
+  role: "حساب إدارة المدرسة",
+};
+
 export const today = { gregorian: "الأربعاء 28 أكتوبر 2026م", hijri: "17 جمادى الأولى 1448 هـ" };
 
 export const students: Student[] = [
@@ -157,5 +163,37 @@ export const students: Student[] = [
         tag: "تنظيمي",
       },
     ],
+  },
+  {
+    id: "mohammed",
+    character: "boy",
+    name: "محمد عبدالرحمن الشهري",
+    firstName: "محمد",
+    grade: "الصف السادس الابتدائي",
+    stage: "المرحلة الابتدائية",
+    classroom: "سادس / 1",
+    school: "مدرسة رياض النخبة الابتدائية للبنين",
+    attendance: {
+      termLabel: "الفصل الدراسي الأول 1448 هـ",
+      schoolDays: 48,
+      present: 47,
+      absent: 0,
+      late: 1,
+      excused: 0,
+      week: [
+        { day: "الأحد", date: "14/05", status: "present" },
+        { day: "الاثنين", date: "15/05", status: "present" },
+        { day: "الثلاثاء", date: "16/05", status: "late", note: "تأخر 5 دقائق" },
+        { day: "الأربعاء", date: "17/05", status: "present", note: "اليوم" },
+      ],
+    },
+    exams: [
+      { subject: "الرياضيات", kind: "اختبار قصير", day: "الأحد", date: "1 نوفمبر", hijri: "21/05/1448", period: "الحصة الأولى" },
+    ],
+    grades: [
+      { subject: "الرياضيات", assessment: "الاختبار الأسبوعي", score: 85, outOf: 100, date: "15/05/1448" },
+      { subject: "اللغة الإنجليزية", assessment: "الاختبار الأسبوعي", score: 95, outOf: 100, date: "15/05/1448" },
+    ],
+    announcements: [],
   },
 ];

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { topicSummary, topics, useSavedPreferences } from "@/components/assistant/preferences";
 import { useComingSoon } from "./coming-soon";
-import { parent, students, today, type AttendanceStatus, type Student } from "./data";
+import { parent, students, today, type Student } from "./data";
 import {
   AttendanceIcon,
   CheckIcon,
@@ -20,7 +20,7 @@ import {
   UserIcon,
 } from "./icons";
 import { PageShell } from "./page-shell";
-import { SectionTab, StudentPicker } from "./ui";
+import { InfoRing, SectionTab, StudentPicker, Tile, statusStyles } from "./ui";
 
 export function ParentDashboard() {
   return (
@@ -111,51 +111,6 @@ function WelcomeBanner({ student, onSelect }: { student: Student; onSelect: (id:
   );
 }
 
-function InfoRing({ Icon, label, value }: { Icon: typeof UserIcon; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="grid size-14 shrink-0 place-items-center rounded-full border-2 border-brand-400 bg-white/50 text-brand-600">
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0">
-        <dt className="text-sm text-ink-soft">{label}</dt>
-        <dd className="font-bold text-ink">{value}</dd>
-      </div>
-    </div>
-  );
-}
-
-function Tile({
-  href,
-  Icon,
-  color,
-  label,
-  value,
-}: {
-  href: string;
-  Icon: typeof UserIcon;
-  color: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <li>
-      <a
-        href={href}
-        className="flex h-full flex-col items-start gap-3 rounded-lg bg-brand-600 p-2.5 text-white shadow-sm transition-colors hover:bg-brand-700 sm:flex-row sm:items-center sm:gap-4"
-      >
-        <span className={`grid size-11 shrink-0 place-items-center rounded-md sm:size-14 ${color}`}>
-          <Icon size={28} />
-        </span>
-        <span>
-          <span className="block text-2xl font-extrabold leading-none">{value}</span>
-          <span className="mt-1 block font-bold">{label}</span>
-        </span>
-      </a>
-    </li>
-  );
-}
-
 function MoreButton({ title, label, description }: { title: string; label: string; description?: string }) {
   const openComingSoon = useComingSoon();
   return (
@@ -170,13 +125,6 @@ function MoreButton({ title, label, description }: { title: string; label: strin
     </button>
   );
 }
-
-const statusStyles: Record<AttendanceStatus, { label: string; className: string }> = {
-  present: { label: "حاضر", className: "bg-[#ecfdf3] text-[#067647] ring-[#abefc6]" },
-  absent: { label: "غائب", className: "bg-[#fef3f2] text-[#b42318] ring-[#fecdca]" },
-  late: { label: "متأخر", className: "bg-[#fffaeb] text-[#93370d] ring-[#fedf89]" },
-  excused: { label: "غياب بعذر", className: "bg-[#eff8ff] text-[#175cd3] ring-[#b2ddff]" },
-};
 
 function AttendanceSection({ student }: { student: Student }) {
   const a = student.attendance;

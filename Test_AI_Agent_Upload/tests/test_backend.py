@@ -92,3 +92,60 @@ class ApiTests(unittest.TestCase):
 
 
 if __name__ == "__main__": unittest.main()
+
+
+class DemoFlowTests(unittest.TestCase):
+    """تفضيلات ولي الأمر في الـ backend -> حدث المدرسة -> قرار (اتصال/رسالة/ولا شي)."""
+
+    def setUp(self):
+        import os
+        from backend import store
+        self._tmp = TemporaryDirectory()
+        os.environ["DEMO_DRY_RUN"] = "1"
+        store.STATE_PATH = Path(self._tmp.name) / "state.json"
+        store._state = None
+        self.client = TestClient(backend.app)
+        token = self.client.post("/api/school/login", json={"username": "school", "password": "school123"}).json()["token"]
+        self.h = {"Authorization": f"Bearer {token}"}
+        self.prefs = {k: {"timing": "immediate", "method": "call"} for k in ("attendance", "exams", "grades")}
+
+    def tearDown(self): self._tmp.cleanup()
+
+    def event(self, **kw):
+        body = {"type": "attendance", "student_id": "mohammed", "subject_id": "MATH", **kw}
+        return self.client.post("/api/school/events", headers=self.h, json=body).json()["result"]
+
+    def test_school_requires_login_when_auth_enabled(self):
+        from backend import demo_api
+        demo_api.SCHOOL_AUTH = True
+        self.addCleanup(setattr, demo_api, "SCHOOL_AUTH", False)
+        self.assertEqual(self.client.get("/api/school/students").status_code, 401)
+        self.assertEqual(self.client.post("/api/school/login", json={"username": "x", "password": "y"}).status_code, 401)
+
+    def test_no_saved_preferences_means_no_alert(self):
+        self.assertEqual(self.event()["action"], "skipped")
+
+    def test_absence_follows_saved_channel(self):
+        self.client.put("/api/parent/preferences/mohammed", json=self.prefs)
+        self.assertEqual(self.event()["action"], "call")
+        self.prefs["attendance"]["method"] = "message"
+        self.client.put("/api/parent/preferences/mohammed", json=self.prefs)
+        self.assertEqual(self.event()["action"], "message")
+
+    def test_off_topic_is_skipped_and_preferences_persist(self):
+        self.prefs["grades"]["timing"] = "off"
+        self.client.put("/api/parent/preferences/mohammed", json=self.prefs)
+        self.assertEqual(self.event(type="grade", score=9)["action"], "skipped")
+        saved = self.client.get("/api/parent/preferences/mohammed").json()["preferences"]
+        self.assertEqual(saved["grades"]["timing"], "off")
+
+    def test_event_updates_school_data_and_log(self):
+        self.event()
+        students = self.client.get("/api/school/students", headers=self.h).json()["students"]
+        math = students[0]["subjects"][0]
+        self.assertEqual(math["attendance"][-1]["status"], "absent")
+        self.assertEqual(len(self.client.get("/api/school/events", headers=self.h).json()["events"]), 1)
+
+    def test_sibling_preferences_used_when_child_has_none(self):
+        self.client.put("/api/parent/preferences/mohammed", json=self.prefs)
+        self.assertEqual(self.event(student_id="reem")["action"], "call")

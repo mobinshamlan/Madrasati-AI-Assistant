@@ -2,13 +2,21 @@
 
 import { ComingSoonProvider, useComingSoon } from "./coming-soon";
 import { AccessibilityIcon, InfoIcon } from "./icons";
-import { SiteHeader, type PageKey } from "./site-header";
+import { SiteHeader, type HeaderVariant, type PageKey } from "./site-header";
 
-export function PageShell({ current, children }: { current: PageKey; children: React.ReactNode }) {
+export function PageShell({
+  current,
+  variant = "parent",
+  children,
+}: {
+  current: PageKey;
+  variant?: HeaderVariant;
+  children: React.ReactNode;
+}) {
   return (
     <ComingSoonProvider>
       <DemoNotice />
-      <SiteHeader current={current} />
+      <SiteHeader current={current} variant={variant} />
       {children}
       <footer className="mt-auto border-t border-mint-300 bg-mint-100 px-4 py-4 text-center text-sm text-ink-soft">
         نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية ولا يمثل خدمة صادرة عن وزارة التعليم.

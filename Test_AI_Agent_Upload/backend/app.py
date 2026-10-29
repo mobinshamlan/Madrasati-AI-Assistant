@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from backend.demo_api import parent_router, school_router
 from backend.phone_bridge import router as phone_router
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,10 +25,12 @@ DATA_PATH = ROOT / "Data" / "BasicData.json"
 LIVE_SESSIONS: dict[str, str | None] = {}
 
 app = FastAPI(title="Saudi Arabic GPT-Live Agent", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST", "PUT"], allow_headers=["Content-Type", "Authorization"])
 
 
 app.include_router(phone_router)
+app.include_router(parent_router)
+app.include_router(school_router)
 
 
 class StudentDataService:

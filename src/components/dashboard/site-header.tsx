@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useComingSoon } from "./coming-soon";
-import { parent } from "./data";
+import { parent, school } from "./data";
 import {
   AccessibilityIcon,
   AttendanceIcon,
@@ -23,7 +23,8 @@ import {
   UserIcon,
 } from "./icons";
 
-export type PageKey = "home" | "assistant";
+export type PageKey = "home" | "assistant" | "school";
+export type HeaderVariant = "parent" | "school";
 
 type NavItem = {
   label: string;
@@ -34,13 +35,20 @@ type NavItem = {
   description?: string;
 };
 
-const navItems: NavItem[] = [
+const parentNavItems: NavItem[] = [
   { label: "الرئيسية", Icon: HomeIcon, page: "home", href: "/" },
   { label: "أبنائي", Icon: ChildrenIcon, description: "صفحة أبنائي ستعرض ملفات الأبناء وبياناتهم المدرسية بالتفصيل." },
   { label: "الحضور والغياب", Icon: AttendanceIcon, description: "سجل الحضور والغياب التفصيلي لكل فصل دراسي سيتوفر قريبًا." },
   { label: "الاختبارات", Icon: ExamIcon, description: "جدول الاختبارات الكامل ونتائجها سيتوفر قريبًا." },
   { label: "الدرجات", Icon: GradesIcon, description: "كشف الدرجات التفصيلي لجميع المواد سيتوفر قريبًا." },
   { label: "المساعد الذكي", Icon: SparkleIcon, page: "assistant", href: "/assistant", isNew: true },
+];
+
+const schoolNavItems: NavItem[] = [
+  { label: "الحضور والغياب", Icon: AttendanceIcon, href: "#attendance" },
+  { label: "الاختبارات", Icon: ExamIcon, href: "#exams" },
+  { label: "الدرجات", Icon: GradesIcon, href: "#grades" },
+  { label: "سجل الأحداث", Icon: BellIcon, href: "#events" },
 ];
 
 const utilityActions = [
@@ -56,7 +64,12 @@ function NewBadge() {
   );
 }
 
-export function SiteHeader({ current }: { current: PageKey }) {
+export function SiteHeader({ current, variant = "parent" }: { current: PageKey; variant?: HeaderVariant }) {
+  const isSchool = variant === "school";
+  const navItems = isSchool ? schoolNavItems : parentNavItems;
+  const person = isSchool
+    ? { name: school.adminName, short: school.adminName, role: school.role }
+    : { name: parent.name, short: parent.shortName, role: parent.role };
   const openComingSoon = useComingSoon();
   const [menuOpen, setMenuOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -97,6 +110,12 @@ export function SiteHeader({ current }: { current: PageKey }) {
             className="h-10 w-auto lg:h-12"
           />
         </div>
+        {isSchool && (
+          <p className="hidden border-s-2 border-brand-400 ps-4 leading-tight sm:block">
+            <span className="block text-sm font-extrabold text-brand-800">{school.name}</span>
+            <span className="block text-xs text-ink-soft">نظام المدرسة</span>
+          </p>
+        )}
 
         <nav aria-label="القائمة الرئيسة" className="hidden h-full flex-1 lg:block">
           <ul className="flex h-full items-stretch justify-center gap-1 xl:gap-2">
@@ -162,8 +181,8 @@ export function SiteHeader({ current }: { current: PageKey }) {
               <UserIcon size={20} />
             </span>
             <span className="text-start leading-tight">
-              <span className="block text-sm font-bold text-brand-800">{parent.shortName}</span>
-              <span className="block text-xs text-ink-soft">{parent.role}</span>
+              <span className="block text-sm font-bold text-brand-800">{person.short}</span>
+              <span className="block text-xs text-ink-soft">{person.role}</span>
             </span>
             <ChevronDownIcon size={16} className="text-ink-soft" />
           </button>
@@ -204,8 +223,8 @@ export function SiteHeader({ current }: { current: PageKey }) {
             <UserIcon size={20} />
           </span>
           <span className="leading-tight">
-            <span className="block font-bold text-brand-800">{parent.name}</span>
-            <span className="block text-sm text-ink-soft">{parent.role}</span>
+            <span className="block font-bold text-brand-800">{person.name}</span>
+            <span className="block text-sm text-ink-soft">{person.role}</span>
           </span>
         </div>
         <nav aria-label="القائمة الرئيسة (الجوال)">

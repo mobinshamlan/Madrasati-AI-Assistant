@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { students, type Student } from "@/components/dashboard/data";
 import { ClockIcon, InfoIcon, MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
-import { ChoiceCard, StudentPicker } from "@/components/dashboard/ui";
+import { ChoiceCard, StudentPicker, errorBox, primaryButton, secondaryButton } from "@/components/dashboard/ui";
 import { AFTER_SCHOOL_TIME } from "./config";
 import {
   DAYS_OF_MONTH,
@@ -16,6 +16,7 @@ import {
   dayOptions,
   defaultPreferences,
   enabledTopics,
+  pullFromServer,
   EXAM_DAYS,
   examDaysOptionLabel,
   examTimingOptions,
@@ -73,11 +74,6 @@ const toArabicDigits = (n: number) => String(n).replace(/\d/g, (d) => "٠١٢٣�
 const stepLabel = (step: Step) => `الخطوة ${toArabicDigits(step)} من ${toArabicDigits(STEPS.length)}`;
 export const confirmationHref = (studentId: string) => `/assistant/confirmation?student=${studentId}`;
 
-const primaryButton =
-  "inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-600 px-10 text-lg font-bold text-white transition-colors hover:bg-brand-700";
-const secondaryButton =
-  "inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white px-10 text-lg font-bold text-brand-700 transition-colors hover:bg-mint-100";
-const errorBox = "rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-4 font-bold text-[#b42318]";
 const legendClass = "mb-3 text-xl font-bold text-ink";
 
 const problemText = (problem: Problem) =>
@@ -99,6 +95,9 @@ function Setup() {
   const searchParams = useSearchParams();
   const student = students.find((s) => s.id === searchParams.get("student")) ?? students[0];
   const saved = useSavedPreferences(student.id);
+  useEffect(() => {
+    void pullFromServer(student.id);
+  }, [student.id]);
   // A student chosen in step 1 stays on step 1, with focus back on the choice after the remount.
   const [pickedFor, setPickedFor] = useState<string | null>(null);
   const [savedFor, setSavedFor] = useState<string | null>(null);
