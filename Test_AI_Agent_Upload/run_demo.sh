@@ -13,16 +13,30 @@ if [ ! -x "$PY" ]; then
   python3 -m venv "$HERE/.venv" && "$PY" -m pip install -q -r "$HERE/requirements.txt" || { echo "❌ فشل تجهيز البيئة"; exit 1; }
 fi
 
+# Only stop processes started by this launcher, never every server on a port.
+stop_tree() {
+  local child
+  for child in $(pgrep -P "$1" 2>/dev/null); do stop_tree "$child"; done
+  kill "$1" 2>/dev/null || true
+}
+
 stop() {
+  local n pid expected cwd args
   for n in backend ngrok web; do
-    [ -f "$RUN/$n.pid" ] && kill "$(cat "$RUN/$n.pid")" 2>/dev/null; rm -f "$RUN/$n.pid"
+    [ -f "$RUN/$n.pid" ] || continue
+    pid="$(cat "$RUN/$n.pid")"
+    case "$pid" in ''|*[!0-9]*) echo "Invalid saved PID for $n; skipped"; continue;; esac
+    cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+    args="$(ps -p "$pid" -o command= 2>/dev/null)"
+    expected="$HERE"; [ "$n" = web ] && expected="$WEB"
+    if [ "$cwd" = "$expected" ]; then
+      case "$n:$args" in
+        backend:*uvicorn*backend.app:app*|ngrok:*ngrok*http*8000*|web:*npm*dev*) stop_tree "$pid";;
+        *) echo "Saved PID for $n no longer matches; left running";;
+      esac
+    fi
+    rm -f "$RUN/$n.pid"
   done
-  lsof -ti tcp:8000 tcp:3000 2>/dev/null | xargs kill 2>/dev/null
-  pkill -f "ngrok http 8000" 2>/dev/null
-  pkill -f "uvicorn backend.app:app" 2>/dev/null
-  pkill -f next-server 2>/dev/null
-  pkill -f "next dev" 2>/dev/null
-  sleep 1
 }
 
 ok()   { echo "  ✅ $1"; }
@@ -51,10 +65,17 @@ case "${1:-start}" in
   status) status; exit $?;;
 esac
 
+# Reuse live managed processes only after stopping this launcher's own tree.
 stop
+for port in 8000 3000; do
+  if lsof -tiTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "Port $port is already in use. Stop that server explicitly or use it separately."
+    exit 1
+  fi
+done
 command -v ngrok >/dev/null || { echo "ngrok غير مثبت"; exit 1; }
 
-nohup ngrok http 8000 --log=stdout >"$RUN/ngrok.log" 2>&1 & echo $! >"$RUN/ngrok.pid"
+( cd "$HERE"; exec ngrok http 8000 --log=stdout ) >"$RUN/ngrok.log" 2>&1 </dev/null & echo $! >"$RUN/ngrok.pid"
 URL=""
 for _ in $(seq 1 30); do
   URL="$(curl -fs http://127.0.0.1:4040/api/tunnels | "$PY" -c 'import sys,json;t=json.load(sys.stdin)["tunnels"];print(next((x["public_url"] for x in t if x["public_url"].startswith("https")),""))' 2>/dev/null)"
@@ -63,11 +84,11 @@ done
 [ -n "$URL" ] && echo "$URL" >"$RUN/public_url" || echo "⚠️ ما طلع رابط ngrok (راجع $RUN/ngrok.log)"
 
 # PUBLIC_URL من ngrok (يغلب أي قيمة قديمة في .env) عشان مكالمات Twilio ترجع لجهازك.
-( cd "$HERE" && PUBLIC_URL="${URL:-${PUBLIC_URL:-}}" nohup "$PY" -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 >"$RUN/backend.log" 2>&1 </dev/null & echo $! >"$RUN/backend.pid" )
+( cd "$HERE"; export PUBLIC_URL="${URL:-${PUBLIC_URL:-}}"; exec "$PY" -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 ) >"$RUN/backend.log" 2>&1 </dev/null & echo $! >"$RUN/backend.pid"
 
 # الموقع بوضع التطوير (npm run dev): هذا الوضع الوحيد اللي تشتغل فيه لوحة /demo-control بدون تسجيل دخول
 # (TAMMENI_LOCAL_OPERATOR=1 في .env.local، ومن هذا الجهاز فقط). وبعد تغيير .env.local ما يحتاج إعادة بناء.
-( cd "$WEB" && nohup npm run dev -- -p 3000 >"$RUN/web.log" 2>&1 </dev/null & echo $! >"$RUN/web.pid" )
+( cd "$WEB"; exec npm run dev -- -p 3000 ) >"$RUN/web.log" 2>&1 </dev/null & echo $! >"$RUN/web.pid"
 
 for _ in $(seq 1 60); do curl -fs http://127.0.0.1:3000/welcome >/dev/null && break; sleep 1; done
 status
