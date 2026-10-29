@@ -42,3 +42,4 @@ next-env.d.ts
 
 # Safe, empty configuration template
 !.env.example
+Test_AI_Agent_Upload/.claude/settings.local.json
