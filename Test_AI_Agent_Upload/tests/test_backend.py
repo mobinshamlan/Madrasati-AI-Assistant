@@ -10,6 +10,9 @@ import backend.app as backend
 
 class AgentTests(unittest.TestCase):
     def setUp(self):
+        self.fixture = patch.object(backend, "service", backend.StudentDataService(backend.DATA_PATH))
+        self.fixture.start()
+        self.addCleanup(self.fixture.stop)
         self.client = TestClient(backend.app)
         backend.CONVERSATIONS.clear()
         backend.LIVE_SESSIONS.clear()

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from tempfile import TemporaryDirectory
 from pathlib import Path
 import json
@@ -8,6 +9,11 @@ from backend.student_insights import enrich, insights
 
 
 class InsightTests(unittest.TestCase):
+    def setUp(self):
+        fixture = patch.object(backend, "service", backend.StudentDataService(backend.DATA_PATH))
+        fixture.start()
+        self.addCleanup(fixture.stop)
+
     def test_reem_demo_online_lesson_records_are_scoped_and_labeled(self):
         data = backend.service.retrieve_relevant_student_data('reem', 'online lesson attendance')
         result = enrich(backend.service, data, 'reem', 'online lesson attendance')

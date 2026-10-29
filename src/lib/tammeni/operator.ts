@@ -488,7 +488,7 @@ export async function runNotification(
   const context = {
     version: 1,
     persona: "lulwa",
-    student: { first_name: student.first_name, full_name: student.full_name },
+    student: { key: student.demo_key, first_name: student.first_name, full_name: student.full_name },
     topic: decision.topic,
     allowed_topics: [decision.topic],
     method: decision.method,

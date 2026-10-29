@@ -88,6 +88,6 @@ def enrich(service,data,sid,q):
   if partial_fields: status='partial'
   data['partial_fields']=partial_fields
  p=service.get_student_profile(sid); par=service.get_student_parent(sid) or {}
- data.update(status=status,source='madrasati-dataset.json',school=p.get('school'),parent_context={'name':par.get('shortName') or par.get('preferredName') or par.get('name'),'relation':par.get('relation')})
+ data.update(status=status,source='supabase' if getattr(service,'live',False) else 'madrasati-dataset.json',school=p.get('school'),parent_context={'name':par.get('shortName') or par.get('preferredName') or par.get('name'),'relation':par.get('relation')})
  data['answer_override']=_missing(service,sid,cat) if status=='not_found' else fmt(rows,cat) if cat in ('online_attendance','assignments') else None
  return data
