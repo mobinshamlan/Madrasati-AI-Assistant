@@ -32,8 +32,8 @@ export default function WelcomePage() {
     <>
       <DemoNotice />
       <header className="bg-mint-200">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 lg:h-[72px] lg:px-6">
-          <p className="text-3xl leading-none font-extrabold text-brand-800">طمّني</p>
+        <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-3 px-4 py-2 lg:h-[72px] lg:px-6 lg:py-0">
+          <p className="tammeni-mark text-3xl">طمّني</p>
           <DemoLabel />
         </div>
       </header>
@@ -42,7 +42,7 @@ export default function WelcomePage() {
         <section aria-labelledby="welcome-title" className="bg-mint-200">
           <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 pt-6 pb-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-14 lg:px-6 lg:pt-12 lg:pb-20">
             <WelcomeCharacter />
-            <div>
+            <div className="min-w-0">
               <h1
                 id="welcome-title"
                 className="welcome-rise welcome-after1 text-[34px] leading-[1.3] font-extrabold text-balance text-ink sm:text-5xl sm:leading-[1.25] lg:text-[56px]"
@@ -78,23 +78,24 @@ export default function WelcomePage() {
               كيف توصلك الأخبار
             </h2>
             <p className="mt-3 text-lg leading-8 text-ink">أمثلة توضيحية ببيانات خيالية.</p>
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <figure className="rounded-xl bg-white p-5 sm:p-6">
+            <div className="mt-8 grid min-w-0 gap-6 lg:grid-cols-2">
+              <figure className="min-w-0 rounded-xl border border-mint-300 bg-white p-5 sm:p-6">
                 <figcaption className="flex items-center gap-2 text-xl font-bold text-brand-800">
                   <PhoneIcon size={26} className="text-brand-700" />
-                  باتصال
+                  اتصال من لولوة
                 </figcaption>
-                <div className="mt-4 flex items-start gap-3">
-                  <Image src="/characters/girl.png" alt="" width={64} height={64} className="size-16 shrink-0" />
-                  <blockquote className="rounded-2xl rounded-ss-sm bg-mint-100 px-4 py-3 text-lg leading-8 text-ink">
+                <p className="mt-1 text-base text-ink">المساعدة الصوتية في طمّني — مثال عن اختبار ريم، وليست صورة الطالبة.</p>
+                <div className="mt-4 flex min-w-0 items-start gap-3">
+                  <Image src="/characters/combined.png" alt="" width={64} height={64} className="size-16 shrink-0 object-contain" />
+                  <blockquote className="min-w-0 flex-1 rounded-2xl rounded-ss-sm bg-mint-100 px-4 py-3 text-lg leading-8 text-ink">
                     {callExample}
                   </blockquote>
                 </div>
               </figure>
-              <figure className="rounded-xl bg-white p-5 sm:p-6">
+              <figure className="min-w-0 rounded-xl border border-mint-300 bg-white p-5 sm:p-6">
                 <figcaption className="flex items-center gap-2 text-xl font-bold text-brand-800">
                   <MessageIcon size={26} className="text-brand-700" />
-                  برسالة
+                  رسالة مكتوبة
                 </figcaption>
                 <div className="mt-4 rounded-2xl bg-mint-100 px-4 py-3 text-lg leading-8 text-ink">
                   <p className="font-bold">{messageExample.heading}</p>
@@ -114,7 +115,7 @@ export default function WelcomePage() {
 function StepItem({ step, last }: { step: (typeof steps)[number]; last: boolean }) {
   return (
     <>
-      <li className="rounded-xl bg-mint-100 p-5">
+      <li className="rounded-xl border border-mint-300 bg-mint-100 p-5">
         <p className="text-xl font-bold text-ink">{step.title}</p>
         <p className="mt-1 text-base leading-7 text-ink">{step.detail}</p>
       </li>

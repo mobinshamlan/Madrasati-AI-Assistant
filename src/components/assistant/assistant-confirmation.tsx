@@ -9,10 +9,8 @@ import type { Preferences } from "./preferences";
 import { PreferencesPreview } from "./preferences-preview";
 import { Character, DeliveryNotes, DemoLabel, formatSavedAt, ReviewList } from "./summary";
 
-const primaryButton =
-  "inline-flex min-h-14 items-center justify-center gap-2 rounded-lg bg-brand-600 px-10 text-lg font-bold text-white transition-colors hover:bg-brand-700";
-const secondaryButton =
-  "inline-flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white px-10 text-lg font-bold text-brand-700 transition-colors hover:bg-mint-100";
+const primaryButton = "btn-primary px-10";
+const secondaryButton = "btn-secondary px-10";
 
 const setupHref = (studentId: string) => `/assistant?student=${studentId}`;
 const homeHref = (studentId: string) => `/?student=${studentId}`;
@@ -22,15 +20,15 @@ export function AssistantConfirmation() {
   const linked = useLinkedStudents();
   if (linked.status === "loading") return <Waiting text="جارٍ تحميل البيانات…" />;
   if (linked.status === "error") {
-    return <Problem title="تعذّر تحميل البيانات" body={linked.message} action={{ href: studentId ? setupHref(studentId) : "/assistant", label: "العودة إلى إعداد المساعد" }} home="/" />;
+    return <Problem title="تعذّر تحميل البيانات" body={linked.message} action={{ href: studentId ? setupHref(studentId) : "/assistant", label: "العودة إلى إعداد طمّني" }} home="/" />;
   }
   const student = linked.data.find((s) => s.id === studentId);
   if (!student) {
     return (
       <Problem
         title="لم نتعرف على الابن أو الابنة"
-        body="افتح إعداد المساعد واختر الابن أو الابنة، ثم احفظ التفضيلات."
-        action={{ href: "/assistant", label: "الذهاب إلى إعداد المساعد" }}
+        body="افتح إعداد طمّني واختر الابن أو الابنة، ثم احفظ التفضيلات."
+        action={{ href: "/assistant", label: "الذهاب إلى إعداد طمّني" }}
         home="/"
       />
     );
@@ -49,7 +47,7 @@ function StudentConfirmation({ student }: { student: LinkedStudent }) {
       <Problem
         title={`تعذّر تحميل تفضيلات ${student.firstName}`}
         body={saved.message}
-        action={{ href: setupHref(student.id), label: "العودة إلى إعداد المساعد" }}
+        action={{ href: setupHref(student.id), label: "العودة إلى إعداد طمّني" }}
         home={homeHref(student.id)}
       />
     );
@@ -59,7 +57,7 @@ function StudentConfirmation({ student }: { student: LinkedStudent }) {
       <Problem
         title={`لم تُحفظ تفضيلات لـ${student.firstName} بعد`}
         body="لا توجد تفضيلات محفوظة في حسابك لهذا الابن. أكمل خطوات الإعداد واضغط «حفظ التفضيلات»."
-        action={{ href: setupHref(student.id), label: "إعداد التفضيلات" }}
+        action={{ href: setupHref(student.id), label: "إعداد طمّني" }}
         home={homeHref(student.id)}
       />
     );
@@ -95,7 +93,7 @@ function Success({ student, preferences }: { student: LinkedStudent; preferences
                 id="confirmation-title"
                 ref={headingRef}
                 tabIndex={-1}
-                className="flex items-start gap-2 text-2xl leading-tight font-extrabold text-ink focus:outline-none sm:text-3xl"
+                className="tammeni-saved flex items-start gap-2 text-2xl leading-tight font-extrabold text-ink focus:outline-none sm:text-3xl"
               >
                 <CheckIcon size={26} strokeWidth={3} className="mt-0.5 shrink-0 text-[#067647]" />
                 تم حفظ التفضيلات
@@ -199,7 +197,7 @@ function Breadcrumb({ studentId }: { studentId: string }) {
             href={setupHref(studentId)}
             className="inline-flex min-h-11 items-center font-bold text-brand-700 underline underline-offset-4 hover:text-brand-800"
           >
-            المساعد الذكي
+            طمّني
           </Link>
         </li>
         <li aria-hidden="true">/</li>

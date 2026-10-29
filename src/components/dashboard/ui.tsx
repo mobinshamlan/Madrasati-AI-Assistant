@@ -29,7 +29,7 @@ export function SectionTab({
         )}
         {title}
       </h2>
-      {aside && <div className="pb-1.5 text-sm text-ink-soft">{aside}</div>}
+      {aside && <div className="pb-1.5 text-base text-ink">{aside}</div>}
     </div>
   );
 }
@@ -88,7 +88,7 @@ export function ChoiceCard({
       <span className="min-w-0 flex-1 leading-snug">
         <span className={`block font-bold text-ink ${size === "lg" ? "text-lg" : ""}`}>{title}</span>
         {description && (
-          <span className={`block text-ink-soft ${size === "lg" ? "mt-0.5 text-base" : "text-sm"}`}>{description}</span>
+          <span className={`block text-ink ${size === "lg" ? "mt-0.5 text-base" : "text-sm"}`}>{description}</span>
         )}
       </span>
       <span

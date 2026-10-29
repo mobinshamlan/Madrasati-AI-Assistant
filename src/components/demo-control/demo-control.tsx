@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
-import { InfoIcon, LogoutIcon, UserIcon } from "@/components/dashboard/icons";
-import { api, ErrorNote, fieldClass, labelClass, primaryButton, secondaryButton } from "./shared";
+import { InfoIcon, LogoutIcon } from "@/components/dashboard/icons";
+import { api, ErrorNote, fieldClass, labelClass, primaryButton, secondaryButton, type StudioView } from "./shared";
 import { StudentPanel } from "./student-panel";
 
 type Overview = {
@@ -11,11 +12,24 @@ type Overview = {
   today: string;
 };
 
+const views: { id: StudioView; href: string; label: string }[] = [
+  { id: "run", href: "#run", label: "التشغيل" },
+  { id: "log", href: "#log", label: "سجل المحاولات" },
+  { id: "guide", href: "#guide", label: "إرشادات الديمو" },
+];
+
+function readView(): StudioView {
+  if (typeof window === "undefined") return "run";
+  const h = window.location.hash.replace("#", "");
+  if (h === "log" || h === "guide" || h === "manage") return h;
+  return "run";
+}
+
 export function DemoControl() {
   const [session, setSession] = useState<"checking" | "in" | "out">("checking");
-  // Local demo mode (decided by the server per request): the operator account is signed in without the form.
   const [local, setLocal] = useState(false);
   const [localError, setLocalError] = useState("");
+  const [sharedError, setSharedError] = useState("");
   const signInLocally = useCallback(async () => {
     setLocalError("");
     const r = await api("/api/demo-control/session/local", { method: "POST" });
@@ -23,26 +37,54 @@ export function DemoControl() {
     else setLocalError(r.error);
     return r.ok;
   }, []);
+  const signInShared = useCallback(async () => {
+    setSharedError("");
+    const r = await api("/api/demo-control/session/shared", { method: "POST" });
+    if (r.ok) setSession("in");
+    else setSharedError(r.error);
+    return r.ok;
+  }, []);
   const check = useCallback(async () => {
-    const r = await api<{ signedIn: boolean; local?: boolean }>("/api/demo-control/session");
+    const r = await api<{ signedIn: boolean; local?: boolean; shared?: boolean }>("/api/demo-control/session");
     const isLocal = r.ok && r.data.local === true;
+    const isShared = r.ok && r.data.shared === true;
     setLocal(isLocal);
     if (r.ok && r.data.signedIn) return setSession("in");
     if (isLocal && (await signInLocally())) return;
+    if (isShared && (await signInShared())) return;
     setSession("out");
-  }, [signInLocally]);
+  }, [signInLocally, signInShared]);
   useEffect(() => {
-    // Ask the server once on load whether the operator cookie holds a valid operator session.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void check();
   }, [check]);
 
-  if (session === "checking") return <p role="status" className="py-16 text-center text-lg text-ink-soft">جارٍ التحقق من جلسة المشغّل…</p>;
-  if (session === "out") return <OperatorLogin onSignedIn={() => setSession("in")} local={local} localError={localError} onLocal={signInLocally} />;
-  return <Console onSignedOut={() => setSession("out")} />;
+  if (session === "checking") {
+    return (
+      <p role="status" className="px-6 py-16 text-center text-base text-[var(--studio-muted)]">
+        جارٍ التحقق من جلسة المشغّل…
+      </p>
+    );
+  }
+  if (session === "out") {
+    return <OperatorLogin onSignedIn={() => setSession("in")} local={local} localError={localError} sharedError={sharedError} onLocal={signInLocally} />;
+  }
+  return <Studio onSignedOut={() => setSession("out")} />;
 }
 
-function OperatorLogin({ onSignedIn, local, localError, onLocal }: { onSignedIn: () => void; local: boolean; localError: string; onLocal: () => Promise<boolean> }) {
+function OperatorLogin({
+  onSignedIn,
+  local,
+  localError,
+  sharedError,
+  onLocal,
+}: {
+  onSignedIn: () => void;
+  local: boolean;
+  localError: string;
+  sharedError: string;
+  onLocal: () => Promise<boolean>;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -58,16 +100,19 @@ function OperatorLogin({ onSignedIn, local, localError, onLocal }: { onSignedIn:
     else setError(r.error);
   };
   return (
-    <section aria-labelledby="operator-login" className="mx-auto max-w-lg rounded-xl border border-line bg-white p-6">
-      <h2 id="operator-login" className="text-2xl font-extrabold text-ink">
+    <section id="main" aria-labelledby="operator-login" className="studio-gate">
+      <Image src="/characters/combined.png" alt="" width={76} height={76} />
+      <p className="studio-mark" style={{ color: "var(--studio-teal)", fontSize: "1.5rem", marginTop: "0.35rem" }}>
+        طمّني
+      </p>
+      <h2 id="operator-login" className="mt-3 text-xl font-extrabold">
         دخول المشغّل
       </h2>
-      <p className="mt-2 text-base leading-7 text-ink">
-        هذه اللوحة لمن يدير العرض فقط، بحساب له صلاحية المشغّل. حساب ولي الأمر التجريبي لا يفتحها.
-      </p>
+      <p className="studio-lede">هذه اللوحة لفريق العرض فقط. حساب ولي الأمر التجريبي لا يفتحها.</p>
+      {sharedError && <ErrorNote>{sharedError}</ErrorNote>}
       {local && (
-        <div className="mt-5 space-y-3 rounded-xl border-2 border-[#b2ddff] bg-[#eff8ff] p-4">
-          <p className="text-base leading-7 text-[#194185]">الوضع المحلي مفعّل على هذا الجهاز: يمكن فتح اللوحة بحساب المشغّل دون كتابة البريد وكلمة المرور.</p>
+        <div className="mt-4 space-y-2 rounded-lg bg-[var(--studio-info-bg)] p-3 text-sm leading-6 text-[#194185]">
+          <p>الوضع المحلي مفعّل: يمكن فتح اللوحة دون كتابة البريد.</p>
           {localError && <ErrorNote>{localError}</ErrorNote>}
           <button
             type="button"
@@ -84,13 +129,17 @@ function OperatorLogin({ onSignedIn, local, localError, onLocal }: { onSignedIn:
           </button>
         </div>
       )}
-      <form onSubmit={submit} className="mt-5 space-y-4">
+      <form onSubmit={submit} className="mt-4 space-y-3">
         <div>
-          <label htmlFor="op-email" className={labelClass}>البريد</label>
+          <label htmlFor="op-email" className={labelClass}>
+            البريد
+          </label>
           <input id="op-email" type="email" autoComplete="username" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} className={fieldClass} required />
         </div>
         <div>
-          <label htmlFor="op-password" className={labelClass}>كلمة المرور</label>
+          <label htmlFor="op-password" className={labelClass}>
+            كلمة المرور
+          </label>
           <input id="op-password" type="password" autoComplete="current-password" dir="ltr" value={password} onChange={(e) => setPassword(e.target.value)} className={fieldClass} required />
         </div>
         {error && <ErrorNote>{error}</ErrorNote>}
@@ -102,9 +151,19 @@ function OperatorLogin({ onSignedIn, local, localError, onLocal }: { onSignedIn:
   );
 }
 
-function Console({ onSignedOut }: { onSignedOut: () => void }) {
-  const [data, setData] = useState<{ state: "loading" } | { state: "error"; message: string } | { state: "ready"; overview: Overview }>({ state: "loading" });
+function Studio({ onSignedOut }: { onSignedOut: () => void }) {
+  const [view, setView] = useState<StudioView>(readView);
+  const [data, setData] = useState<{ state: "loading" } | { state: "error"; message: string } | { state: "ready"; overview: Overview }>({
+    state: "loading",
+  });
   const [selected, setSelected] = useState<string | null>(null);
+
+  useEffect(() => {
+    const apply = () => setView(readView());
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, []);
+
   const load = useCallback(async () => {
     setData({ state: "loading" });
     const r = await api<Overview>("/api/demo-control/overview");
@@ -125,87 +184,132 @@ function Console({ onSignedOut }: { onSignedOut: () => void }) {
     onSignedOut();
   };
 
+  const current = data.state === "ready" ? data.overview.students.find((s) => s.id === selected) : undefined;
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <a href="/welcome" target="_blank" rel="noopener" className={secondaryButton}>
-          فتح تجربة ولي الأمر
-          <span className="sr-only"> (في تبويب جديد)</span>
-        </a>
-        <button type="button" onClick={signOut} className="inline-flex min-h-12 items-center gap-2 rounded-lg px-4 font-bold text-brand-700 underline underline-offset-4">
-          <LogoutIcon size={20} />
-          خروج المشغّل
-        </button>
-      </div>
-
-      <TimingExplainer />
-
-      {data.state === "loading" && <p role="status" className="text-lg text-ink-soft">جارٍ تحميل بيانات الديمو…</p>}
-      {data.state === "error" && (
-        <div className="space-y-3">
-          <ErrorNote>{data.message}</ErrorNote>
-          <button type="button" onClick={load} className={secondaryButton}>إعادة المحاولة</button>
+    <div className="studio-shell studio-enter">
+      <aside className="studio-rail" aria-label="تنقل استوديو الديمو">
+        <div>
+          <p className="studio-mark">طمّني</p>
+          <span className="studio-badge">بيئة تجريبية</span>
         </div>
-      )}
-      {data.state === "ready" && (
-        <>
-          <section aria-labelledby="parent-card" className="rounded-xl border border-line bg-white p-5">
-            <h2 id="parent-card" className="sr-only">ولي الأمر</h2>
-            <div className="flex items-center gap-4">
-              <span className="grid size-14 shrink-0 place-items-center rounded-full bg-mint-200 text-brand-700"><UserIcon size={28} /></span>
-              <div>
-                <p className="text-xl font-bold text-ink">{data.overview.parent?.name ?? "لا يوجد ولي أمر مرتبط"}</p>
-                <p className="text-base text-ink">ولي أمر تجريبي — الأبناء المرتبطون: {data.overview.students.map((s) => s.firstName).join(" و")}</p>
-              </div>
-            </div>
-          </section>
+        <nav className="studio-nav">
+          {views.map((item) => (
+            <a key={item.id} href={item.href} aria-current={view === item.id ? "page" : undefined}>
+              {item.label}
+            </a>
+          ))}
+        </nav>
+        <div className="studio-rail-foot">
+          <a href="#manage" aria-current={view === "manage" ? "page" : undefined}>
+            إدارة التجربة
+          </a>
+          <button type="button" onClick={signOut}>
+            <LogoutIcon size={14} className="me-1 inline" />
+            خروج المشغّل
+          </button>
+        </div>
+      </aside>
 
-          <fieldset>
-            <legend className="mb-3 text-xl font-bold text-ink">اختر الطالب</legend>
-            <div className="grid gap-3 sm:grid-cols-2">
+      <div className="studio-main">
+        <header className="studio-top">
+          <div>
+            <h1>استوديو تشغيل الديمو</h1>
+            {data.state === "ready" && (
+              <p className="studio-parent">
+                ولي الأمر: <strong>{data.overview.parent?.name ?? "غير مرتبط"}</strong>
+                {current ? ` · يعمل على ${current.firstName}` : ""}
+              </p>
+            )}
+          </div>
+          <a href="/welcome" target="_blank" rel="noopener" className="studio-open">
+            فتح تجربة ولي الأمر
+            <span className="sr-only"> (في تبويب جديد)</span>
+          </a>
+          {data.state === "ready" && (
+            <div className="studio-students" role="group" aria-label="اختر الطالب">
               {data.overview.students.map((s) => {
                 const active = s.id === selected;
+                const tone = s.key === "nawaf" || s.firstName === "نواف" ? "nawaf" : "reem";
                 return (
                   <button
                     key={s.id}
                     type="button"
                     aria-pressed={active}
                     onClick={() => setSelected(s.id)}
-                    className={`flex min-h-20 items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-start transition-colors ${
-                      active ? "border-brand-600 bg-mint-100" : "border-[#9da4ae] bg-white hover:border-brand-500 hover:bg-mint-50"
-                    }`}
+                    className="studio-chip"
                   >
-                    <span>
-                      <span className="block text-lg font-bold text-ink">{s.name}</span>
-                      <span className="block text-base text-ink">{s.grade}{s.stage ? ` — ${s.stage}` : ""}</span>
+                    <span className="studio-avatar" data-tone={tone} aria-hidden="true">
+                      {s.firstName.slice(0, 1)}
                     </span>
-                    {active && <span className="rounded-full bg-brand-600 px-3 py-1 text-sm font-bold text-white">المختار</span>}
+                    <span>
+                      <span className="studio-chip-name">{s.firstName}</span>
+                      <span className="studio-chip-meta">
+                        {s.grade}
+                        {s.stage ? ` — ${s.stage}` : ""}
+                      </span>
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </fieldset>
+          )}
+        </header>
 
-          {selected && <StudentPanel key={selected} studentId={selected} today={data.overview.today} onSignedOut={onSignedOut} />}
-        </>
-      )}
+        <main id="main" className="studio-canvas">
+          {data.state === "loading" && (
+            <p role="status" className="text-sm text-[var(--studio-muted)]">
+              جارٍ تحميل بيانات الديمو…
+            </p>
+          )}
+          {data.state === "error" && (
+            <div className="space-y-3">
+              <ErrorNote>{data.message}</ErrorNote>
+              <button type="button" onClick={load} className={secondaryButton}>
+                إعادة المحاولة
+              </button>
+            </div>
+          )}
+          {data.state === "ready" && view === "guide" && <Guide />}
+          {data.state === "ready" && selected && view !== "guide" && (
+            <StudentPanel
+              key={selected}
+              studentId={selected}
+              today={data.overview.today}
+              view={view}
+              onSignedOut={onSignedOut}
+            />
+          )}
+        </main>
+      </div>
     </div>
   );
 }
 
-/** The three things that are easy to confuse, said plainly. */
-function TimingExplainer() {
+function Guide() {
   return (
-    <section aria-labelledby="timing-help" className="rounded-xl border-2 border-[#b2ddff] bg-[#eff8ff] p-5 leading-8 text-[#194185]">
-      <h2 id="timing-help" className="flex items-center gap-2 text-xl font-bold">
-        <InfoIcon size={22} />
-        كيف تعمل المواعيد في هذه اللوحة
-      </h2>
-      <ul className="mt-2 list-disc space-y-1 ps-8">
-        <li><strong>تقييم الموعد:</strong> عند حفظ الحدث نحسب من تفضيلات ولي الأمر المحفوظة هل التحديث متوقف أو بانتظار موعد أو جاهز، بتوقيت الرياض.</li>
-        <li><strong>التشغيل اليدوي للديمو:</strong> «تشغيل التحديث الآن» يتجاوز الانتظار فقط، ويسجل الموعد الأصلي. لا يتجاوز موضوعًا متوقفًا.</li>
-        <li><strong>الجدولة التلقائية:</strong> غير مفعّلة في هذه النسخة. لا يُرسل شيء في الخلفية عند حلول الموعد، ولا تُعاد المكالمات تلقائيًا.</li>
+    <section aria-labelledby="guide-title" className="studio-panel studio-swap max-w-2xl">
+      <div className="studio-empty" style={{ background: "transparent", padding: 0, marginBottom: "0.75rem" }}>
+        <Image src="/characters/combined.png" alt="" width={72} height={72} />
+        <div>
+          <h2 id="guide-title">كيف يعمل العرض</h2>
+          <p className="studio-lede">لولوة وتركي يبلّغان ولي الأمر حسب التفضيلات المحفوظة. التشغيل من هنا يدوي.</p>
+        </div>
+      </div>
+      <ul className="mt-3 list-disc space-y-2 ps-5 text-sm leading-6">
+        <li>
+          <strong>تقييم الموعد:</strong> عند حفظ الحدث نحسب من التفضيلات هل التحديث متوقف أو بانتظار موعد أو جاهز، بتوقيت الرياض.
+        </li>
+        <li>
+          <strong>التشغيل اليدوي:</strong> «تشغيل التحديث الآن» يتجاوز الانتظار فقط، ويسجّل الموعد الأصلي. لا يتجاوز موضوعًا متوقفًا.
+        </li>
+        <li>
+          <strong>الجدولة التلقائية:</strong> غير مفعّلة. لا يُرسل شيء في الخلفية عند حلول الموعد، ولا تُعاد المكالمات تلقائيًا.
+        </li>
       </ul>
+      <p className="studio-lede mt-4">
+        <InfoIcon size={14} className="mb-0.5 inline" /> التسلسل دائمًا: حفظ الحدث، ثم المعاينة، ثم التشغيل — منفصلان.
+      </p>
     </section>
   );
 }

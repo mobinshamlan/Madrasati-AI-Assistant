@@ -4,7 +4,7 @@ import { PublicShell } from "@/components/dashboard/page-shell";
 import { DemoLogin } from "@/components/login/demo-login";
 
 export const metadata: Metadata = {
-  title: "دخول تجريبي | المساعد الذكي لولي الأمر",
+  title: "دخول تجريبي | طمّني",
   description: "دخول تجريبي بولي أمر خيالي، دون كلمة مرور أو بيانات شخصية.",
 };
 

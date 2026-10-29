@@ -423,7 +423,7 @@ async function callBackend(path: string, body: Record<string, unknown>): Promise
 export async function runNotification(
   supabase: SupabaseClient,
   notificationId: string,
-  opts: { idempotencyKey: unknown; prefsVersion: unknown; resendOf?: unknown },
+  opts: { idempotencyKey: unknown; prefsVersion: unknown; resendOf?: unknown; forceMock?: boolean },
 ) {
   const key = checkKey(opts.idempotencyKey);
   const { n, event, student } = await loadNotification(supabase, notificationId);
@@ -512,7 +512,18 @@ export async function runNotification(
 
   let result: DispatchResult;
   try {
-    result = await callBackend("/api/notify/dispatch", { token, method: decision.method, idempotency_key: key });
+    // Shared-demo sessions never reach the provider. The mock result is built here so a tunnel
+    // visitor cannot cause Twilio even if the Python process is set to twilio.
+    result = opts.forceMock
+      ? {
+          provider: "mock",
+          status: "accepted",
+          provider_sid: `MOCK-${randomBytes(12).toString("hex")}`,
+          provider_status: "mock-accepted",
+          to_masked: null,
+          error: null,
+        }
+      : await callBackend("/api/notify/dispatch", { token, method: decision.method, idempotency_key: key, force_mock: false });
   } catch (e) {
     const message = e instanceof Error ? e.message : "فشل الإرسال.";
     await supabase.from("dispatch_attempts").update({ status: "failed", error_message: message }).eq("id", attemptId);

@@ -4,7 +4,7 @@ import { AssistantSetup } from "@/components/assistant/assistant-setup";
 import { PageShell } from "@/components/dashboard/page-shell";
 
 export const metadata: Metadata = {
-  title: "إعداد المساعد الذكي | المساعد الذكي لولي الأمر",
+  title: "إعداد طمّني | تفضيلات ولي الأمر",
   description: "اختيار التحديثات وموعدها وطريقة التواصل — نموذج تعليمي تجريبي ببيانات خيالية.",
 };
 

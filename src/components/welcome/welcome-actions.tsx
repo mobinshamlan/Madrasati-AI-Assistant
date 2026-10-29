@@ -7,7 +7,7 @@ import { safeReturnPath, startDemoSession } from "@/lib/demo-session";
 import "./welcome.css";
 
 const primaryClass =
-  "inline-flex min-h-14 w-full cursor-pointer items-center justify-center rounded-lg bg-brand-600 px-10 text-xl font-bold text-white transition-colors hover:bg-brand-700 sm:w-auto aria-disabled:cursor-wait aria-disabled:bg-brand-700";
+  "btn-primary w-full px-10 text-xl sm:w-auto aria-disabled:cursor-wait aria-disabled:bg-brand-700";
 const label = "ابدأ مع طمّني";
 const note = "تجربة ببيانات خيالية، دون إنشاء حساب.";
 

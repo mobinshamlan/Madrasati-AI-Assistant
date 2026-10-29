@@ -9,6 +9,7 @@ Endpoints (لخادم الموقع فقط؛ تتطلب ترويسة X-Tammeni-Di
   mock   (الافتراضي) لا يتصل بأي مزود ولا يرسل شيئًا؛ يعيد «مقبول لدى المزود الوهمي».
   twilio يرسل فعليًا إلى رقم الاختبار المضبوط هنا فقط (PARENT_PHONE)، وبشرط وجوده في
          TAMMENI_ALLOWED_DESTINATIONS. لا يُقبل أي رقم من المتصفح، ولا يُستخدم الهاتف المقنّع من البيانات.
+  force_mock في الطلب يبقى وهميًا حتى لو كان TAMMENI_PROVIDER=twilio (دخول الديمو المشترك).
 
 «مقبول» يعني أن المزود قبل الطلب، لا أنه سُلّم. «تم التسليم» فقط حين يقول المزود ذلك.
 """
@@ -35,6 +36,8 @@ class DispatchRequest(BaseModel):
     token: str = Field(min_length=32, max_length=200)
     method: Literal["call", "message"]
     idempotency_key: str = Field(min_length=8, max_length=100)
+    # The website sets this for a shared-demo session. It cannot be used to turn Twilio on.
+    force_mock: bool = False
 
 
 class StatusRequest(BaseModel):
@@ -91,7 +94,7 @@ async def dispatch(body: DispatchRequest, x_tammeni_dispatch_secret: str | None 
     if ctx["method"] != body.method:
         raise HTTPException(409, "طريقة التواصل لا تطابق السياق المحفوظ. لم يُرسل شيء.")
 
-    if provider_mode() == "mock":
+    if body.force_mock or provider_mode() == "mock":
         log.info("mock dispatch: %s %s", body.method, ctx["topic"])
         return {
             "provider": "mock",

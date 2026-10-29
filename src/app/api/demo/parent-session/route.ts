@@ -2,9 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Demo entry: signs in the one fictional parent account and hands its session to the browser.
- * The password never leaves the server. This is a deliberate demo shortcut: anyone using the demo
- * becomes that same fictional parent, who can read and change only ريم and نواف (enforced by RLS).
- * It grants no operator rights.
+ * The password never leaves the server. This works from localhost and from the shared demo URL;
+ * it is not limited to loopback. Anyone using the demo becomes that same fictional parent, who can
+ * read and change only ريم and نواف (enforced by RLS). It grants no operator rights and uses the
+ * parent cookie, never the operator's.
  */
 export async function POST() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

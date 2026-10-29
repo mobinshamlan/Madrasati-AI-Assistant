@@ -70,7 +70,7 @@ export function ReviewList({
                 )}
               </p>
             )}
-            {s.status === "off" && <p className="text-base text-ink-soft">لن تصلك تحديثات عن هذا النوع.</p>}
+            {s.status === "off" && <p className="text-base text-ink">متوقف — لن يُرسل تحديث عن هذا النوع.</p>}
             {s.status === "on" && (
               <dl className="mt-1 space-y-0.5 text-base leading-7">
                 <SummaryLine term="الطريقة" value={s.method} />
@@ -84,9 +84,9 @@ export function ReviewList({
       {showRetry && usesCalls(preferences) && (
         <ReviewRow label="إعادة الاتصال" target="retry" onEdit={onEdit}>
           <p className="text-lg font-bold text-ink">
-            {preferences.retryUnansweredCall ? "مرة واحدة بعد ٥ دقائق إذا لم ترد" : "لا"}
+            {preferences.retryUnansweredCall ? "مختارة: مرة واحدة بعد ٥ دقائق إذا لم ترد" : "لا"}
           </p>
-          <p className="text-base text-ink-soft">للاتصالات التي لم يُرد عليها فقط، ولا ينطبق على الرسائل.</p>
+          <p className="text-base text-ink">اختيار محفوظ فقط. لا تُعاد المكالمة تلقائيًا في هذه النسخة التجريبية.</p>
         </ReviewRow>
       )}
     </ul>
@@ -138,12 +138,9 @@ function SummaryLine({ term, value }: { term: string; value?: React.ReactNode })
 export function DeliveryNotes({ student }: { student: Pick<LinkedStudent, "firstName"> }) {
   return (
     <ul className="list-disc space-y-1.5 ps-6 text-base leading-7 text-ink marker:text-brand-600">
-      <li>
-        التحديثات المجدولة لـ{student.firstName} تُجمع في اتصال واحد أو رسالة واحدة فقط إذا تطابق التاريخ والوقت وطريقة
-        التواصل.
-      </li>
-      <li>التحديثات المباشرة تصلك فور حدوثها، ولا تتأخر لتُجمع مع غيرها.</li>
-      <li>جميع الأوقات بتوقيت السعودية.</li>
+      <li>هذه اختياراتك لـ{student.firstName}: متى وكيف نخبرك. لا يُرسل شيء تلقائيًا عند حلول الموعد في هذه النسخة التجريبية.</li>
+      <li>كل تحديث يُعرض على حدة. جمع عدة تحديثات في اتصال واحد غير مفعّل بعد.</li>
+      <li>جميع الأوقات بتوقيت السعودية (الرياض).</li>
     </ul>
   );
 }

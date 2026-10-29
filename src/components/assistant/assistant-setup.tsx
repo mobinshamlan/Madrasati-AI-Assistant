@@ -72,11 +72,9 @@ const toArabicDigits = (n: number) => String(n).replace(/\d/g, (d) => "٠١٢٣�
 const stepLabel = (step: Step) => `الخطوة ${toArabicDigits(step)} من ${toArabicDigits(STEPS.length)}`;
 export const confirmationHref = (studentId: string) => `/assistant/confirmation?student=${studentId}`;
 
-const primaryButton =
-  "inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand-600 px-10 text-lg font-bold text-white transition-colors hover:bg-brand-700";
-const secondaryButton =
-  "inline-flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-brand-600 bg-white px-10 text-lg font-bold text-brand-700 transition-colors hover:bg-mint-100";
-const errorBox = "rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-4 font-bold text-[#b42318]";
+const primaryButton = "btn-primary px-10";
+const secondaryButton = "btn-secondary px-10";
+const errorBox = "notice notice-danger";
 const legendClass = "mb-3 text-xl font-bold text-ink";
 
 const problemText = (problem: Problem) =>
@@ -151,13 +149,13 @@ function Setup() {
                   </Link>
                 </li>
                 <li aria-hidden="true">/</li>
-                <li aria-current="page">المساعد الذكي</li>
+                <li aria-current="page">طمّني</li>
               </ol>
             </nav>
             <DemoLabel />
           </div>
           <h1 id="page-title" className="mt-3 text-3xl leading-tight font-extrabold text-ink">
-            إعداد المساعد الذكي
+            إعداد طمّني
           </h1>
           <p className="mt-2 max-w-2xl text-lg leading-8 text-ink">
             اختر ما تريد معرفته عن أبنائك، ومتى وكيف نتواصل معك.
@@ -364,6 +362,7 @@ function Wizard({
       <Progress step={step} />
 
       <div ref={bodyRef} className="space-y-8 p-5 sm:p-8">
+        <div key={step} className="tammeni-step space-y-8">
         <div className="flex items-start gap-4 sm:gap-6">
           <Character className="size-20 sm:size-28" />
           <div className="min-w-0 pt-1 sm:pt-3">
@@ -460,7 +459,7 @@ function Wizard({
                   checked={prefs.retryUnansweredCall}
                   onChange={() => setPrefs((p) => ({ ...p, retryUnansweredCall: !p.retryUnansweredCall }))}
                   title="إذا لم أرد، أعد الاتصال مرة واحدة بعد ٥ دقائق"
-                  description="اختياري. للاتصالات التي لم يُرد عليها فقط، ولا ينطبق على الرسائل."
+                  description="اختياري ويُحفظ مع تفضيلاتك. لا يُنفَّذ تلقائيًا في هذه النسخة التجريبية، ولا ينطبق على الرسائل."
                 />
               </fieldset>
             )}
@@ -480,6 +479,7 @@ function Wizard({
             )}
           </div>
         )}
+        </div>
 
         <div className="border-t border-mint-200 pt-6">
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
@@ -506,6 +506,11 @@ function Wizard({
               </button>
             )}
           </div>
+          {step === 5 && (
+            <p role="status" className="sr-only">
+              {saving ? "جارٍ حفظ التفضيلات في الحساب" : ""}
+            </p>
+          )}
           {replacesSaved && (
             <dialog
               ref={confirmRef}
@@ -520,7 +525,7 @@ function Wizard({
               </h2>
               <div className="space-y-5 px-5 py-5 text-lg">
                 <p id="replace-desc" className="leading-8 text-ink">
-                  لدى {student.firstName} تفضيلات محفوظة على هذا الجهاز. الحفظ الآن يستبدلها بالاختيارات التي في هذه المراجعة،
+                  لدى {student.firstName} تفضيلات محفوظة في الحساب التجريبي. الحفظ الآن يستبدلها بالاختيارات التي في هذه المراجعة،
                   ولا تتغير تفضيلات أي ابن آخر.
                 </p>
                 <div className="flex flex-col gap-3">
@@ -1049,7 +1054,7 @@ function LoadProblem({ message, onRetry }: { message: string; onRetry?: () => vo
         <button
           type="button"
           onClick={onRetry}
-          className="mt-4 inline-flex min-h-12 items-center rounded-lg border-2 border-[#b42318] bg-white px-6 text-[#b42318] hover:bg-[#fff6f5]"
+          className="btn-danger mt-4"
         >
           إعادة المحاولة
         </button>

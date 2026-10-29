@@ -64,7 +64,7 @@ function DashboardBody() {
           <ExamsSection student={student} />
           <GradesSection student={student} />
         </div>
-        <aside className="space-y-6" aria-label="الإعلانات والمساعد الذكي والملف الشخصي">
+        <aside className="space-y-6" aria-label="الإعلانات وطمّني والملف الشخصي">
           <AssistantCard student={current} />
           <AnnouncementsSection student={student} />
           <ProfileCard childCount={list.length} />
@@ -88,13 +88,13 @@ function Loading() {
 function LoadProblem({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <main id="main" className="flex-1 px-4 py-16">
-      <div role="alert" className="mx-auto max-w-xl rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-5 text-lg font-bold text-[#b42318]">
+      <div role="alert" className="notice notice-danger mx-auto max-w-xl">
         <p>{message}</p>
         {onRetry && (
           <button
             type="button"
             onClick={onRetry}
-            className="mt-4 inline-flex min-h-12 items-center rounded-lg border-2 border-[#b42318] bg-white px-6 text-[#b42318] hover:bg-[#fff6f5]"
+            className="btn-danger mt-4"
           >
             إعادة المحاولة
           </button>
@@ -117,7 +117,7 @@ function WelcomeBanner({
   const average = gradeAverage(student);
 
   return (
-    <section aria-labelledby="greeting" className="bg-linear-to-b from-mint-200 to-mint-400 pb-8">
+    <section aria-labelledby="greeting" className="bg-mint-200 pb-8">
       <div className="mx-auto max-w-[1440px] px-4 pt-6 lg:px-6">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-4">
@@ -125,10 +125,10 @@ function WelcomeBanner({
               <UserIcon size={30} />
             </span>
             <div>
-              <h1 id="greeting" className="text-xl font-extrabold text-ink">
-                مرحبًا بك، <span className="text-brand-700">{parent.name}</span>
+              <h1 id="greeting" className="text-2xl font-extrabold text-ink">
+                مرحبًا بك في طمّني، <span className="text-brand-700">{parent.name}</span>
               </h1>
-              <p className="mt-1 text-sm text-ink-soft">
+              <p className="mt-1 text-base text-ink">
                 {parent.role} · {today.gregorian} · {today.hijri}
               </p>
             </div>
@@ -137,11 +137,11 @@ function WelcomeBanner({
           <StudentPicker
             legend="اختر الابن لعرض بياناته"
             students={students}
-            legendClassName="mb-2 text-sm font-bold text-brand-800"
+            legendClassName="mb-2 text-base font-bold text-brand-800"
             selectedId={student.id}
             onSelect={onSelect}
             tone="tinted"
-            size="md"
+            size="lg"
           />
         </div>
 
@@ -169,7 +169,7 @@ function InfoRing({ Icon, label, value }: { Icon: typeof UserIcon; label: string
         <Icon size={26} />
       </span>
       <div className="min-w-0">
-        <dt className="text-sm text-ink-soft">{label}</dt>
+        <dt className="text-base text-ink">{label}</dt>
         <dd className="font-bold text-ink">{value}</dd>
       </div>
     </div>
@@ -193,7 +193,7 @@ function Tile({
     <li>
       <a
         href={href}
-        className="flex h-full flex-col items-start gap-3 rounded-lg bg-brand-600 p-2.5 text-white shadow-sm transition-colors hover:bg-brand-700 sm:flex-row sm:items-center sm:gap-4"
+        className="flex h-full min-h-24 flex-col items-start gap-3 rounded-lg bg-brand-600 p-3 text-white transition-colors hover:bg-brand-700 sm:flex-row sm:items-center sm:gap-4"
       >
         <span className={`grid size-11 shrink-0 place-items-center rounded-md sm:size-14 ${color}`}>
           <Icon size={28} />
@@ -214,7 +214,7 @@ function MoreButton({ title, label, description }: { title: string; label: strin
       type="button"
       aria-haspopup="dialog"
       onClick={() => openComingSoon({ title, description })}
-      className="inline-flex items-center gap-2 rounded-md border border-brand-600 px-4 py-2 text-sm font-bold text-brand-700 hover:bg-mint-100"
+      className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-md border-2 border-brand-600 px-4 py-2 text-base font-bold text-brand-700 hover:bg-mint-100"
     >
       {label}
       <span className="rounded bg-mint-200 px-1.5 py-0.5 text-xs text-brand-800">قريبًا</span>
@@ -259,11 +259,11 @@ function AttendanceSection({ student }: { student: Student }) {
             >
               <div className="h-full rounded-full bg-brand-500" style={{ width: `${rate}%` }} />
             </div>
-            <p className="mt-2 text-sm text-ink-soft">من أصل {a.schoolDays} يومًا دراسيًا</p>
+            <p className="mt-2 text-base text-ink">من أصل {a.schoolDays} يومًا دراسيًا</p>
             <dl className="mt-4 grid grid-cols-2 gap-3">
               {stats.map((s) => (
                 <div key={s.label} className="rounded-lg bg-mint-50 px-3 py-2.5 ring-1 ring-mint-200">
-                  <dt className="text-sm text-ink-soft">{s.label}</dt>
+                  <dt className="text-base text-ink">{s.label}</dt>
                   <dd className={`text-xl font-extrabold ${s.tone}`}>{s.value}</dd>
                 </div>
               ))}
@@ -279,8 +279,8 @@ function AttendanceSection({ student }: { student: Student }) {
                   <li key={d.date} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                     <span>
                       <span className="font-bold">{d.day}</span>{" "}
-                      <span className="text-sm text-ink-soft">{d.date}/1448 هـ</span>
-                      {d.note && <span className="block text-sm text-ink-soft">{d.note}</span>}
+                      <span className="text-base text-ink">{d.date}/1448 هـ</span>
+                      {d.note && <span className="block text-base text-ink">{d.note}</span>}
                     </span>
                     <span className={`rounded-full px-3 py-1 text-sm font-bold ring-1 ${st.className}`}>{st.label}</span>
                   </li>
@@ -313,7 +313,7 @@ function ExamsSection({ student }: { student: Student }) {
                   <span className="text-lg font-bold text-brand-700">{e.subject}</span>
                   <span className="rounded bg-tile-navy px-2 py-0.5 text-xs font-bold text-white">{e.kind}</span>
                 </p>
-                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-ink">
                   <span>
                     التاريخ: {e.day} {e.hijri} هـ ({e.date})
                   </span>
@@ -340,7 +340,7 @@ function GradesSection({ student }: { student: Student }) {
     <section id="grades" aria-labelledby="grades-title" className="scroll-mt-6">
       <SectionTab id="grades-title" title="آخر الدرجات" aside={<>المتوسط: <bdi dir="ltr">{gradeAverage(student)}%</bdi></>} />
       <div className="rounded-b-xl border border-t-0 border-line bg-white p-5">
-        <table className="w-full text-start text-sm">
+        <table className="w-full text-start text-base">
           <caption className="sr-only">آخر الدرجات المرصودة لـ {student.name}</caption>
           <thead>
             <tr className="bg-mint-200 text-brand-800">
@@ -356,8 +356,8 @@ function GradesSection({ student }: { student: Student }) {
               return (
                 <tr key={`${g.subject}-${g.assessment}`}>
                   <th scope="row" className="px-3 py-3 text-start font-bold">{g.subject}</th>
-                  <td className="px-3 py-3 text-ink-soft">{g.assessment}</td>
-                  <td className="hidden px-3 py-3 text-ink-soft sm:table-cell">{g.date} هـ</td>
+                  <td className="px-3 py-3 text-ink">{g.assessment}</td>
+                  <td className="hidden px-3 py-3 text-ink sm:table-cell">{g.date} هـ</td>
                   <td className="px-3 py-3">
                     <span className="font-bold whitespace-nowrap" dir="ltr">
                       {g.score} / {g.outOf}
@@ -387,69 +387,63 @@ function AssistantCard({ student }: { student: LinkedStudent }) {
   const saved = prefs.status === "ready" && prefs.data.exists ? prefs.data : null;
   const href = `/assistant?student=${student.id}`;
   return (
-    <section
-      aria-labelledby="assistant-title"
-      className="overflow-hidden rounded-xl border border-brand-400 bg-linear-to-b from-mint-200 to-mint-100"
-    >
+    <section aria-labelledby="assistant-title" className="overflow-hidden rounded-xl border-2 border-brand-600 bg-mint-100">
       <div className="flex items-center gap-3 p-5 pb-3">
         <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-tile-navy text-white">
           <SparkleIcon size={28} />
         </span>
         <div>
-          <span className="rounded bg-tile-navy px-2 py-0.5 text-xs font-bold text-white">جديد</span>
-          <h2 id="assistant-title" className="mt-1 text-lg font-extrabold text-brand-800">
-            المساعد الذكي لولي الأمر
+          <h2 id="assistant-title" className="text-xl font-extrabold text-brand-800">
+            طمّني — تفضيلات {student.firstName}
           </h2>
+          <p className="text-base text-ink">الابن المختار الآن</p>
         </div>
       </div>
       <div className="px-5 pb-5">
         {prefs.status === "loading" ? (
-          <p role="status" className="text-ink-soft">جارٍ تحميل التفضيلات…</p>
+          <p role="status" className="text-ink">جارٍ تحميل التفضيلات…</p>
         ) : prefs.status === "error" ? (
-          <p role="alert" className="font-bold text-[#b42318]">{prefs.message}</p>
+          <p role="alert" className="notice notice-danger">{prefs.message}</p>
         ) : saved ? (
           <>
-            <p className="font-bold text-ink">تفضيلاتك المحفوظة لـ{student.firstName}:</p>
-            <ul className="mt-3 space-y-2.5">
-              {topics
-                .map((t) => topicSummary(saved.preferences, t))
-                .filter((s) => s.status !== "off")
-                .map((s) => (
+            <p className="font-bold text-ink">المحفوظة في الحساب التجريبي (توقيت السعودية):</p>
+            <ul className="mt-3 space-y-3">
+              {topics.map((t) => {
+                const s = topicSummary(saved.preferences, t);
+                const off = s.status === "off";
+                return (
                   <li key={s.topic} className="flex gap-2.5">
-                    <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
+                    {off ? (
+                      <span className="mt-0.5 shrink-0 font-bold text-ink-soft" aria-hidden="true">—</span>
+                    ) : (
+                      <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
+                    )}
                     <span>
-                      <strong>{s.label}:</strong> {s.short}
-                      {s.method && ` — ${s.method}`}
+                      <strong>{s.label}:</strong> {off ? "متوقف" : `${s.short}${s.method ? ` — ${s.method}` : ""}`}
                     </span>
                   </li>
-                ))}
+                );
+              })}
             </ul>
-            <p className="mt-3 text-sm text-ink-soft">جميع الأوقات بتوقيت السعودية. محفوظة في حسابك التجريبي.</p>
+            <p className="mt-3 text-base text-ink">الإرسال التلقائي عند حلول الموعد غير مفعّل في هذه النسخة.</p>
           </>
         ) : (
           <>
-            <p className="leading-7 text-ink">تابع أبناءك دون الحاجة لتصفح المنصة يوميًا. يمكنك:</p>
+            <p className="leading-7 text-ink">لم تُحفظ تفضيلات لـ{student.firstName} بعد. يمكنك اختيار:</p>
             <ul className="mt-3 space-y-2.5">
               <li className="flex gap-2.5">
                 <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-                <span>
-                  <strong>اختيار التحديثات</strong> التي تهمك: الحضور والغياب، والاختبارات، والدرجات.
-                </span>
+                <span>التحديثات: الحضور والغياب، الاختبارات، الدرجات.</span>
               </li>
               <li className="flex gap-2.5">
                 <PhoneIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-                <span>
-                  <strong>تحديد الموعد وطريقة التواصل</strong> (اتصال أو رسالة) لتعرف أخبار {student.firstName}.
-                </span>
+                <span>طريقة التواصل: اتصال أو رسالة، والوقت المناسب.</span>
               </li>
             </ul>
           </>
         )}
-        <Link
-          href={href}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-brand-600 px-4 py-3 font-bold text-white hover:bg-brand-700"
-        >
-          {saved ? "عرض التفضيلات وتعديلها" : "إعداد المساعد الذكي"}
+        <Link href={href} className="btn-primary mt-5 w-full">
+          {saved ? "عرض التفضيلات وتعديلها" : "إعداد طمّني"}
         </Link>
       </div>
     </section>
@@ -465,16 +459,16 @@ function AnnouncementsSection({ student }: { student: Student }) {
         </h2>
       </div>
       <div className="rounded-b-xl border border-t-0 border-line bg-white">
-        <p className="border-b border-mint-200 bg-mint-50 px-5 py-2.5 text-sm text-ink-soft">{student.school}</p>
+        <p className="border-b border-mint-200 bg-mint-50 px-5 py-2.5 text-base text-ink">{student.school}</p>
         <ul className="divide-y divide-mint-200">
           {student.announcements.map((n) => (
             <li key={n.title} className="px-5 py-4">
               <p className="flex items-center justify-between gap-2">
-                <span className="rounded-full bg-mint-200 px-2.5 py-0.5 text-xs font-bold text-brand-800">{n.tag}</span>
-                <span className="text-xs text-ink-soft">{n.date} هـ</span>
+                <span className="rounded-full bg-mint-200 px-2.5 py-1 text-sm font-bold text-brand-800">{n.tag}</span>
+                <span className="text-base text-ink">{n.date} هـ</span>
               </p>
               <h3 className="mt-2 font-bold text-brand-700">{n.title}</h3>
-              <p className="mt-1 text-sm leading-6 text-ink-soft">{n.body}</p>
+              <p className="mt-1 text-base leading-7 text-ink">{n.body}</p>
             </li>
           ))}
         </ul>
@@ -499,8 +493,8 @@ function ProfileCard({ childCount }: { childCount: number }) {
       </h2>
       <dl className="divide-y divide-mint-100 px-5">
         {rows.map((r) => (
-          <div key={r.label} className="flex flex-wrap justify-between gap-x-4 gap-y-0.5 py-2.5 text-sm">
-            <dt className="text-ink-soft">{r.label}</dt>
+          <div key={r.label} className="flex flex-wrap justify-between gap-x-4 gap-y-0.5 py-2.5 text-base">
+            <dt className="text-ink">{r.label}</dt>
             <dd className="font-bold break-all" dir={r.ltr ? "ltr" : undefined}>
               {r.value}
             </dd>

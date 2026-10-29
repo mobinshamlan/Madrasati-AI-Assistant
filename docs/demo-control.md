@@ -43,6 +43,12 @@ Both roles are real Supabase Auth users. The browser never decides a role.
     this machine: `Host`, `X-Forwarded-Host` and `X-Forwarded-For` loopback, plain http, a same-origin sign-in.
     Through ngrok, the local network, `next start` or a deploy, the normal form and 401/403 apply. See
     `src/lib/tammeni/local-operator.ts`.
+  - **Shared demo (optional, off by default):** with `TAMMENI_SHARED_DEMO=1`, `/demo-control` opens the same way
+    on localhost **and** on the shared URL (ngrok or another host). The POST must come from a page on that same
+    host. The password stays on the server. Sends from that automatic session are **mock only**: the website
+    records a mock attempt and does not call the provider. Signing in with the operator password clears that
+    marker and uses `TAMMENI_PROVIDER` on the Python backend again (still mock unless someone set `twilio`).
+    See `src/lib/tammeni/shared-demo.ts`. Restart `npm run dev` after changing the variable.
   - It records events for demo students and runs the demo. It cannot read the raw source, delete rows, or edit
     imported records (only an imported exam's cancelled/scheduled status).
 - **Where the passwords are:** `.env.local` (git-ignored), as `TAMMENI_DEMO_*`. Check the roles against the
@@ -57,12 +63,13 @@ Both roles are real Supabase Auth users. The browser never decides a role.
    Its `.env` must carry `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `TAMMENI_DISPATCH_SECRET` (the same value as
    the website's). `TAMMENI_PROVIDER` defaults to `mock`.
 2. **Website:** `npm run build && npm start`, or `npm run dev`.
-3. **Parent side:** open `/welcome`, then «ابدأ مع طمّني».
+3. **Parent side:** open `/welcome` on localhost or the shared URL, then «ابدأ مع طمّني». No email or password.
+   The server signs in the fictional parent. That session is not the operator session.
    1. Choose ريم.
    2. Open «إعداد المساعد الذكي».
    3. Save choices. For example, attendance «مباشرة» by message, grades monthly on day 5.
    4. Do the same for نواف, for example attendance «إيقاف».
-4. **Operator side:** open `/demo-control` and sign in as the operator (in local mode it opens directly).
+4. **Operator side:** open `/demo-control`. With `TAMMENI_SHARED_DEMO=1` or local mode it opens directly; otherwise sign in with the operator password.
    1. Choose ريم.
    2. Record an absence, then «حفظ الحدث». You see the decision and its reason.
    3. Open the event card, then «معاينة التحديث». You see the exact message, or لولوة's first sentence on a call.

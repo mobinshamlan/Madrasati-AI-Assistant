@@ -33,7 +33,7 @@ export function DemoLogin() {
 
   return (
     <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-      <section aria-labelledby="login-title" className="bg-linear-to-b from-mint-200 to-mint-400">
+      <section aria-labelledby="login-title" className="bg-mint-200">
         <div className="mx-auto max-w-xl px-4 pt-8 pb-10">
           <h1 id="login-title" className="text-3xl leading-tight font-extrabold text-ink">
             دخول تجريبي
@@ -54,7 +54,7 @@ export function DemoLogin() {
               </span>
               <div>
                 <p className="text-xl font-bold text-ink">{parent.name}</p>
-                <p className="text-ink-soft">
+                <p className="text-ink">
                   {parent.role} لريم ونواف — بيانات خيالية
                 </p>
               </div>
@@ -63,7 +63,7 @@ export function DemoLogin() {
               type="button"
               onClick={enter}
               aria-disabled={entering || undefined}
-              className="inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-brand-600 px-10 text-xl font-bold text-white hover:bg-brand-700 aria-disabled:cursor-wait"
+              className="btn-primary w-full text-xl aria-disabled:cursor-wait"
             >
               {entering ? "جارٍ الدخول…" : "دخول"}
             </button>
@@ -78,7 +78,7 @@ export function DemoLogin() {
         <ul className="space-y-3 text-base leading-7 text-ink">
           {[
             "هذا ليس تسجيل دخول حقيقيًا، ولا يمنح وصولًا إلى أي بيانات حقيقية.",
-            "تبقى تفضيلات المساعد محفوظة على هذا الجهاز حتى بعد الخروج.",
+            "تبقى تفضيلات طمّني محفوظة في الحساب التجريبي حتى بعد الخروج من هذه الجلسة.",
           ].map((note) => (
             <li key={note} className="flex gap-3">
               <InfoIcon size={22} className="mt-0.5 shrink-0 text-brand-700" />
