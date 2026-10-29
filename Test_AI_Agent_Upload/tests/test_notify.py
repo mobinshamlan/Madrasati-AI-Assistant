@@ -86,6 +86,29 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual((data["status"], data["provider_status"]), ("accepted", "queued"))
         self.assertNotIn("900123", data["to_masked"])
 
+    def test_calls_and_messages_go_to_their_own_numbers(self):
+        env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE": "+447700900222", "PARENT_PHONE1": "+447700900333",
+               "TAMMENI_ALLOWED_DESTINATIONS": "+447700900222,+447700900333", "TWILIO_ACCOUNT_SID": "AC" + "0" * 32, "TWILIO_AUTH_TOKEN": "x" * 32,
+               "TWILIO_FROM": "+447700900000", "PUBLIC_URL": "https://example.test"}
+        fake = MagicMock()
+        fake.messages.create.return_value = MagicMock(sid="SM" + "1" * 32, status="queued")
+        fake.calls.create.return_value = MagicMock(sid="CA" + "2" * 32, status="queued")
+        with patch.dict(os.environ, env), patch("twilio.rest.Client", return_value=fake):
+            with patch("backend.notify.load_context", AsyncMock(return_value=CTX)):
+                self.post()
+            with patch("backend.notify.load_context", AsyncMock(return_value={**CTX, "method": "call"})):
+                self.post({**BODY, "method": "call"})
+        self.assertEqual(fake.messages.create.call_args.kwargs["to"], "+447700900333")
+        self.assertEqual(fake.calls.create.call_args.kwargs["to"], "+447700900222")
+
+    def test_each_number_must_be_on_the_allow_list(self):
+        env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE": "+447700900222", "PARENT_PHONE1": "+447700900333", "TAMMENI_ALLOWED_DESTINATIONS": "+447700900222",
+               "TWILIO_ACCOUNT_SID": "AC" + "0" * 32, "TWILIO_AUTH_TOKEN": "x" * 32}
+        with patch.dict(os.environ, env), patch("backend.notify.load_context", AsyncMock(return_value=CTX)), patch("twilio.rest.Client") as twilio:
+            r = self.post()
+        self.assertEqual(r.status_code, 403)
+        twilio.assert_not_called()
+
     def test_force_mock_never_calls_twilio_even_when_the_provider_is_twilio(self):
         env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE": "+447700900123", "TAMMENI_ALLOWED_DESTINATIONS": "+447700900123",
                "TWILIO_ACCOUNT_SID": "AC" + "0" * 32, "TWILIO_AUTH_TOKEN": "x" * 32}

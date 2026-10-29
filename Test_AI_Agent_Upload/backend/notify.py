@@ -7,7 +7,7 @@ Endpoints (لخادم الموقع فقط؛ تتطلب ترويسة X-Tammeni-Di
 
 المزود يُختار من إعدادات الخادم (TAMMENI_PROVIDER):
   mock   (الافتراضي) لا يتصل بأي مزود ولا يرسل شيئًا؛ يعيد «مقبول لدى المزود الوهمي».
-  twilio يرسل فعليًا إلى رقم الاختبار المضبوط هنا فقط (PARENT_PHONE)، وبشرط وجوده في
+  twilio يرسل فعليًا إلى أرقام الاختبار المضبوطة هنا فقط (المكالمات: PARENT_PHONE، والرسائل: PARENT_PHONE1، وإن لم يُضبط يرجع لـPARENT_PHONE)، وبشرط وجودها في
          TAMMENI_ALLOWED_DESTINATIONS. لا يُقبل أي رقم من المتصفح، ولا يُستخدم الهاتف المقنّع من البيانات.
   force_mock في الطلب يبقى وهميًا حتى لو كان TAMMENI_PROVIDER=twilio (دخول الديمو المشترك).
 
@@ -64,12 +64,16 @@ def mask(number: str) -> str:
     return f"+{digits[:3]}{'•' * (len(digits) - 5)}{digits[-2:]}"
 
 
-def _destination() -> str:
-    """The server-side test number, only if it is on the allow-list."""
-    to = os.getenv("PARENT_PHONE", "").strip()
+def _destination(method: str) -> str:
+    """The server-side test number for this kind of send, only if it is on the allow-list.
+
+    Calls go to PARENT_PHONE and messages to PARENT_PHONE1; messages fall back to PARENT_PHONE when it is unset.
+    """
+    specific = "PARENT_PHONE" if method == "call" else "PARENT_PHONE1"
+    to = (os.getenv(specific) or os.getenv("PARENT_PHONE", "")).strip()
     allowed = {x.strip() for x in os.getenv("TAMMENI_ALLOWED_DESTINATIONS", "").split(",") if x.strip()}
     if not to:
-        raise HTTPException(503, "لا يوجد رقم اختبار مضبوط على الخادم (PARENT_PHONE).")
+        raise HTTPException(503, f"لا يوجد رقم اختبار مضبوط على الخادم ({specific}).")
     if to not in allowed:
         raise HTTPException(403, "رقم الاختبار غير موجود في قائمة الأرقام المسموح بها (TAMMENI_ALLOWED_DESTINATIONS).")
     return to
@@ -105,7 +109,7 @@ async def dispatch(body: DispatchRequest, x_tammeni_dispatch_secret: str | None 
             "error": None,
         }
 
-    to = _destination()
+    to = _destination(body.method)
     client = _twilio_client()
     try:
         if body.method == "message":
