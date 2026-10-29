@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp ~/Downloads/phone_bridge.py backend/phone_bridge.py)",
+      "Bash(cp ~/Downloads/make_call.py make_call.py)",
+      "Bash(printf 'websockets>=13\\\\ntwilio\\\\n' >> requirements.txt && tail -c 200 requirements.txt && diff backend/app.py ~/Downloads/app.py && echo APP_IDENTICAL)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python -c \"from backend.app import app; print\\([r.path for r in app.routes if 'phone' in r.path]\\)\")"
+    ]
+  }
+}
