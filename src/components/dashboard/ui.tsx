@@ -1,4 +1,6 @@
-import { students } from "./data";
+"use client";
+
+import { useOptionalDashboardData } from "@/lib/dashboard-data";
 import type { AttendanceStatus } from "./data";
 import { CheckIcon, UserIcon } from "./icons";
 
@@ -171,7 +173,7 @@ export function StudentPicker({
   tone = "plain",
   size = "lg",
   legendClassName = "sr-only",
-  options = students.map((s) => ({ id: s.id, name: s.name, grade: s.grade })),
+  options,
 }: {
   legend: string;
   selectedId: string;
@@ -180,14 +182,16 @@ export function StudentPicker({
   tone?: "plain" | "tinted";
   size?: "md" | "lg";
   legendClassName?: string;
-  /** Defaults to the parent's children; the school page passes the students it loaded from the backend. */
+  /** Defaults to the parent's children from the dashboard data; the school page passes its own list. */
   options?: { id: string; name: string; grade: string }[];
 }) {
+  const dashboard = useOptionalDashboardData();
+  const items = options ?? dashboard?.students.map((s) => ({ id: s.id, name: s.name, grade: s.grade })) ?? [];
   return (
     <fieldset className="min-w-0">
       <legend className={legendClassName}>{legend}</legend>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {options.map((s) => (
+        {items.map((s) => (
           <ChoiceCard
             key={s.id}
             type="radio"

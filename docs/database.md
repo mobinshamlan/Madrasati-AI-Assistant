@@ -1,5 +1,14 @@
 # Database structure
 
+> **Single source of truth (updated):** the demo no longer reads this database. All student records,
+> parent preferences and school events live in the backend dataset (`Test_AI_Agent_Upload/Data/madrasati-dataset.json`
+> as the seed, `Data/runtime_state.json` at run time, accessed only through `backend/store.py`). The parent
+> pages, the school page, the Agent and the phone bridge all read and write there. The Supabase tables below
+> are the planned production target (accounts, row-level security); `supabase/seed.sql` is generated from the
+> dataset by `node scripts/generate-supabase-seed.mjs`, so it cannot drift. Preferences are no longer kept in
+> `localStorage`.
+
+
 **Applied on 2026-10-28** to the Supabase project `nbbegxzicokiblvbszor` ("Madrasati AI
 Assistant."), with the two fictional students from `seed.sql`. No accounts, profiles, links or
 preferences exist there yet. The website still saves preferences in `localStorage` only. There is no login, database-backed saving, academic records, scheduling,

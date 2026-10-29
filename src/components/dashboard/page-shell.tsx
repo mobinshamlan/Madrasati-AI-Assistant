@@ -1,5 +1,6 @@
 "use client";
 
+import { DashboardDataProvider } from "@/lib/dashboard-data";
 import { ComingSoonProvider, useComingSoon } from "./coming-soon";
 import { AccessibilityIcon, InfoIcon } from "./icons";
 import { SiteHeader, type HeaderVariant, type PageKey } from "./site-header";
@@ -16,8 +17,18 @@ export function PageShell({
   return (
     <ComingSoonProvider>
       <DemoNotice />
-      <SiteHeader current={current} variant={variant} />
-      {children}
+      {/* The parent pages read the school records from the backend; the school page loads its own. */}
+      {variant === "school" ? (
+        <>
+          <SiteHeader current={current} variant={variant} />
+          {children}
+        </>
+      ) : (
+        <DashboardDataProvider>
+          <SiteHeader current={current} variant={variant} />
+          {children}
+        </DashboardDataProvider>
+      )}
       <footer className="mt-auto border-t border-mint-300 bg-mint-100 px-4 py-4 text-center text-sm text-ink-soft">
         نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية ولا يمثل خدمة صادرة عن وزارة التعليم.
       </footer>

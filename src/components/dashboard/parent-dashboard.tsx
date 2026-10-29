@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { topicSummary, topics, useSavedPreferences } from "@/components/assistant/preferences";
 import { useComingSoon } from "./coming-soon";
-import { parent, students, today, type Student } from "./data";
+import { useDashboardData } from "@/lib/dashboard-data";
+import type { Student } from "./data";
 import {
   AttendanceIcon,
   CheckIcon,
@@ -33,6 +34,7 @@ export function ParentDashboard() {
 }
 
 function DashboardBody() {
+  const { students } = useDashboardData();
   const router = useRouter();
   // The selected student lives in the address, so a refresh or a return from the assistant keeps it.
   const selectedId = useSearchParams().get("student");
@@ -63,6 +65,7 @@ function DashboardBody() {
 }
 
 function WelcomeBanner({ student, onSelect }: { student: Student; onSelect: (id: string) => void }) {
+  const { parent, today } = useDashboardData();
   const rate = attendanceRate(student);
   const average = gradeAverage(student);
 
@@ -201,7 +204,7 @@ function ExamsSection({ student }: { student: Student }) {
       <div className="rounded-b-xl border border-t-0 border-line bg-white p-5">
         <ul className="space-y-4">
           {student.exams.map((e) => (
-            <li key={`${e.subject}-${e.hijri}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
+            <li key={`${e.subject}-${e.day}-${e.date}-${e.period}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
               <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-mint-100 text-brand-600">
                 <ExamIcon size={28} />
               </span>
@@ -212,7 +215,7 @@ function ExamsSection({ student }: { student: Student }) {
                 </p>
                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
                   <span>
-                    التاريخ: {e.day} {e.hijri} هـ ({e.date})
+                    التاريخ: {e.day} {e.hijri && `${e.hijri} هـ`} {e.date && `(${e.date})`}
                   </span>
                   <span aria-hidden="true" className="hidden sm:inline">•</span>
                   <span className="inline-flex items-center gap-1">
@@ -323,7 +326,7 @@ function AssistantCard({ student }: { student: Student }) {
                   : "تغيّرت خيارات المساعد. راجعها واحفظها في صفحة المساعد."}
               </p>
             )}
-            <p className="mt-3 text-sm text-ink-soft">جميع الأوقات بتوقيت السعودية. محفوظة على هذا الجهاز للعرض التجريبي، ولم يُجدول أو يُرسل أي تواصل فعلي.</p>
+            <p className="mt-3 text-sm text-ink-soft">جميع الأوقات بتوقيت السعودية. محفوظة في النظام، ويقرؤها المساعد عند وصول تنبيه من المدرسة.</p>
           </>
         ) : (
           <>
@@ -383,6 +386,7 @@ function AnnouncementsSection({ student }: { student: Student }) {
 }
 
 function ProfileCard() {
+  const { parent, students } = useDashboardData();
   const rows = [
     { label: "الاسم", value: parent.name },
     { label: "الصفة", value: `${parent.role} (${parent.relation})` },

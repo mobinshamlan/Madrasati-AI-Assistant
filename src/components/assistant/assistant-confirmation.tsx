@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { students, type Student } from "@/components/dashboard/data";
+import type { Student } from "@/components/dashboard/data";
+import { useDashboardData } from "@/lib/dashboard-data";
 import { CheckIcon } from "@/components/dashboard/icons";
 import { useSavedPreferences, type Preferences } from "./preferences";
 import { Character, DeliveryNotes, DemoLabel, formatSavedAt, ReviewList } from "./summary";
@@ -18,6 +19,7 @@ const homeHref = (studentId: string) => `/?student=${studentId}`;
 
 export function AssistantConfirmation() {
   const studentId = useSearchParams().get("student");
+  const { students } = useDashboardData();
   const student = students.find((s) => s.id === studentId);
   if (!student) {
     return (
@@ -36,12 +38,20 @@ export function AssistantConfirmation() {
 function StudentConfirmation({ student }: { student: Student }) {
   const saved = useSavedPreferences(student.id);
 
+  if (saved.status === "loading") {
+    return (
+      <p role="status" className="mx-auto max-w-3xl px-4 py-10 text-lg text-ink-soft">
+        جارٍ تحميل التفضيلات…
+      </p>
+    );
+  }
+
   // Only a complete record in the current format counts as saved. Anything else is not shown as a success.
   if (saved.status === "none") {
     return (
       <Problem
         title={`لم تُحفظ تفضيلات لـ${student.firstName} بعد`}
-        body="لا توجد تفضيلات محفوظة على هذا الجهاز. أكمل خطوات الإعداد واضغط «حفظ التفضيلات»."
+        body="لا توجد تفضيلات محفوظة في النظام. أكمل خطوات الإعداد واضغط «حفظ التفضيلات»."
         action={{ href: setupHref(student.id), label: "إعداد التفضيلات" }}
         home={homeHref(student.id)}
       />
@@ -51,7 +61,7 @@ function StudentConfirmation({ student }: { student: Student }) {
     return (
       <Problem
         title={`تعذّرت قراءة تفضيلات ${student.firstName}`}
-        body="التفضيلات المحفوظة على هذا الجهاز غير مكتملة أو تالفة. اخترها من جديد واحفظها."
+        body="التفضيلات المحفوظة في النظام غير مكتملة أو تالفة. اخترها من جديد واحفظها."
         action={{ href: setupHref(student.id), label: "إعادة اختيار التفضيلات" }}
         home={homeHref(student.id)}
       />

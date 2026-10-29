@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { AFTER_SCHOOL_TIME } from "./config";
 
 // Preferences live in this browser only (demo). Nothing is sent anywhere and no contact is scheduled.
@@ -160,13 +160,11 @@ export type LegacyInfo = {
 };
 
 export type SavedState =
+  | { status: "loading" }
   | { status: "none" }
   | { status: "invalid" }
   | { status: "saved"; preferences: Preferences; legacy: LegacyInfo | null };
 
-const PREFIX = "madrasati-demo:assistant-preferences:";
-const KEYS = { v4: `${PREFIX}v4:`, v3: `${PREFIX}v3:`, v2: `${PREFIX}v2:`, v1: `${PREFIX}v1:` } as const;
-const CHANGE_EVENT = "madrasati-demo:assistant-preferences-change";
 const OLD_TEXT_MAX = 200;
 
 // ---------- reading ----------
@@ -439,98 +437,68 @@ export function parseSaved(raw: Record<"v4" | "v3" | "v2" | "v1", string | null>
   return { status: "none" };
 }
 
-function read(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function subscribe(onChange: () => void) {
-  window.addEventListener("storage", onChange);
-  window.addEventListener(CHANGE_EVENT, onChange);
-  return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(CHANGE_EVENT, onChange);
-  };
-}
-
-/** Saved preferences for one student; "none" during server rendering. */
-export function useSavedPreferences(studentId: string): SavedState {
-  // A single JSON string snapshot keeps useSyncExternalStore stable between reads.
-  const snapshot = useSyncExternalStore(
-    subscribe,
-    () => {
-      const raw = {
-        v4: read(KEYS.v4 + studentId),
-        v3: read(KEYS.v3 + studentId),
-        v2: read(KEYS.v2 + studentId),
-        v1: read(KEYS.v1 + studentId),
-      };
-      return Object.values(raw).every((v) => v === null) ? null : JSON.stringify(raw);
-    },
-    () => null,
-  );
-  return useMemo(() => (snapshot === null ? { status: "none" } : parseSaved(JSON.parse(snapshot))), [snapshot]);
-}
-
-/**
- * Writes the current format, then removes older-format records for the student. Older records are
- * only removed after the new one is stored. Returns false when the choices are not valid or the
- * browser blocks storage.
- */
-export function savePreferences(studentId: string, preferences: Preferences): boolean {
-  if (!canSave(preferences)) return false;
-  try {
-    const record = { version: 4, ...preferences, savedAt: new Date().toISOString() };
-    window.localStorage.setItem(KEYS.v4 + studentId, JSON.stringify(record));
-  } catch {
-    return false;
-  }
-  void pushToServer(studentId, preferences);
-  try {
-    for (const key of [KEYS.v3, KEYS.v2, KEYS.v1]) window.localStorage.removeItem(key + studentId);
-  } catch {
-    // The new record is saved and read first, so a leftover older record is harmless.
-  }
-  window.dispatchEvent(new Event(CHANGE_EVENT));
-  return true;
-}
-
-// ---------- backend sync ----------
-// The backend is the source of truth: it reads these preferences when the school records an event.
-// localStorage stays only as a local cache so the wizard keeps working if the backend is unreachable.
+// ---------- saved state: backend only ----------
+// The backend is the single source of truth: it reads these preferences when the school records an
+// event. The browser stores nothing; this in-memory cache only avoids refetching while the page is open.
 
 const serverUrl = (studentId: string) => `/api/parent/preferences/${encodeURIComponent(studentId)}`;
+const cache = new Map<string, SavedState>();
+const listeners = new Set<() => void>();
+const LOADING: SavedState = { status: "loading" };
 
-export async function pushToServer(studentId: string, preferences: Preferences): Promise<boolean> {
+const emit = () => listeners.forEach((listener) => listener());
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+
+function remember(studentId: string, preferences: unknown) {
+  const raw = JSON.stringify({ version: 4, ...(preferences as object) });
+  cache.set(studentId, preferences ? parseSaved({ v4: raw, v3: null, v2: null, v1: null }) : { status: "none" });
+  emit();
+}
+
+/** Loads the student's saved preferences from the backend into the cache. */
+export async function pullFromServer(studentId: string): Promise<void> {
+  try {
+    const res = await fetch(serverUrl(studentId), { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { preferences } = (await res.json()) as { preferences: unknown };
+    remember(studentId, preferences);
+  } catch {
+    // Backend unreachable: show the empty wizard; saving will report the failure.
+    if (!cache.has(studentId)) {
+      cache.set(studentId, { status: "none" });
+      emit();
+    }
+  }
+}
+
+/** Saved preferences for one student ("loading" until the backend answers, and during server rendering). */
+export function useSavedPreferences(studentId: string): SavedState {
+  useEffect(() => {
+    void pullFromServer(studentId);
+  }, [studentId]);
+  return useSyncExternalStore(subscribe, () => cache.get(studentId) ?? LOADING, () => LOADING);
+}
+
+/** Saves to the backend. Returns false when the choices are not valid or the backend refuses or is unreachable. */
+export async function savePreferences(studentId: string, preferences: Preferences): Promise<boolean> {
+  if (!canSave(preferences)) return false;
   try {
     const res = await fetch(serverUrl(studentId), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(preferences),
     });
-    return res.ok;
+    if (!res.ok) return false;
+    const { preferences: saved } = (await res.json()) as { preferences: unknown };
+    remember(studentId, saved);
+    return true;
   } catch {
     return false;
-  }
-}
-
-/** Copies the backend's saved preferences into the local cache; the UI refreshes via CHANGE_EVENT. */
-export async function pullFromServer(studentId: string): Promise<void> {
-  try {
-    const res = await fetch(serverUrl(studentId), { cache: "no-store" });
-    if (!res.ok) return;
-    const { preferences } = (await res.json()) as { preferences: unknown };
-    if (!preferences) return;
-    const raw = JSON.stringify({ version: 4, ...(preferences as object) });
-    if (parseV4(raw).status !== "saved") return;
-    if (window.localStorage.getItem(KEYS.v4 + studentId) === raw) return;
-    window.localStorage.setItem(KEYS.v4 + studentId, raw);
-    window.dispatchEvent(new Event(CHANGE_EVENT));
-  } catch {
-    // Offline or blocked storage: keep whatever is cached.
   }
 }
 

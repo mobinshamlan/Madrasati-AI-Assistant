@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useComingSoon } from "./coming-soon";
-import { parent, school } from "./data";
+import { useOptionalDashboardData } from "@/lib/dashboard-data";
+import { school } from "./data";
 import {
   AccessibilityIcon,
   AttendanceIcon,
@@ -67,9 +68,10 @@ function NewBadge() {
 export function SiteHeader({ current, variant = "parent" }: { current: PageKey; variant?: HeaderVariant }) {
   const isSchool = variant === "school";
   const navItems = isSchool ? schoolNavItems : parentNavItems;
+  const parent = useOptionalDashboardData()?.parent;
   const person = isSchool
     ? { name: school.adminName, short: school.adminName, role: school.role }
-    : { name: parent.name, short: parent.shortName, role: parent.role };
+    : { name: parent?.name ?? "ولي الأمر", short: parent?.shortName ?? "ولي الأمر", role: parent?.role ?? "ولي أمر" };
   const openComingSoon = useComingSoon();
   const [menuOpen, setMenuOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);

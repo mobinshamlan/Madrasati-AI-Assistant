@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { school, today } from "@/components/dashboard/data";
+import { school, type Student, type Today } from "@/components/dashboard/data";
 import {
   AttendanceIcon,
   BellIcon,
@@ -28,16 +28,10 @@ import {
 // School system (separate identity from the parent site). Every action is sent to the backend,
 // which reads the parent's saved preferences and decides: call, message or nothing.
 
-type Subject = {
-  subject_id: string;
-  subject_name: string;
-  attendance: { date: string; status: string }[];
-  grades: { assessment: string; score: number; max_score: number; date: string }[];
-};
-type Exam = { subject_name: string; day: string; time: string };
-type Student = { student_id: string; web_id: string; student_name: string; grade: number; subjects: Subject[]; exams: Exam[] };
 type Result = { action: "call" | "message" | "skipped" | "failed"; reason: string; sid?: string };
-type LogEvent = { type: string; student_name: string; subject_name: string; at: string; result: Result };
+type LogEvent = { type: string; student_name: string; subject: string; at: string; result: Result };
+/** Same shape the parent pages get: both read the backend's single dataset. */
+type SchoolData = { today: Today; students: Student[] };
 type Send = (text: string, body: Record<string, unknown>) => void;
 
 const TOKEN_KEY = "madrasati-demo:school-token";
@@ -49,8 +43,13 @@ const actionLabel: Record<Result["action"], string> = {
 };
 const typeLabel: Record<string, string> = { attendance: "حضور وغياب", grade: "درجة", exam: "اختبار" };
 const days = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+const examKinds = ["اختبار قصير", "اختبار منتصف الفصل", "اختبار عملي", "اختبار شفهي"];
+const periods = ["الحصة الأولى", "الحصة الثانية", "الحصة الثالثة", "الحصة الرابعة", "الحصة الخامسة", "الحصة السادسة"];
 type StatusKey = keyof typeof statusStyles;
 const knownStatus = (s: string): StatusKey => (s in statusStyles ? (s as StatusKey) : "present");
+/** Latest lesson status the school recorded for a subject, if any. */
+const lessonStatus = (student: Student, subject: string) =>
+  student.onlineLessons?.filter((l) => l.subject === subject).at(-1)?.status;
 
 const field =
   "min-h-11 rounded-lg border-2 border-[#9da4ae] bg-white px-3 text-base text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-tile-navy";
@@ -186,7 +185,7 @@ function Login({ onLogin }: { onLogin: (t: string) => void }) {
 }
 
 function Dashboard({ token, onExpired, onLogout }: { token: string | null; onExpired: () => void; onLogout?: () => void }) {
-  const [students, setStudents] = useState<Student[]>([]);
+  const [data, setData] = useState<SchoolData | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [events, setEvents] = useState<LogEvent[]>([]);
   const [notice, setNotice] = useState<{ text: string; result: Result } | null>(null);
@@ -194,11 +193,8 @@ function Dashboard({ token, onExpired, onLogout }: { token: string | null; onExp
 
   const refresh = useCallback(async () => {
     try {
-      const [s, e] = await Promise.all([
-        api<{ students: Student[]; today: string }>("/students", token),
-        api<{ events: LogEvent[] }>("/events", token),
-      ]);
-      setStudents(s.students);
+      const [s, e] = await Promise.all([api<SchoolData>("/students", token), api<{ events: LogEvent[] }>("/events", token)]);
+      setData(s);
       setEvents(e.events);
     } catch (x) {
       if ((x as { status?: number }).status === 401) onExpired();
@@ -227,19 +223,20 @@ function Dashboard({ token, onExpired, onLogout }: { token: string | null; onExp
     }
   };
 
-  const student = students.find((s) => s.web_id === studentId) ?? students[0];
+  const student = data?.students.find((s) => s.id === studentId) ?? data?.students[0];
   const title = (
     <>
       <h1 id="greeting" className="text-xl font-extrabold text-ink">
         مرحبًا بك، <span className="text-brand-700">{school.adminName}</span>
       </h1>
       <p className="mt-1 text-sm text-ink-soft">
-        {school.role} · {school.name} · {today.gregorian} · {today.hijri}
+        {school.role} · {school.name}
+        {data && ` · ${data.today.gregorian} · ${data.today.hijri}`}
       </p>
     </>
   );
 
-  if (!student) {
+  if (!data || !student) {
     return (
       <>
         <Banner title={title} />
@@ -250,9 +247,7 @@ function Dashboard({ token, onExpired, onLogout }: { token: string | null; onExp
     );
   }
 
-  const options = students.map((s) => ({ id: s.web_id, name: s.student_name, grade: `الصف ${s.grade}` }));
-  const absent = student.subjects.filter((s) => (s.attendance.at(-1)?.status ?? "present") === "absent").length;
-  const grades = student.subjects.flatMap((s) => s.grades);
+  const options = data.students.map((s) => ({ id: s.id, name: s.name, grade: s.grade }));
 
   return (
     <>
@@ -261,14 +256,14 @@ function Dashboard({ token, onExpired, onLogout }: { token: string | null; onExp
         below={
           <>
             <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-white/60 pt-6 md:grid-cols-3">
-              <InfoRing Icon={UserIcon} label="الطالب" value={student.student_name} />
-              <InfoRing Icon={ClassIcon} label="الصف" value={`الصف ${student.grade}`} />
-              <InfoRing Icon={SchoolIcon} label="المدرسة" value={school.name} />
+              <InfoRing Icon={UserIcon} label="الطالب" value={student.name} />
+              <InfoRing Icon={ClassIcon} label="الصف" value={`${student.grade} — ${student.classroom}`} />
+              <InfoRing Icon={SchoolIcon} label="المدرسة" value={student.school} />
             </dl>
             <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-label="ملخص سريع">
-              <Tile href="#attendance" Icon={AttendanceIcon} color="bg-tile-navy" label="غياب اليوم" value={`${absent}`} />
+              <Tile href="#attendance" Icon={AttendanceIcon} color="bg-tile-navy" label="أيام الغياب" value={`${student.attendance.absent}`} />
               <Tile href="#exams" Icon={ExamIcon} color="bg-tile-orange" label="اختبارات مجدولة" value={`${student.exams.length}`} />
-              <Tile href="#grades" Icon={GradesIcon} color="bg-tile-green" label="درجات منشورة" value={`${grades.length}`} />
+              <Tile href="#grades" Icon={GradesIcon} color="bg-tile-green" label="درجات منشورة" value={`${student.grades.length}`} />
               <Tile href="#events" Icon={BellIcon} color="bg-tile-olive" label="أحداث مسجلة" value={`${events.length}`} />
             </ul>
           </>
@@ -278,7 +273,7 @@ function Dashboard({ token, onExpired, onLogout }: { token: string | null; onExp
           <StudentPicker
             legend="اختر الطالب لعرض بياناته"
             legendClassName="mb-2 text-sm font-bold text-brand-800"
-            selectedId={student.web_id}
+            selectedId={student.id}
             onSelect={setStudentId}
             options={options}
             tone="tinted"
@@ -292,14 +287,14 @@ function Dashboard({ token, onExpired, onLogout }: { token: string | null; onExp
         </div>
       </Banner>
       <p className="sr-only" aria-live="polite">
-        يتم الآن عرض بيانات {student.student_name}
+        يتم الآن عرض بيانات {student.name}
       </p>
 
       <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] lg:px-6">
         <div className="space-y-6">
-          <AttendanceSection key={`a-${student.web_id}`} student={student} busy={busy} send={send} />
-          <ExamsSection key={`e-${student.web_id}`} student={student} busy={busy} send={send} />
-          <GradesSection key={`g-${student.web_id}`} student={student} busy={busy} send={send} />
+          <AttendanceSection key={`a-${student.id}`} student={student} busy={busy} send={send} />
+          <ExamsSection key={`e-${student.id}`} student={student} busy={busy} send={send} />
+          <GradesSection key={`g-${student.id}`} student={student} busy={busy} send={send} />
         </div>
         <aside className="space-y-6" aria-label="نتيجة الإجراء وسجل الأحداث">
           {notice && <NoticeCard notice={notice} />}
@@ -338,18 +333,27 @@ function NoticeCard({ notice }: { notice: { text: string; result: Result } }) {
 }
 
 function AttendanceSection({ student, busy, send }: { student: Student; busy: boolean; send: Send }) {
+  const today = student.attendance.week.at(-1);
+  const todayStatus = statusStyles[knownStatus(today?.status ?? "present")];
+  const subjects = student.subjects ?? [];
+
   return (
     <section id="attendance" aria-labelledby="attendance-title" className="scroll-mt-6">
-      <SectionTab id="attendance-title" title="الحضور والغياب" aside="حضور اليوم لكل مادة" />
+      <SectionTab id="attendance-title" title="الحضور والغياب" aside={student.attendance.termLabel} />
       <div className={card}>
+        <p className="mb-4 flex flex-wrap items-center gap-3">
+          <span className="font-bold">حضور اليوم{today ? ` (${today.day} ${today.date})` : ""}:</span>
+          <span className={`rounded-full px-3 py-1 text-sm font-bold ring-1 ${todayStatus.className}`}>{todayStatus.label}</span>
+        </p>
         <ul className="divide-y divide-mint-200 rounded-lg border border-mint-200">
-          {student.subjects.map((sub) => {
-            const st = statusStyles[knownStatus(sub.attendance.at(-1)?.status ?? "present")];
+          {subjects.map((subject) => {
+            const status = lessonStatus(student, subject);
+            const st = status ? statusStyles[knownStatus(status)] : null;
             return (
-              <li key={sub.subject_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <li key={subject} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <span className="flex flex-wrap items-center gap-3">
-                  <span className="font-bold">{sub.subject_name}</span>
-                  <span className={`rounded-full px-3 py-1 text-sm font-bold ring-1 ${st.className}`}>{st.label}</span>
+                  <span className="font-bold">{subject}</span>
+                  {st && <span className={`rounded-full px-3 py-1 text-sm font-bold ring-1 ${st.className}`}>{st.label}</span>}
                 </span>
                 <span className="flex flex-wrap gap-2">
                   <button
@@ -357,10 +361,10 @@ function AttendanceSection({ student, busy, send }: { student: Student; busy: bo
                     disabled={busy}
                     className={smallDanger}
                     onClick={() =>
-                      send(`${student.student_name} غائب عن ${sub.subject_name}`, {
+                      send(`${student.firstName} غائب عن ${subject}`, {
                         type: "attendance",
-                        student_id: student.web_id,
-                        subject_id: sub.subject_id,
+                        student_id: student.id,
+                        subject,
                         status: "absent",
                       })
                     }
@@ -372,10 +376,10 @@ function AttendanceSection({ student, busy, send }: { student: Student; busy: bo
                     disabled={busy}
                     className={smallSecondary}
                     onClick={() =>
-                      send(`${student.student_name} حاضر في ${sub.subject_name}`, {
+                      send(`${student.firstName} حاضر في ${subject}`, {
                         type: "attendance",
-                        student_id: student.web_id,
-                        subject_id: sub.subject_id,
+                        student_id: student.id,
+                        subject,
                         status: "present",
                       })
                     }
@@ -393,19 +397,23 @@ function AttendanceSection({ student, busy, send }: { student: Student; busy: bo
 }
 
 function ExamsSection({ student, busy, send }: { student: Student; busy: boolean; send: Send }) {
-  const [subject, setSubject] = useState(student.subjects[0]?.subject_id ?? "");
+  const subjects = student.subjects ?? [];
+  const [subject, setSubject] = useState(subjects[0] ?? "");
+  const [kind, setKind] = useState(examKinds[0]);
   const [day, setDay] = useState(days[0]);
-  const [time, setTime] = useState("٨:٠٠ صباحا");
+  const [date, setDate] = useState("");
+  const [period, setPeriod] = useState(periods[0]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const sub = student.subjects.find((x) => x.subject_id === subject);
-    send(`جدولة اختبار ${sub?.subject_name} لـ${student.student_name}`, {
+    send(`جدولة اختبار ${subject} لـ${student.firstName}`, {
       type: "exam",
-      student_id: student.web_id,
-      subject_id: subject,
+      student_id: student.id,
+      subject,
+      kind,
       day,
-      time,
+      date,
+      period,
     });
   };
 
@@ -418,18 +426,21 @@ function ExamsSection({ student, busy, send }: { student: Student; busy: boolean
         ) : (
           <ul className="space-y-4">
             {student.exams.map((e, i) => (
-              <li key={`${e.subject_name}-${i}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
+              <li key={`${e.subject}-${i}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
                 <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-mint-100 text-brand-600">
                   <ExamIcon size={28} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-lg font-bold text-brand-700">{e.subject_name}</p>
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span className="text-lg font-bold text-brand-700">{e.subject}</span>
+                    <span className="rounded bg-tile-navy px-2 py-0.5 text-xs font-bold text-white">{e.kind}</span>
+                  </p>
                   <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
-                    <span>{e.day}</span>
+                    <span>{[e.day, e.date].filter(Boolean).join(" ")}</span>
                     <span aria-hidden="true" className="hidden sm:inline">•</span>
                     <span className="inline-flex items-center gap-1">
                       <ClockIcon size={15} />
-                      {e.time}
+                      {e.period}
                     </span>
                   </p>
                 </div>
@@ -441,10 +452,16 @@ function ExamsSection({ student, busy, send }: { student: Student; busy: boolean
           <label className="text-sm font-bold text-brand-800">
             المادة
             <select className={`${field} mt-1 block`} value={subject} onChange={(e) => setSubject(e.target.value)}>
-              {student.subjects.map((x) => (
-                <option key={x.subject_id} value={x.subject_id}>
-                  {x.subject_name}
-                </option>
+              {subjects.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-bold text-brand-800">
+            النوع
+            <select className={`${field} mt-1 block`} value={kind} onChange={(e) => setKind(e.target.value)}>
+              {examKinds.map((x) => (
+                <option key={x}>{x}</option>
               ))}
             </select>
           </label>
@@ -457,8 +474,16 @@ function ExamsSection({ student, busy, send }: { student: Student; busy: boolean
             </select>
           </label>
           <label className="text-sm font-bold text-brand-800">
-            الوقت
-            <input className={`${field} mt-1 block w-40`} value={time} onChange={(e) => setTime(e.target.value)} required />
+            التاريخ
+            <input className={`${field} mt-1 block w-32`} value={date} onChange={(e) => setDate(e.target.value)} placeholder="9 نوفمبر" />
+          </label>
+          <label className="text-sm font-bold text-brand-800">
+            الحصة
+            <select className={`${field} mt-1 block`} value={period} onChange={(e) => setPeriod(e.target.value)}>
+              {periods.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
           </label>
           <button disabled={busy} className={smallPrimary}>
             جدولة اختبار
@@ -474,13 +499,14 @@ function GradesSection({ student, busy, send }: { student: Student; busy: boolea
   const [assessment, setAssessment] = useState("الاختبار الأسبوعي");
   const [score, setScore] = useState("");
   const [max, setMax] = useState("100");
+  const subjects = student.subjects ?? [];
 
   return (
     <section id="grades" aria-labelledby="grades-title" className="scroll-mt-6">
       <SectionTab id="grades-title" title="الدرجات" aside="آخر درجة منشورة لكل مادة" />
       <div className={card}>
         <table className="w-full text-start text-sm">
-          <caption className="sr-only">آخر الدرجات المنشورة لـ {student.student_name}</caption>
+          <caption className="sr-only">آخر الدرجات المنشورة لـ {student.name}</caption>
           <thead>
             <tr className="bg-mint-200 text-brand-800">
               <th scope="col" className="rounded-s-md px-3 py-2.5 text-start font-bold">المادة</th>
@@ -490,18 +516,18 @@ function GradesSection({ student, busy, send }: { student: Student; busy: boolea
             </tr>
           </thead>
           <tbody className="divide-y divide-mint-200">
-            {student.subjects.map((sub) => {
-              const g = sub.grades.at(-1);
-              const pct = g ? Math.round((g.score / g.max_score) * 100) : 0;
+            {subjects.map((subject) => {
+              const g = student.grades.find((x) => x.subject === subject);
+              const pct = g ? Math.round((g.score / g.outOf) * 100) : 0;
               return (
-                <tr key={sub.subject_id} className="align-top">
-                  <th scope="row" className="px-3 py-3 text-start font-bold">{sub.subject_name}</th>
+                <tr key={subject} className="align-top">
+                  <th scope="row" className="px-3 py-3 text-start font-bold">{subject}</th>
                   <td className="px-3 py-3 text-ink-soft">{g ? g.assessment : "—"}</td>
                   <td className="px-3 py-3">
                     {g ? (
                       <>
                         <span className="font-bold whitespace-nowrap" dir="ltr">
-                          {g.score} / {g.max_score}
+                          {g.score} / {g.outOf}
                         </span>
                         <span className="mt-1 block h-1.5 w-16 overflow-hidden rounded-full bg-mint-200" aria-hidden="true">
                           <span className={`block h-full rounded-full ${pct >= 80 ? "bg-brand-500" : "bg-tile-orange"}`} style={{ width: `${pct}%` }} />
@@ -515,9 +541,9 @@ function GradesSection({ student, busy, send }: { student: Student; busy: boolea
                     <button
                       type="button"
                       disabled={busy}
-                      aria-expanded={openFor === sub.subject_id}
+                      aria-expanded={openFor === subject}
                       className={smallSecondary}
-                      onClick={() => setOpenFor(openFor === sub.subject_id ? null : sub.subject_id)}
+                      onClick={() => setOpenFor(openFor === subject ? null : subject)}
                     >
                       نشر درجة
                     </button>
@@ -533,11 +559,10 @@ function GradesSection({ student, busy, send }: { student: Student; busy: boolea
             aria-label="نشر درجة"
             onSubmit={(e) => {
               e.preventDefault();
-              const sub = student.subjects.find((x) => x.subject_id === openFor);
-              send(`درجة ${student.student_name} في ${sub?.subject_name}`, {
+              send(`درجة ${student.firstName} في ${openFor}`, {
                 type: "grade",
-                student_id: student.web_id,
-                subject_id: openFor,
+                student_id: student.id,
+                subject: openFor,
                 assessment,
                 score: Number(score),
                 max_score: Number(max),
@@ -586,7 +611,7 @@ function EventsSection({ events }: { events: LogEvent[] }) {
                   <span className="text-xs text-ink-soft">{new Date(e.at).toLocaleTimeString("ar-SA")}</span>
                 </p>
                 <h3 className="mt-2 font-bold text-brand-700">
-                  {e.student_name} — {e.subject_name}
+                  {e.student_name} — {e.subject}
                 </h3>
                 <p className="mt-1 text-sm leading-6 text-ink-soft">{actionLabel[e.result.action]}</p>
               </li>

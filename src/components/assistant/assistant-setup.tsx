@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { students, type Student } from "@/components/dashboard/data";
+import type { Student } from "@/components/dashboard/data";
+import { useDashboardData } from "@/lib/dashboard-data";
 import { ClockIcon, InfoIcon, MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
 import { ChoiceCard, StudentPicker, errorBox, primaryButton, secondaryButton } from "@/components/dashboard/ui";
 import { AFTER_SCHOOL_TIME } from "./config";
@@ -16,7 +17,6 @@ import {
   dayOptions,
   defaultPreferences,
   enabledTopics,
-  pullFromServer,
   EXAM_DAYS,
   examDaysOptionLabel,
   examTimingOptions,
@@ -93,11 +93,9 @@ export function AssistantSetup() {
 function Setup() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { students } = useDashboardData();
   const student = students.find((s) => s.id === searchParams.get("student")) ?? students[0];
   const saved = useSavedPreferences(student.id);
-  useEffect(() => {
-    void pullFromServer(student.id);
-  }, [student.id]);
   // A student chosen in step 1 stays on step 1, with focus back on the choice after the remount.
   const [pickedFor, setPickedFor] = useState<string | null>(null);
   const [savedFor, setSavedFor] = useState<string | null>(null);
@@ -134,6 +132,14 @@ function Setup() {
   const wizardKey = `${student.id}:${
     saved.status === "saved" ? `${saved.preferences.savedAt}:${saved.legacy ? "legacy" : "v4"}` : saved.status
   }`;
+
+  if (saved.status === "loading") {
+    return (
+      <p role="status" className="mx-auto max-w-3xl px-4 py-10 text-lg text-ink-soft">
+        جارٍ تحميل التفضيلات…
+      </p>
+    );
+  }
 
   return (
     <>
@@ -279,8 +285,8 @@ function Wizard({
 
   const problems = allProblems(prefs);
   const noneEnabled = enabledTopics(prefs).length === 0;
-  const store = () => {
-    if (savePreferences(student.id, prefs)) {
+  const store = async () => {
+    if (await savePreferences(student.id, prefs)) {
       setSaveFailed(false);
       onSaved();
     } else {
@@ -342,7 +348,7 @@ function Wizard({
         {(step === 1 || step === 5) && hadInvalidData && (
           <p className="flex gap-3 rounded-xl border border-[#fedf89] bg-[#fffaeb] p-4 text-[#7a2e0e]">
             <InfoIcon size={24} className="mt-1 shrink-0" />
-            تعذّرت قراءة الاختيارات المحفوظة سابقًا على هذا الجهاز، لذلك عرضنا الاختيارات المقترحة. اضغط «حفظ التفضيلات» في
+            تعذّرت قراءة الاختيارات المحفوظة سابقًا في النظام، لذلك عرضنا الاختيارات المقترحة. اضغط «حفظ التفضيلات» في
             الخطوة الأخيرة لحفظها من جديد.
           </p>
         )}
@@ -432,7 +438,7 @@ function Wizard({
 
             {saveFailed && (
               <p role="alert" className={errorBox}>
-                تعذّر الحفظ على هذا الجهاز، فلم تُحفظ اختياراتك. تأكد أن المتصفح يسمح بحفظ البيانات، ثم اضغط «حفظ التفضيلات» مرة
+                تعذّر الحفظ، فلم تُحفظ اختياراتك. تأكد أن الخادم يعمل، ثم اضغط «حفظ التفضيلات» مرة
                 أخرى.
               </p>
             )}
@@ -472,7 +478,7 @@ function Wizard({
               </h2>
               <div className="space-y-5 px-5 py-5 text-lg">
                 <p id="replace-desc" className="leading-8 text-ink">
-                  لدى {student.firstName} تفضيلات محفوظة على هذا الجهاز. الحفظ الآن يستبدلها بالاختيارات التي في هذه المراجعة،
+                  لدى {student.firstName} تفضيلات محفوظة في النظام. الحفظ الآن يستبدلها بالاختيارات التي في هذه المراجعة،
                   ولا تتغير تفضيلات أي ابن آخر.
                 </p>
                 <div className="flex flex-col gap-3">

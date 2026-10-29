@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 log = logging.getLogger("tammeni.notifier")
 
-# attendance event -> prefs topic
+# نوع الحدث -> موضوع التفضيل / سيناريو المكالمة
 TOPIC_OF = {"attendance": "attendance", "grade": "grades", "exam": "exams"}
 SCENARIO_OF = {"attendance": "absence", "grade": "exam_grade", "exam": "exam_reminder"}
 PUBLIC_URL_FILE = ROOT / "Data" / "public_url.txt"
@@ -45,8 +45,7 @@ def decide(event: dict[str, Any]) -> dict[str, Any]:
     if not prefs:
         return {"action": "skipped", "reason": "ولي الأمر ما حفظ تفضيلات لهذا الابن"}
     cfg = prefs.get(topic) or {}
-    timing = cfg.get("timing")
-    if timing in (None, "off"):
+    if cfg.get("timing") in (None, "off"):
         return {"action": "skipped", "reason": "ولي الأمر اختار «بدون تنبيه» لهذا النوع"}
     method = cfg.get("method")
     if method not in ("call", "message"):
@@ -58,24 +57,24 @@ def _call_url(event: dict[str, Any], student: dict[str, Any]) -> str:
     params = {
         "persona": event.get("persona") or os.getenv("DEMO_PERSONA", "lulwa"),
         "scenario": SCENARIO_OF[event["type"]],
-        "student": student["student_name"],
+        "student": student["firstName"],
         "gender": student.get("gender", "m"),
-        "subject": event.get("subject_name", ""),
-        "assessment": event.get("assessment", "الاختبار الأسبوعي"),
-        "day": event.get("day", "الأحد"),
-        "time": event.get("time", "٨:٠٠ صباحا"),
+        "subject": event.get("subject", ""),
+        "assessment": event.get("assessment") or "الاختبار الأسبوعي",
+        "day": event.get("day") or "الأحد",
+        "time": event.get("period") or "الحصة الأولى",
     }
     return public_url() + "/api/phone/voice?" + urlencode(params)
 
 
 def _sms_body(event: dict[str, Any], student: dict[str, Any]) -> str:
-    name, subject = student["student_name"], event.get("subject_name", "")
+    name, subject = student["firstName"], event.get("subject", "")
     head = "السلام عليكم، معك طمّني من مدرستي.\n"
     if event["type"] == "attendance":
-        return head + f"نبلغك أن ابنك {name} لم يحضر حصة {subject} اليوم."
+        return head + f"نبلغك أن {name} لم يحضر حصة {subject} اليوم."
     if event["type"] == "grade":
         return head + f"صدرت درجة {event.get('assessment', '')} في مادة {subject} لـ{name}، تقدر تطلع عليها من حسابك المعتمد."
-    return head + f"تذكير: {name} عنده اختبار {subject} يوم {event.get('day')}، الساعة {event.get('time')}."
+    return head + f"تذكير: {name} عنده اختبار {subject} يوم {event.get('day')}، {event.get('period')}."
 
 
 def _twilio_send(action: str, event: dict[str, Any], student: dict[str, Any]) -> str:
@@ -110,5 +109,5 @@ async def dispatch(event: dict[str, Any]) -> dict[str, Any]:
                 except Exception as exc:  # noqa: BLE001
                     log.exception("notify failed")
                     result.update(action="failed", reason=str(exc)[:200])
-    store.log_event({**event, "student_name": student["student_name"] if student else "", "result": result})
+    store.log_event({**event, "student_name": student["firstName"] if student else "", "result": result})
     return result

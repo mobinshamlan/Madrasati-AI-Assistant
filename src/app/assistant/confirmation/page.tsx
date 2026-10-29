@@ -5,7 +5,7 @@ import { PageShell } from "@/components/dashboard/page-shell";
 
 export const metadata: Metadata = {
   title: "تم حفظ التفضيلات | المساعد الذكي لولي الأمر",
-  description: "ملخص تفضيلات المساعد الذكي المحفوظة على هذا الجهاز — نموذج تعليمي تجريبي ببيانات خيالية.",
+  description: "ملخص تفضيلات المساعد الذكي المحفوظة في النظام — نموذج تعليمي تجريبي ببيانات خيالية.",
 };
 
 export default function AssistantConfirmationPage() {

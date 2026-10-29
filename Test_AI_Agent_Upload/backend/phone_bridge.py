@@ -16,15 +16,15 @@ import json
 import logging
 import os
 import re
-import uuid
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
-from xml.sax.saxutils import escape, quoteattr
+from xml.sax.saxutils import quoteattr
 
 import websockets
 from dotenv import load_dotenv
 from fastapi import APIRouter, Request, Response, WebSocket, WebSocketDisconnect
+
+from backend import store
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -35,7 +35,6 @@ router = APIRouter(prefix="/api/phone")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY", "")
 OPENAI_WS_URL = os.getenv("OPENAI_LIVE_WS_URL", "wss://api.openai.com/v1/live/sessions")
 LIVE_MODEL = "gpt-live-1"
-DATA_PATH = ROOT / "Data" / "BasicData.json"
 
 # أقصى مدة للمكالمة بالثواني (حماية للفاتورة). الـ PDF يقول 20-40 ثانية.
 MAX_CALL_SECONDS = int(os.getenv("MAX_CALL_SECONDS", "90"))
@@ -56,11 +55,11 @@ GOODBYE_RE = re.compile(r"(مع السلامة|يومك سعيد|يعطيك ال
 # البيانات والـ prompt
 # ----------------------------------------------------------------------------
 def _load_student(name: str) -> dict[str, Any] | None:
+    """سجل الطالب الحي من مصدر البيانات الوحيد (نفس اللي تشوفه صفحة ولي الأمر والمدرسة)."""
     try:
-        students = json.loads(DATA_PATH.read_text(encoding="utf-8")).get("students", [])
+        return store.find_student(name)
     except (OSError, ValueError):
         return None
-    return next((s for s in students if s.get("student_name") == name), None)
 
 
 def opening_line(p: dict[str, str]) -> str:
@@ -77,7 +76,7 @@ def opening_line(p: dict[str, str]) -> str:
                 f"{assess} في مادة {subject} لـ{student} صدرت، وتقدر تطلع عليها من حسابك المعتمد.")
     if scenario == "exam_reminder":
         return (f"{hello}، معك {name} من طمني. تذكير بسيط: {student} عنده اختبار {subject} "
-                f"يوم {p['day']}، الساعة {p['time']}، في المدرسة.")
+                f"يوم {p['day']}، {p['time']}، في المدرسة.")
     # الافتراضي: الغياب
     where = f"في حصة {subject}" if subject else "في المدرسة"
     return (f"{hello}، معك {name} من طمني. حابين {verb} إن {student} ما تسجل {pron} "
@@ -140,7 +139,7 @@ async def voice(request: Request) -> Response:
         "scenario": q.get("scenario", "absence"),
         "assessment": q.get("assessment", "الاختبار الأسبوعي"),
         "day": q.get("day", "الأحد"),
-        "time": q.get("time", "٨:٠٠ صباحا"),
+        "time": q.get("time", "الحصة الأولى"),
     }
     stream_params = "".join(
         f"<Parameter name={quoteattr(k)} value={quoteattr(v)}/>" for k, v in params.items()

@@ -1,5 +1,6 @@
 """
-واجهتا النظامين: ولي الأمر (تفضيلات) والمدرسة (دخول، عرض الداتا، تسجيل أحداث).
+واجهتا النظامين: ولي الأمر (بيانات + تفضيلات) والمدرسة (دخول، عرض الداتا، تسجيل أحداث).
+الاثنتان تقرآن وتكتبان من نفس المصدر (backend/store.py).
 """
 from __future__ import annotations
 
@@ -22,9 +23,21 @@ SCHOOL_PASSWORD = os.getenv("SCHOOL_PASSWORD", "school123")
 SCHOOL_AUTH = os.getenv("SCHOOL_AUTH") == "1"
 _tokens: set[str] = set()
 
+TOPICS = ("attendance", "exams", "grades")
+
+
+def _snapshot() -> dict[str, Any]:
+    """نفس الشكل للموقع كله: ولي الأمر، اليوم، والطلاب (مع قائمة موادهم)."""
+    data = store.dataset()
+    for s in data["students"]:
+        s["subjects"] = store.subjects_of(s)
+    return data
+
 
 # ---------- ولي الأمر ----------
-TOPICS = ("attendance", "exams", "grades")
+@parent_router.get("/dashboard")
+async def dashboard() -> dict[str, Any]:
+    return _snapshot()
 
 
 @parent_router.get("/preferences/{student_id}")
@@ -71,7 +84,7 @@ def require_school(authorization: str | None = Header(default=None)) -> None:
 
 @school_router.get("/students", dependencies=[Depends(require_school)])
 async def list_students() -> dict[str, Any]:
-    return {"today": store.TODAY, "students": store.students()}
+    return _snapshot()
 
 
 @school_router.get("/events", dependencies=[Depends(require_school)])
@@ -82,13 +95,15 @@ async def list_events() -> dict[str, Any]:
 class SchoolEvent(BaseModel):
     type: Literal["attendance", "grade", "exam"]
     student_id: str
-    subject_id: str
+    subject: str = Field(max_length=100)
     status: Literal["present", "absent", "late", "excused"] = "absent"  # attendance
     assessment: str = Field(default="الاختبار الأسبوعي", max_length=100)  # grade
     score: float = Field(default=0, ge=0)
     max_score: float = Field(default=100, gt=0)
-    day: str = Field(default="الأحد", max_length=30)  # exam
-    time: str = Field(default="٨:٠٠ صباحا", max_length=30)
+    kind: str = Field(default="اختبار قصير", max_length=60)  # exam
+    day: str = Field(default="الأحد", max_length=30)
+    date: str = Field(default="", max_length=40)
+    period: str = Field(default="الحصة الأولى", max_length=40)
     persona: Literal["lulwa", "turki"] | None = None
 
 
@@ -97,19 +112,16 @@ async def post_event(body: SchoolEvent) -> dict[str, Any]:
     student = store.find_student(body.student_id)
     if student is None:
         raise HTTPException(404, "الطالب غير موجود")
-    try:
-        sub = store._subject_of(student, body.subject_id)
-        if body.type == "attendance":
-            store.set_attendance(student["student_id"], sub["subject_id"], body.status)
-        elif body.type == "grade":
-            store.publish_grade(student["student_id"], sub["subject_id"], body.assessment, body.score, body.max_score)
-        else:
-            store.schedule_exam(student["student_id"], sub["subject_id"], body.day, body.time)
-    except KeyError:
-        raise HTTPException(404, "المادة غير موجودة") from None
+    sid = student["id"]
+    if body.type == "attendance":
+        store.set_attendance(sid, body.subject, body.status)
+    elif body.type == "grade":
+        store.publish_grade(sid, body.subject, body.assessment, body.score, body.max_score)
+    else:
+        store.schedule_exam(sid, body.subject, body.kind, body.day, body.date, body.period)
 
-    event = body.model_dump() | {"student_id": student["student_id"], "subject_name": sub["subject_name"]}
-    # الغياب فقط يطلق تنبيه؛ تغييره إلى حاضر تحديث داخلي.
+    event = body.model_dump() | {"student_id": sid}
+    # الغياب أو التأخر فقط يطلق تنبيه؛ تغييره إلى حاضر تحديث داخلي.
     if body.type == "attendance" and body.status not in ("absent", "late"):
         return {"result": {"action": "skipped", "reason": "تحديث حضور بدون تنبيه"}}
     return {"result": await notifier.dispatch(event)}

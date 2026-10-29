@@ -6,6 +6,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 WEB="$(cd "$HERE/.." && pwd)"
 RUN="$HERE/.demo"; mkdir -p "$RUN"
 PY="$HERE/.venv/bin/python"
+if [ ! -x "$PY" ]; then
+  echo "تجهيز بيئة Python (مرة وحدة)..."
+  python3 -m venv "$HERE/.venv" && "$PY" -m pip install -q -r "$HERE/requirements.txt" || { echo "❌ فشل تجهيز البيئة"; exit 1; }
+fi
 
 stop() {
   for n in backend ngrok web; do
