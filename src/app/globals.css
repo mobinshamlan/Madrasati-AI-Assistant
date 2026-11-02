@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../components/brand/tammeni.css";
 
 /*
  * Palette sampled from the parent and student home screenshots in the

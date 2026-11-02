@@ -1,0 +1,525 @@
+@theme {
+  --color-ground: #f4f6f2;
+  --color-surface: #ffffff;
+  --color-panel: #edf1ea;
+  --color-panel-strong: #e2e8de;
+  --color-rule: #e8ede5;
+  --color-control: #a9b5a5;
+  --color-faint: #56635c;
+  --color-brand: #0d5c4f;
+  --color-brand-hover: #094a3f;
+  --color-brand-soft: #dcebe4;
+  --color-brand-ink: #0a4a40;
+  --color-child-a: #dde9f6;
+  --color-child-a-ink: #1c4877;
+  --color-child-b: #f4e6cf;
+  --color-child-b-ink: #6e4207;
+  --color-neutral: #46524c;
+  --color-neutral-bg: #e9ede6;
+}
+
+.tammeni-experience {
+
+  --color-ground: #f4f6f2;
+  --color-surface: #ffffff;
+  --color-panel: #edf1ea;
+  --color-panel-strong: #e2e8de;
+  --color-line: #dce3d8;
+  --color-rule: #e8ede5;
+  --color-control: #a9b5a5;
+
+  --color-ink: #15211c;
+  --color-ink-soft: #3f4c46;
+  --color-faint: #56635c;
+
+  --color-brand: #0d5c4f;
+  --color-brand-hover: #094a3f;
+  --color-brand-soft: #dcebe4;
+  --color-brand-ink: #0a4a40;
+
+  /* Each child keeps one pale tint for their initial, so the selected child is recognised at a glance. */
+  --color-child-a: #dde9f6;
+  --color-child-a-ink: #1c4877;
+  --color-child-b: #f4e6cf;
+  --color-child-b-ink: #6e4207;
+
+  --color-ok: #1b6a43;
+  --color-ok-bg: #e1f1e7;
+  --color-warn: #7f4505;
+  --color-warn-bg: #fbeed6;
+  --color-danger: #b0261e;
+  --color-danger-bg: #fbe8e5;
+  --color-info: #1c4c8c;
+  --color-info-bg: #e4ecf8;
+  --color-neutral: #46524c;
+  --color-neutral-bg: #e9ede6;
+
+  --font-sans: var(--font-plex), "IBM Plex Sans Arabic", Tahoma, sans-serif;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tammeni-experience {
+& {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+& {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--color-brand-soft);
+  color: var(--color-ink);
+}
+
+dialog::backdrop {
+  background: rgb(15 23 20 / 0.5);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.skip-link {
+  position: absolute;
+  inset-inline-start: 1rem;
+  top: 0.75rem;
+  z-index: 80;
+  transform: translateY(-160%);
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: #fff;
+  font-weight: 600;
+  padding: 0.7rem 1.25rem;
+}
+.skip-link:focus {
+  transform: none;
+}
+
+/* ---------- buttons: one pill shape everywhere, 48px tall (44px small) ---------- */
+
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-quiet,
+.btn-danger {
+  display: inline-flex;
+  min-height: 3rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  padding: 0 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 120ms ease;
+}
+.btn-sm {
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  font-size: 0.9375rem;
+}
+.btn-primary {
+  background: var(--color-brand);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--color-brand-hover);
+}
+.btn-secondary {
+  border-color: var(--color-control);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+.btn-secondary:hover {
+  border-color: var(--color-ink-soft);
+  background: var(--color-ground);
+}
+.btn-quiet {
+  background: transparent;
+  color: var(--color-brand-ink);
+  padding-inline: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+.btn-quiet:hover {
+  background: var(--color-brand-soft);
+  text-decoration: none;
+}
+.btn-danger {
+  border-color: #e3aaa4;
+  background: var(--color-surface);
+  color: var(--color-danger);
+}
+.btn-danger:hover {
+  background: var(--color-danger-bg);
+}
+:is(.btn, .btn-primary, .btn-secondary, .btn-quiet, .btn-danger):active {
+  transform: translateY(1px);
+}
+/* Busy buttons keep focus (aria-disabled), disabled ones say why next to them. */
+:is(.btn-primary, .btn-secondary, .btn-quiet, .btn-danger):is([aria-disabled="true"], :disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+:is(.btn-primary, .btn-secondary, .btn-danger)[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.link {
+  color: var(--color-brand-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+.link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ---------- surfaces ---------- */
+
+.sheet {
+  border: 1px solid var(--color-line);
+  border-radius: 1rem;
+  background: var(--color-surface);
+}
+.tone {
+  border-radius: 1rem;
+  background: var(--color-panel);
+}
+
+/* ---------- status chips: pale tint, dark text of the same hue, always a word ---------- */
+
+.chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.625rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral);
+}
+.chip[data-tone="ok"] {
+  background: var(--color-ok-bg);
+  color: var(--color-ok);
+}
+.chip[data-tone="warn"] {
+  background: var(--color-warn-bg);
+  color: var(--color-warn);
+}
+.chip[data-tone="danger"] {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.chip[data-tone="info"] {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+.chip[data-tone="brand"] {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-ink);
+}
+.chip[data-tone="outline"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-control);
+  color: var(--color-ink-soft);
+}
+
+/* ---------- notices ---------- */
+
+.notice {
+  display: flex;
+  gap: 0.75rem;
+  border-radius: 0.875rem;
+  padding: 0.9rem 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  background: var(--color-neutral-bg);
+  color: var(--color-ink);
+}
+.notice > svg {
+  margin-top: 0.2rem;
+  flex: none;
+}
+.notice-warn {
+  background: var(--color-warn-bg);
+  color: var(--color-warn);
+}
+.notice-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.notice-ok {
+  background: var(--color-ok-bg);
+  color: var(--color-ok);
+}
+.notice-info {
+  background: var(--color-info-bg);
+  color: var(--color-info);
+}
+
+/* ---------- form controls ---------- */
+
+.field {
+  display: block;
+  width: 100%;
+  min-height: 3rem;
+  border: 1.5px solid var(--color-control);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
+  padding: 0 0.85rem;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 500;
+}
+select.field {
+  cursor: pointer;
+}
+.field:hover {
+  border-color: var(--color-ink-soft);
+}
+.field:focus-visible {
+  border-color: var(--color-info);
+  outline-offset: 1px;
+}
+.field[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+/*
+ * A choice: a whole label that holds a visually hidden radio or checkbox. Selected = green edge and
+ * a pale green fill plus a filled marker, so it never depends on colour alone.
+ */
+.choice {
+  position: relative;
+  display: flex;
+  min-height: 3.25rem;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1.5px solid var(--color-line);
+  border-radius: 0.875rem;
+  background: var(--color-surface);
+  padding: 0.7rem 0.9rem;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.choice:hover {
+  border-color: var(--color-control);
+}
+.choice:has(input:checked) {
+  border-color: var(--color-brand);
+  background: var(--color-brand-soft);
+}
+.choice:has(input:focus-visible) {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+}
+.choice:has(input[aria-invalid="true"]) {
+  border-color: var(--color-danger);
+}
+.choice-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border: 1.5px solid var(--color-control);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: transparent;
+}
+.choice-mark[data-shape="box"] {
+  border-radius: 0.375rem;
+}
+.choice:has(input:checked) .choice-mark {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+  color: #fff;
+}
+
+/* A segmented control: the same hidden inputs, laid out as one track. */
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-radius: 999px;
+  background: var(--color-panel);
+  padding: 0.25rem;
+}
+.seg > label {
+  display: inline-flex;
+  min-height: 2.75rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  padding: 0 1rem;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.seg > label:hover {
+  color: var(--color-ink);
+}
+.seg > label:has(input:checked) {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 0 0 0 1.5px var(--color-brand);
+}
+.seg > label:has(input:focus-visible) {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+/* A switch (a checkbox with role="switch"). */
+.switch {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 3rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--color-control);
+  transition: background-color 160ms ease;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 0.1875rem;
+  inset-inline-start: 0.1875rem;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 999px;
+  background: #fff;
+  transition: transform 160ms ease;
+}
+input:checked + .switch {
+  background: var(--color-brand);
+}
+input:checked + .switch::after {
+  transform: translateX(-1.25rem);
+}
+input:focus-visible + .switch {
+  outline: 3px solid var(--color-info);
+  outline-offset: 2px;
+}
+
+/* ---------- the child's initial ---------- */
+
+.avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 1rem;
+  background: var(--color-child-a);
+  color: var(--color-child-a-ink);
+}
+.avatar[data-tone="b"] {
+  background: var(--color-child-b);
+  color: var(--color-child-b-ink);
+}
+
+/* ---------- a loading bar at the real size of what it stands for (no shimmer) ---------- */
+
+.placeholder {
+  display: block;
+  border-radius: 0.5rem;
+  background: var(--color-panel-strong);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .placeholder {
+    animation: tammeni-placeholder-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+
+/* ---------- motion: feedback only ---------- */
+
+.arrive {
+  animation: tammeni-arrive 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 999px;
+  animation: tammeni-spin 800ms linear infinite;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  & {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+}
+
+@keyframes tammeni-placeholder-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes tammeni-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tammeni-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -37,7 +37,7 @@ export function PreferencesPreview({ studentId, preferences }: { studentId: stri
   }
 
   return (
-    <section aria-labelledby="preview-title" className="space-y-4 rounded-xl border border-mint-300 bg-white p-5">
+    <section aria-labelledby="preview-title" className="space-y-4 rounded-xl border border-line bg-white p-5">
       <h2 id="preview-title" className="text-2xl font-extrabold text-ink">معاينة المحتوى — دون إرسال</h2>
       <p className="text-lg leading-8 text-ink">
         تعرض نص التحديث كما سيبدو حسب اختياراتك المحفوظة. هذه معاينة فقط: لا تُحفظ من جديد، ولا تُرسل رسالة، ولا تُجرى مكالمة.
@@ -46,14 +46,14 @@ export function PreferencesPreview({ studentId, preferences }: { studentId: stri
       <button type="button" disabled={busy} onClick={loadPreview} className="btn-secondary">
         {busy ? "جارٍ إعداد المعاينة…" : "معاينة حسب تفضيلاتي"}
       </button>
-      {error && <p role="alert" className="text-base text-[#b42318]">{error}</p>}
+      {error && <p role="alert" className="text-base text-danger">{error}</p>}
       <div aria-live="polite" aria-busy={busy}>
         {preview && (
           <div className="space-y-4">
             <p className="font-bold text-ink">معاينة لـ{preview.studentName}</p>
             {preview.updates.map((update) => (
-              <article key={update.topic} className="space-y-2 rounded-lg bg-mint-100 p-4">
-                <h3 className="font-bold text-brand-800">{update.label} — {update.method === "call" ? "اتصال" : "رسالة"}</h3>
+              <article key={update.topic} className="space-y-2 rounded-lg bg-panel p-4">
+                <h3 className="font-bold text-brand-ink">{update.label} — {update.method === "call" ? "اتصال" : "رسالة"}</h3>
                 <p className="whitespace-pre-line text-base leading-8 text-ink">{update.text}</p>
               </article>
             ))}

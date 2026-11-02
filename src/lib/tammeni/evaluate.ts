@@ -155,9 +155,9 @@ export function factLines(input: ContentInput): string[] {
   if (event.kind === "attendance") return [`الحضور يوم ${arabicDay(event.date)}: ${statusWords[event.status]}.`];
   if (event.kind === "exam_added") {
     const at = event.startTime ? `، الساعة ${arabicTime(event.startTime)}` : "";
-    return [`اختبار ${event.subject} (${event.examKind}) يوم ${arabicDay(event.examDate)}${at}.`];
+    return [`اختبار ${event.subject} يوم ${arabicDay(event.examDate)}${at}.`];
   }
-  if (event.kind === "exam_cancelled") return [`أُلغي اختبار ${event.subject} (${event.examKind}) المقرر يوم ${arabicDay(event.examDate)}.`];
+  if (event.kind === "exam_cancelled") return [`أُلغي اختبار ${event.subject} المقرر يوم ${arabicDay(event.examDate)}.`];
   if (decision.window && input.monthGrades) {
     if (input.monthGrades.length === 0) return ["لا توجد درجات جديدة في هذه الفترة."];
     return input.monthGrades.map((g) => `${g.subject}: ${g.assessment} — ${fmtScore(g.score)} من ${fmtScore(g.outOf)}.`);

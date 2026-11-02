@@ -4,15 +4,15 @@ import { AssistantSetup } from "@/components/assistant/assistant-setup";
 import { PageShell } from "@/components/dashboard/page-shell";
 
 export const metadata: Metadata = {
-  title: "إعداد طمّني | تفضيلات ولي الأمر",
-  description: "اختيار التحديثات وموعدها وطريقة التواصل — نموذج تعليمي تجريبي ببيانات خيالية.",
+  title: "تفضيلات التنبيه | طمّني",
+  description: "اختر وش يوصلك عن أبنائك، ومتى، وكيف — نموذج تعليمي تجريبي ببيانات خيالية.",
 };
 
 export default function AssistantPage() {
   return (
     <PageShell current="assistant">
       <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-        <Suspense fallback={<p className="mx-auto max-w-3xl px-4 py-10 text-lg text-ink-soft">جارٍ تحميل الصفحة…</p>}>
+        <Suspense fallback={<p role="status" className="mx-auto max-w-[1100px] px-4 py-10 text-ink-soft sm:px-6">جارٍ تحميل الصفحة…</p>}>
           <AssistantSetup />
         </Suspense>
       </main>

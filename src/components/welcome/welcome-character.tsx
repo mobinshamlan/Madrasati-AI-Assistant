@@ -16,23 +16,23 @@ export function WelcomeCharacter() {
   const first = greetings === 0;
 
   return (
-    <div className="flex min-w-0 flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-4 lg:flex-col-reverse lg:gap-6">
+    <div className="flex min-w-0 flex-col-reverse items-center gap-4">
       <button
         type="button"
         aria-label="حيِّ لولوة وتركي"
         onClick={() => setGreetings((n) => n + 1)}
-        className="welcome-character welcome-enter relative w-[160px] max-w-full shrink-0 sm:w-[192px] md:w-[240px] lg:w-[440px]"
+        className="welcome-character welcome-enter relative w-[200px] max-w-full shrink-0 sm:w-[260px] lg:w-[380px]"
       >
         {/* A flat disc the character stands in front of. */}
-        <span aria-hidden="true" className="absolute inset-x-[6%] top-[10%] bottom-0 rounded-full bg-mint-300" />
+        <span aria-hidden="true" className="absolute inset-x-[6%] top-[10%] bottom-0 rounded-full bg-brand-soft" />
         <span className="relative">
           {/* Remounted on each press so the greeting plays again. */}
           <span key={greetings} className={first ? "welcome-wave-first" : "welcome-wave"}>
             <Image
               src="/characters/combined.png"
               alt=""
-              width={440}
-              height={440}
+              width={380}
+              height={380}
               loading="eager"
               fetchPriority="high"
               className="h-auto w-full"
@@ -44,7 +44,7 @@ export function WelcomeCharacter() {
       {/* The bubble stays mounted so screen readers announce each new line; only the words are swapped. */}
       <p
         aria-live="polite"
-        className="welcome-bubble relative rounded-2xl bg-white px-4 py-3 text-lg leading-8 font-bold text-balance text-ink lg:self-end lg:px-5 lg:text-xl"
+        className="welcome-bubble relative rounded-2xl bg-surface px-5 py-3 text-[1.0625rem] leading-8 font-semibold text-balance text-ink"
       >
         <span key={greetings} className={first ? undefined : "welcome-swap"}>
           {lines[greetings % lines.length]}

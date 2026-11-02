@@ -6,10 +6,9 @@ import { useLayoutEffect, useState } from "react";
 import { safeReturnPath, startDemoSession } from "@/lib/demo-session";
 import "./welcome.css";
 
-const primaryClass =
-  "btn-primary w-full px-10 text-xl sm:w-auto aria-disabled:cursor-wait aria-disabled:bg-brand-700";
-const label = "ابدأ مع طمّني";
-const note = "تجربة ببيانات خيالية، دون إنشاء حساب.";
+const primaryClass = "btn-primary min-h-14 w-full px-9 text-[1.0625rem] sm:w-auto";
+const label = "ابدأ التجربة";
+const note = "تدخل كولي أمر تجريبي ببيانات خيالية، بدون حساب ولا كلمة مرور.";
 
 /**
  * One action on the existing demo entry (one fictional parent, no password). It opens the parent
@@ -19,7 +18,7 @@ const note = "تجربة ببيانات خيالية، دون إنشاء حسا�
 export function WelcomeActions() {
   const router = useRouter();
   const requested = useSearchParams().get("next");
-  const next = requested ? safeReturnPath(requested) : "/";
+  const next = requested ? safeReturnPath(requested) : "/tammeni";
   const [starting, setStarting] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -40,17 +39,18 @@ export function WelcomeActions() {
 
   return (
     <div className="welcome-rise welcome-after3 mt-8">
-      {/* aria-disabled rather than disabled, so focus stays on the button while the page opens. */}
-      <button type="button" onClick={start} aria-disabled={starting || undefined} className={primaryClass}>
+      {/* aria-busy rather than disabled, so focus stays on the button while the page opens. */}
+      <button type="button" onClick={start} aria-busy={starting || undefined} className={primaryClass}>
+        {starting && <span className="spinner" aria-hidden="true" />}
         {starting ? "جارٍ فتح طمّني…" : label}
       </button>
       <p role="status" className="sr-only">
         {starting ? "جارٍ فتح طمّني" : ""}
       </p>
-      <p className="mt-4 text-base leading-7 text-ink">{note}</p>
+      <p className="mt-3 text-[0.9375rem] leading-7 text-faint">{note}</p>
       {failed && (
-        <p role="alert" className="mt-4 rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-4 font-bold text-[#b42318]">
-          تعذّر بدء الدخول التجريبي. تأكد من اتصالك بالإنترنت، ثم حاول مرة أخرى.
+        <p role="alert" className="notice notice-danger mt-4 max-w-md">
+          تعذّر بدء الدخول التجريبي. تأكد من اتصالك بالإنترنت، ثم جرّب مرة ثانية.
         </p>
       )}
     </div>
@@ -61,10 +61,10 @@ export function WelcomeActions() {
 export function WelcomeActionsFallback() {
   return (
     <div className="welcome-rise welcome-after3 mt-8">
-      <Link href="/login" className={primaryClass}>
+      <Link href="/login?next=%2Ftammeni" className={primaryClass}>
         {label}
       </Link>
-      <p className="mt-4 text-base leading-7 text-ink">{note}</p>
+      <p className="mt-3 text-[0.9375rem] leading-7 text-faint">{note}</p>
     </div>
   );
 }

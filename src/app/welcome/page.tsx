@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { TammeniExperience } from "@/components/brand/experience";
 import { Suspense } from "react";
-import { DemoLabel } from "@/components/assistant/summary";
 import { students } from "@/components/dashboard/data";
-import { MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
+import { AttendanceIcon, ExamIcon, GradesIcon, MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
 import { DemoNotice, Footer } from "@/components/dashboard/page-shell";
+import { BrandHeader } from "@/components/dashboard/site-header";
 import { WelcomeActions, WelcomeActionsFallback } from "@/components/welcome/welcome-actions";
 import { WelcomeCharacter } from "@/components/welcome/welcome-character";
 import "@/components/welcome/welcome.css";
@@ -14,12 +15,6 @@ export const metadata: Metadata = {
   description: "أخبار أبنائك في المدرسة توصلك باتصال أو رسالة، بالطريقة والوقت اللي يناسبك. نموذج تعليمي ببيانات خيالية.",
 };
 
-const steps = [
-  { title: "اختر ابنك أو ابنتك", detail: "في هذه النسخة: ريم أو نواف، ببيانات خيالية." },
-  { title: "حدد التحديثات المناسبة", detail: "الحضور والغياب، الاختبارات، الدرجات." },
-  { title: "اختر طريقة ووقت التواصل", detail: "اتصال أو رسالة، في الوقت الذي يناسبك." },
-];
-
 // The examples are built from ريم's fictional record (this page is shown before sign-in, so it uses the
 // bundled copy), in the same words the call and the message use, so they promise nothing new.
 const reem = students.find((s) => s.id === "reem")!;
@@ -27,105 +22,115 @@ const exam = reem.exams[0];
 const callExample = `مرحبا، معك لولوة من طمّني. تذكير بسيط: ${reem.firstName} عندها اختبار ${exam.subject} يوم ${exam.day}، ${exam.period}، في المدرسة.`;
 const messageExample = { heading: `طمّني | ${reem.name}`, body: `${exam.subject}: ${exam.kind} — ${exam.day} ${exam.date}، ${exam.period}.` };
 
+const topicsList = [
+  { Icon: AttendanceIcon, title: "الحضور والغياب", detail: "أول ما يُسجَّل، أو ملخص آخر اليوم أو الأسبوع." },
+  { Icon: ExamIcon, title: "الاختبارات", detail: "تذكير قبلها بيوم أو أسبوع أو بالعدد اللي تختاره." },
+  { Icon: GradesIcon, title: "الدرجات", detail: "أول ما تُنشر درجة، أو ملخص لكل المواد مرة في الشهر." },
+];
+
 export default function WelcomePage() {
   return (
-    <>
+    <TammeniExperience>
       <DemoNotice />
-      <header className="bg-mint-200">
-        <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-3 px-4 py-2 lg:h-[72px] lg:px-6 lg:py-0">
-          <p className="tammeni-mark text-3xl">طمّني</p>
-          <DemoLabel />
-        </div>
-      </header>
+      <BrandHeader />
 
       <main id="main" className="flex-1">
-        <section aria-labelledby="welcome-title" className="bg-mint-200">
-          <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 pt-6 pb-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-14 lg:px-6 lg:pt-12 lg:pb-20">
-            <WelcomeCharacter />
-            <div className="min-w-0">
+        <section aria-labelledby="welcome-title">
+          <div className="mx-auto grid max-w-[1100px] items-center gap-8 px-4 pt-8 pb-14 sm:px-6 lg:grid-cols-12 lg:gap-10 lg:pt-14 lg:pb-20">
+            <div className="min-w-0 lg:col-span-7">
               <h1
                 id="welcome-title"
-                className="welcome-rise welcome-after1 text-[34px] leading-[1.3] font-extrabold text-balance text-ink sm:text-5xl sm:leading-[1.25] lg:text-[56px]"
+                className="welcome-rise welcome-after1 text-[2.125rem] leading-[1.25] font-bold tracking-tight text-balance sm:text-[2.75rem] lg:text-[3.25rem]"
               >
                 أخبار أبنائك توصلك باتصال أو رسالة
               </h1>
-              <p className="welcome-rise welcome-after2 mt-4 max-w-xl text-xl leading-9 text-ink">
-                بالطريقة والوقت اللي يناسبك. تختار ما يهمك من الحضور والاختبارات والدرجات، دون الحاجة إلى التنقل في المنصة.
+              <p className="welcome-rise welcome-after2 mt-5 max-w-[46ch] text-[1.1875rem] leading-9 text-ink-soft">
+                تختار وش يهمك من الحضور والاختبارات والدرجات، ومتى يوصلك، وكيف. بدون ما تدخل المنصة كل يوم.
               </p>
               <Suspense fallback={<WelcomeActionsFallback />}>
                 <WelcomeActions />
               </Suspense>
             </div>
+            <div className="lg:col-span-5">
+              <WelcomeCharacter />
+            </div>
           </div>
         </section>
 
-        <section aria-labelledby="steps-title" className="bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-14 lg:px-6 lg:py-20">
-            <h2 id="steps-title" className="text-3xl font-extrabold text-ink">
-              ثلاث خطوات وتبدأ
+        <section aria-labelledby="examples-title" className="border-y border-line bg-surface">
+          <div className="mx-auto max-w-[1100px] px-4 py-14 sm:px-6 lg:py-20">
+            <h2 id="examples-title" className="text-[1.75rem] leading-tight font-bold sm:text-[2rem]">
+              كذا يوصلك الخبر
             </h2>
-            <ol className="mt-8 grid gap-4 lg:grid-cols-[1fr_auto_1fr_auto_1fr] lg:items-stretch">
-              {steps.map((step, i) => (
-                <StepItem key={step.title} step={step} last={i === steps.length - 1} />
-              ))}
-            </ol>
-          </div>
-        </section>
+            <p className="mt-2 max-w-[60ch] text-[1.0625rem] leading-8 text-ink-soft">
+              مثال من بيانات ريم الخيالية: تذكير باختبار {exam.subject}، مرة باتصال ومرة برسالة.
+            </p>
 
-        <section aria-labelledby="examples-title" className="bg-mint-100">
-          <div className="mx-auto max-w-6xl px-4 py-14 lg:px-6 lg:py-20">
-            <h2 id="examples-title" className="text-3xl font-extrabold text-ink">
-              كيف توصلك الأخبار
-            </h2>
-            <p className="mt-3 text-lg leading-8 text-ink">أمثلة توضيحية ببيانات خيالية.</p>
-            <div className="mt-8 grid min-w-0 gap-6 lg:grid-cols-2">
-              <figure className="min-w-0 rounded-xl border border-mint-300 bg-white p-5 sm:p-6">
-                <figcaption className="flex items-center gap-2 text-xl font-bold text-brand-800">
-                  <PhoneIcon size={26} className="text-brand-700" />
-                  اتصال من لولوة
-                </figcaption>
-                <p className="mt-1 text-base text-ink">المساعدة الصوتية في طمّني — مثال عن اختبار ريم، وليست صورة الطالبة.</p>
-                <div className="mt-4 flex min-w-0 items-start gap-3">
-                  <Image src="/characters/combined.png" alt="" width={64} height={64} className="size-16 shrink-0 object-contain" />
-                  <blockquote className="min-w-0 flex-1 rounded-2xl rounded-ss-sm bg-mint-100 px-4 py-3 text-lg leading-8 text-ink">
-                    {callExample}
-                  </blockquote>
+            <div className="mt-8 grid gap-4 lg:grid-cols-2">
+              <figure className="tone flex flex-col p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <Image src="/characters/combined.png" alt="" width={56} height={56} className="size-14 rounded-full bg-surface object-contain" />
+                  <div>
+                    <p className="font-semibold">لولوة من طمّني</p>
+                    <p className="flex items-center gap-1.5 text-[0.9375rem] text-ink-soft">
+                      <PhoneIcon size={16} />
+                      اتصال صوتي
+                    </p>
+                  </div>
                 </div>
-              </figure>
-              <figure className="min-w-0 rounded-xl border border-mint-300 bg-white p-5 sm:p-6">
-                <figcaption className="flex items-center gap-2 text-xl font-bold text-brand-800">
-                  <MessageIcon size={26} className="text-brand-700" />
-                  رسالة مكتوبة
+                <blockquote className="mt-5 rounded-2xl rounded-ss-md bg-surface px-4 py-3.5 text-[1.0625rem] leading-8">{callExample}</blockquote>
+                <figcaption className="mt-4 text-[0.9375rem] leading-7 text-ink-soft">
+                  المكالمة حوار: تقدر تسأل لولوة عن حضور ريم أو درجاتها، وترد عليك من سجلها.
                 </figcaption>
-                <div className="mt-4 rounded-2xl bg-mint-100 px-4 py-3 text-lg leading-8 text-ink">
-                  <p className="font-bold">{messageExample.heading}</p>
+              </figure>
+
+              <figure className="tone flex flex-col p-5 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-14 place-items-center rounded-full bg-surface text-brand" aria-hidden="true">
+                    <MessageIcon size={26} />
+                  </span>
+                  <div>
+                    <p className="font-semibold">طمّني</p>
+                    <p className="flex items-center gap-1.5 text-[0.9375rem] text-ink-soft">
+                      <MessageIcon size={16} />
+                      رسالة نصية
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5 rounded-2xl rounded-se-md bg-surface px-4 py-3.5 text-[1.0625rem] leading-8">
+                  <p className="font-semibold">{messageExample.heading}</p>
                   <p>{messageExample.body}</p>
                 </div>
+                <figcaption className="mt-4 text-[0.9375rem] leading-7 text-ink-soft">رسالة قصيرة فيها الخبر كامل، تقراها متى ما ناسبك.</figcaption>
               </figure>
             </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="topics-title">
+          <div className="mx-auto grid max-w-[1100px] gap-8 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:py-20">
+            <div className="lg:col-span-4">
+              <h2 id="topics-title" className="text-[1.75rem] leading-tight font-bold sm:text-[2rem]">
+                أنت تختار وش يوصلك
+              </h2>
+              <p className="mt-2 text-[1.0625rem] leading-8 text-ink-soft">لكل ابن اختياراته، ولكل نوع وقته وطريقته. وتقدر توقف أي نوع.</p>
+            </div>
+            <ul className="divide-y divide-line border-y border-line lg:col-span-8">
+              {topicsList.map(({ Icon, title, detail }) => (
+                <li key={title} className="flex gap-4 py-5">
+                  <Icon size={26} className="mt-0.5 shrink-0 text-brand" />
+                  <div>
+                    <p className="text-[1.125rem] font-semibold">{title}</p>
+                    <p className="mt-0.5 leading-7 text-ink-soft">{detail}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
       </main>
 
       <Footer />
-    </>
-  );
-}
-
-function StepItem({ step, last }: { step: (typeof steps)[number]; last: boolean }) {
-  return (
-    <>
-      <li className="rounded-xl border border-mint-300 bg-mint-100 p-5">
-        <p className="text-xl font-bold text-ink">{step.title}</p>
-        <p className="mt-1 text-base leading-7 text-ink">{step.detail}</p>
-      </li>
-      {!last && (
-        // The order is shown by position; the arrow points along the reading direction.
-        <li aria-hidden="true" className="flex items-center justify-center text-3xl leading-none text-brand-600">
-          <span className="lg:hidden">↓</span>
-          <span className="hidden lg:inline">←</span>
-        </li>
-      )}
-    </>
+    </TammeniExperience>
   );
 }

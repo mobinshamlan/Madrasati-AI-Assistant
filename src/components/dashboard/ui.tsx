@@ -1,156 +1,129 @@
-import { CheckIcon, UserIcon } from "./icons";
+import { CheckIcon, InfoIcon } from "./icons";
 
-export function SectionTab({
-  id,
-  title,
-  aside,
-  step,
-  size = "md",
+/** Each child keeps one tint everywhere (the list is sorted by name, so the order is stable). */
+export const childTone = (index: number) => (index % 2 === 1 ? "b" : "a");
+
+/**
+ * The selected child, as one segmented track of real radios. With one child it is a plain label.
+ * The first letter sits in the child's own tint, so whose news is on screen is recognised at a glance.
+ */
+export function ChildSwitcher({
+  students,
+  selectedId,
+  onSelect,
+  name = "child",
+  legend = "عرض أخبار",
 }: {
-  id: string;
-  title: string;
-  aside?: React.ReactNode;
-  step?: number;
-  size?: "md" | "lg";
+  students: { id: string; firstName: string; grade: string }[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  name?: string;
+  legend?: string;
 }) {
+  if (students.length < 2) {
+    const s = students[0];
+    return s ? (
+      <p className="inline-flex items-center gap-2 font-semibold">
+        <span className="avatar">{s.firstName.slice(0, 1)}</span>
+        {s.firstName}
+      </p>
+    ) : null;
+  }
   return (
-    <div className="flex flex-wrap items-end justify-between gap-x-4 border-b-4 border-mint-300">
-      <h2
-        id={id}
-        className={`flex items-center gap-3 rounded-t-xl bg-brand-600 px-5 pt-2.5 pb-2 font-bold text-white ${
-          size === "lg" ? "text-xl" : "text-lg"
-        }`}
-      >
-        {step !== undefined && (
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-lg font-extrabold text-brand-700">
-            <span className="sr-only">الخطوة </span>
-            {step}
-          </span>
-        )}
-        {title}
-      </h2>
-      {aside && <div className="pb-1.5 text-base text-ink">{aside}</div>}
-    </div>
+    <fieldset className="min-w-0">
+      <legend className="sr-only">{legend}</legend>
+      <div className="seg">
+        {students.map((s, i) => (
+          <label key={s.id} className="!ps-1.5 !pe-4">
+            <input
+              type="radio"
+              name={name}
+              value={s.id}
+              checked={s.id === selectedId}
+              onChange={() => onSelect(s.id)}
+              className="sr-only"
+            />
+            <span className="avatar !size-9" data-tone={childTone(i)} aria-hidden="true">
+              {s.firstName.slice(0, 1)}
+            </span>
+            <span className="leading-tight">
+              <span className="block">{s.firstName}</span>
+              <span className="sr-only">، {s.grade}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 
-type ChoiceCardProps = {
-  type: "radio" | "checkbox";
-  name: string;
-  value: string;
-  checked: boolean;
-  onChange: () => void;
-  title: string;
-  description?: string;
-  leading?: React.ReactNode;
-  tone?: "plain" | "tinted";
-  size?: "md" | "lg";
-  describedBy?: string;
-  invalid?: boolean;
-};
-
-/** A large, fully clickable radio or checkbox. The native input stays in the DOM for keyboard and screen readers. */
-export function ChoiceCard({
-  type,
+/** A whole-label radio or checkbox. The native input stays in the DOM for the keyboard and screen readers. */
+export function Choice({
+  type = "radio",
   name,
   value,
   checked,
   onChange,
   title,
-  description,
+  hint,
   leading,
-  tone = "plain",
-  size = "lg",
-  describedBy,
   invalid,
-}: ChoiceCardProps) {
-  const surface =
-    tone === "tinted"
-      ? "border-transparent bg-white/70 hover:bg-white has-[:checked]:bg-white"
-      : "border-[#9da4ae] bg-white hover:border-brand-500 hover:bg-mint-50 has-[:checked]:bg-mint-100";
-  const sizing = size === "lg" ? "min-h-[72px] gap-4 px-4 py-3" : "gap-3 px-3 py-2.5";
-
+  describedBy,
+}: {
+  type?: "radio" | "checkbox";
+  name: string;
+  value: string;
+  checked: boolean;
+  onChange: () => void;
+  title: React.ReactNode;
+  hint?: React.ReactNode;
+  leading?: React.ReactNode;
+  invalid?: boolean;
+  describedBy?: string;
+}) {
   return (
-    <label
-      className={`flex cursor-pointer items-center rounded-xl border-2 transition-colors has-[:checked]:border-brand-600 has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-tile-navy ${surface} ${sizing}`}
-    >
+    <label className="choice">
       <input
         type={type}
         name={name}
         value={value}
         checked={checked}
         onChange={onChange}
-        aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
-        className="peer sr-only"
+        aria-describedby={describedBy}
+        className="sr-only"
       />
+      <span className="choice-mark" data-shape={type === "checkbox" ? "box" : undefined} aria-hidden="true">
+        <CheckIcon size={13} strokeWidth={3} />
+      </span>
       {leading}
       <span className="min-w-0 flex-1 leading-snug">
-        <span className={`block font-bold text-ink ${size === "lg" ? "text-lg" : ""}`}>{title}</span>
-        {description && (
-          <span className={`block text-ink ${size === "lg" ? "mt-0.5 text-base" : "text-sm"}`}>{description}</span>
-        )}
-      </span>
-      <span
-        aria-hidden="true"
-        className={`grid shrink-0 place-items-center border-2 border-[#6c737f] bg-white text-transparent peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-checked:text-white ${
-          type === "radio" ? "rounded-full" : "rounded-md"
-        } ${size === "lg" ? "size-7" : "size-6"}`}
-      >
-        <CheckIcon size={size === "lg" ? 17 : 14} strokeWidth={3} />
+        <span className="block font-semibold text-ink">{title}</span>
+        {hint && <span className="mt-0.5 block text-[0.875rem] text-ink-soft">{hint}</span>}
       </span>
     </label>
   );
 }
 
-/** A choice of student. The list comes from the caller (Supabase for the signed-in parent). */
-export function StudentPicker({
-  legend,
-  students,
-  selectedId,
-  onSelect,
-  name = "student",
-  tone = "plain",
-  size = "lg",
-  legendClassName = "sr-only",
-}: {
-  legend: string;
-  students: { id: string; name: string; grade: string }[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-  name?: string;
-  tone?: "plain" | "tinted";
-  size?: "md" | "lg";
-  legendClassName?: string;
-}) {
+/** A failure says what failed and offers the retry; the page never falls back to bundled data. */
+export function LoadProblem({ title = "تعذّر تحميل البيانات", message, onRetry }: { title?: string; message: string; onRetry?: () => void }) {
   return (
-    <fieldset className="min-w-0">
-      <legend className={legendClassName}>{legend}</legend>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {students.map((s) => (
-          <ChoiceCard
-            key={s.id}
-            type="radio"
-            name={name}
-            value={s.id}
-            checked={s.id === selectedId}
-            onChange={() => onSelect(s.id)}
-            title={s.name}
-            description={s.grade}
-            tone={tone}
-            size={size}
-            leading={
-              <span
-                className={`grid shrink-0 place-items-center rounded-full bg-mint-500 text-white ${
-                  size === "lg" ? "size-12" : "size-11"
-                }`}
-              >
-                <UserIcon size={size === "lg" ? 24 : 22} />
-              </span>
-            }
-          />
-        ))}
+    <div role="alert" className="notice notice-danger">
+      <InfoIcon size={20} />
+      <div>
+        <p className="font-semibold">{title}</p>
+        <p>{message}</p>
+        {onRetry && (
+          <button type="button" onClick={onRetry} className="btn-danger btn-sm mt-3">
+            إعادة المحاولة
+          </button>
+        )}
       </div>
-    </fieldset>
+    </div>
   );
+}
+
+/** A grey bar standing in for text of the same height while it loads. */
+export function Placeholder({ className }: { className: string }) {
+  return <span aria-hidden="true" className={`placeholder ${className}`} />;
 }

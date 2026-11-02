@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { parent } from "@/components/dashboard/data";
 import { InfoIcon, UserIcon } from "@/components/dashboard/icons";
-import { SectionTab } from "@/components/dashboard/ui";
+import { SectionTab } from "@/components/madrasati/ui";
 import { safeReturnPath, startDemoSession, useDemoSession } from "@/lib/demo-session";
 
 export function DemoLogin() {

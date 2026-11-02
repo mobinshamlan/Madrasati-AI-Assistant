@@ -121,6 +121,8 @@ const timeText = (t: string) => {
 export type DashboardStudent = Student & {
   /** Records added by the demo control page, so the parent can tell them apart. */
   simulated: { attendanceDays: number; exams: number; grades: number };
+  /** The same exams with their calendar day (Riyadh, YYYY-MM-DD), for reminder times. */
+  examDates: { subject: string; kind: string; examDate: string; startTime: string | null; cancelled: boolean }[];
 };
 
 export function useDashboardStudent(student: LinkedStudent | null) {
@@ -193,6 +195,13 @@ export function useDashboardStudent(student: LinkedStudent | null) {
         date: g.hijri_text ?? hijri(g.published_on),
       })),
       announcements: (announcements.data ?? []).map((n) => ({ title: n.title, body: n.body, date: n.display_date ?? "", tag: n.tag ?? "" })),
+      examDates: examRows.map((e) => ({
+        subject: e.subject,
+        kind: e.kind,
+        examDate: e.exam_date,
+        startTime: e.start_time ?? null,
+        cancelled: e.status === "cancelled",
+      })),
       simulated: {
         attendanceDays: (attendance.data ?? []).filter((r) => r.origin === "demo").length,
         exams: examRows.filter((e) => e.origin === "demo").length,

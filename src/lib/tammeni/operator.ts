@@ -2,7 +2,11 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isOperator, operatorServerClient, verifiedUser } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+import { headers } from "next/headers";
+import { directDemoAllowed } from "./direct-demo";
+import { callStudentData } from "./call-student-data";
+import { archiveDemoEvents } from "./archive-events";
 import {
   arabicDay,
   arabicMoment,
@@ -18,8 +22,7 @@ import {
 } from "./evaluate";
 import { DEFAULT_ROW, PREFERENCE_COLUMNS, rowToPreferences, type PreferencesRow } from "./preferences-row";
 
-// Demo control, server side. Every function runs as the signed-in operator (separate cookie), whose
-// role comes from Supabase Auth app_metadata. RLS in the database checks the same role again.
+// Local demo server only. Database credentials never leave the server. Parent RLS is unchanged.
 
 export class OperatorError extends Error {
   constructor(public status: number, message: string, public extra?: Record<string, unknown>) {
@@ -27,12 +30,17 @@ export class OperatorError extends Error {
   }
 }
 
+/** Direct server database connection; no operator account, password, session or cookie. */
 export async function requireOperator(): Promise<SupabaseClient> {
-  const supabase = await operatorServerClient();
-  const user = await verifiedUser(supabase);
-  if (!user) throw new OperatorError(401, "سجّل دخول المشغّل أولًا.");
-  if (!isOperator(user)) throw new OperatorError(403, "هذا الحساب لا يملك صلاحية تشغيل الديمو.");
-  return supabase;
+  if (!directDemoAllowed(process.env, await headers())) {
+    throw new OperatorError(403, "لوحة التشغيل المباشرة متاحة على هذا الجهاز في وضع التطوير فقط.");
+  }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  if (!url || !key) {
+    throw new OperatorError(503, "اتصال قاعدة بيانات الديمو غير مكتمل. أضف مفتاح Supabase الخاص بالخادم في إعدادات الموقع، ثم أعد تشغيله. لا تحتاج إلى تسجيل دخول.");
+  }
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
 }
 
 const dbFail = (what: string): never => {
@@ -44,11 +52,11 @@ const dbFail = (what: string): never => {
 export async function overview(supabase: SupabaseClient) {
   const [parents, links] = await Promise.all([
     supabase.from("parent_profiles").select("id, full_name"),
-    supabase.from("parent_students").select("parent_id, students (id, demo_key, full_name, first_name, grade_label, stage_label, school_name)"),
+    supabase.from("parent_students").select("parent_id, students!inner (id, demo_key, full_name, first_name, grade_label, stage_label, school_name)").in("students.demo_key", ["reem", "nawaf"]),
   ]);
   if (parents.error || links.error) dbFail("تحميل ولي الأمر والأبناء");
   // The demo has one parent. Students are the ones linked to that parent (ريم and نواف).
-  const parent = parents.data?.[0] ?? null;
+  const parent = parents.data?.find((p) => links.data?.some((l) => l.parent_id === p.id)) ?? null;
   type S = { id: string; demo_key: string; full_name: string; first_name: string; grade_label: string; stage_label: string | null; school_name: string };
   const students = (links.data ?? [])
     .filter((l) => l.parent_id === parent?.id)
@@ -60,7 +68,7 @@ export async function overview(supabase: SupabaseClient) {
 
 async function loadStudent(supabase: SupabaseClient, studentId: string) {
   if (!/^[0-9a-f-]{36}$/.test(studentId)) throw new OperatorError(400, "طالب غير معروف.");
-  const { data, error } = await supabase.from("students").select("id, demo_key, full_name, first_name").eq("id", studentId).maybeSingle();
+  const { data, error } = await supabase.from("students").select("id, demo_key, full_name, first_name").eq("id", studentId).in("demo_key", ["reem", "nawaf"]).maybeSingle();
   if (error) dbFail("تحميل الطالب");
   if (!data) throw new OperatorError(404, "هذا الطالب غير موجود في بيانات الديمو.");
   return data;
@@ -75,24 +83,38 @@ async function loadPreferences(supabase: SupabaseClient, studentId: string) {
 export async function studentPanel(supabase: SupabaseClient, studentId: string) {
   const student = await loadStudent(supabase, studentId);
   const prefs = await loadPreferences(supabase, studentId);
-  const [events, notifications, attempts, exams, absences] = await Promise.all([
-    supabase.from("demo_events").select("id, kind, event_date, summary, created_at").eq("student_id", studentId).is("archived_at", null).order("created_at", { ascending: false }).limit(30),
+  const [events, notifications, attempts, exams, absences, grades] = await Promise.all([
+    supabase.from("demo_events").select("id, kind, event_date, summary, payload, created_at").eq("student_id", studentId).is("archived_at", null).order("created_at", { ascending: false }).limit(30),
     supabase.from("notifications").select("id, demo_event_id, topic, status, method, due_at, reason, content, window_start, window_end, prefs_version, evaluated_at").eq("student_id", studentId).order("evaluated_at", { ascending: false }).limit(40),
     supabase.from("dispatch_attempts").select("id, notification_id, kind, provider, method, destination_masked, status, provider_status, error_message, ran_early, original_due_at, created_at").eq("student_id", studentId).order("created_at", { ascending: false }).limit(40),
     supabase.from("exams").select("id, subject, kind, exam_date, origin").eq("student_id", studentId).eq("status", "scheduled").is("archived_at", null).order("exam_date"),
     supabase.from("attendance_records").select("demo_event_id, day, status").eq("student_id", studentId).eq("origin", "demo").is("archived_at", null).in("status", ["absent", "late"]),
+    supabase.from("grades").select("subject, assessment").eq("student_id", studentId).is("archived_at", null),
   ]);
-  if (events.error || notifications.error || attempts.error || exams.error || absences.error) dbFail("تحميل أحداث الطالب");
+  if (events.error || notifications.error || attempts.error || exams.error || absences.error || grades.error) dbFail("تحميل أحداث الطالب");
   const byEvent = new Map((notifications.data ?? []).map((n) => [n.demo_event_id, n]));
   return {
     student: { id: student.id, key: student.demo_key, name: student.full_name, firstName: student.first_name },
     preferences: prefs.preferences,
     preferencesVersion: prefs.version,
-    events: (events.data ?? []).map((e) => ({ ...e, notification: byEvent.get(e.id) ?? null })),
+    formOptions: {
+      subjects: [...new Set([...(grades.data ?? []).map((g) => g.subject), ...(exams.data ?? []).map((e) => e.subject)])],
+      assessments: [...new Set((grades.data ?? []).map((g) => g.assessment))],
+      examKinds: [...new Set((exams.data ?? []).map((e) => e.kind))],
+    },
+    events: (events.data ?? []).map(({ payload, ...e }) => ({ ...e,
+      summary: e.kind === "exam_added" ? `اختبار ${payload.subject} — ${arabicDay(payload.examDate)}` : e.summary,
+      notification: byEvent.get(e.id) ?? null })),
     attempts: attempts.data ?? [],
-    examsToCancel: (exams.data ?? []).map((e) => ({ id: e.id, label: `${e.subject} — ${e.kind} — ${arabicDay(e.exam_date)}`, examDate: e.exam_date })),
+    examsToCancel: (exams.data ?? []).map((e) => ({ id: e.id, label: `${e.subject} — ${arabicDay(e.exam_date)}`, examDate: e.exam_date })),
     absencesToExcuse: (absences.data ?? []).map((a) => ({ eventId: a.demo_event_id as string, label: `${a.status === "absent" ? "غياب" : "تأخر"} يوم ${arabicDay(a.day)}` })),
   };
+}
+
+/** Read the very same current records supplied to a new call, for demo verification. */
+export async function studentCallFacts(supabase: SupabaseClient, studentId: string) {
+  await loadStudent(supabase, studentId);
+  return callStudentData(supabase, studentId, riyadhDay(new Date()));
 }
 
 // ---------- recording an event ----------
@@ -186,7 +208,7 @@ export async function recordEvent(supabase: SupabaseClient, studentId: string, r
     schoolEvent = input;
   } else if (input.kind === "exam_added") {
     payload = { subject: input.subject, examKind: input.examKind, examDate: input.examDate, startTime: input.startTime };
-    summary = `اختبار ${input.subject} (${input.examKind}) — ${arabicDay(input.examDate)}`;
+    summary = `اختبار ${input.subject} — ${arabicDay(input.examDate)}`;
     schoolEvent = { kind: "exam_added", date: input.date, examDate: input.examDate, startTime: input.startTime, subject: input.subject, examKind: input.examKind };
   } else if (input.kind === "exam_cancelled") {
     const exam = await supabase.from("exams").select("id, subject, kind, exam_date, origin, status").eq("id", input.examId).eq("student_id", studentId).maybeSingle();
@@ -360,7 +382,11 @@ export async function previewNotification(supabase: SupabaseClient, notification
     const prefs = await loadPreferences(supabase, n.student_id);
     const decision = evaluate(event, prefs.preferences, new Date());
     const input = await contentFor(supabase, n.student_id, student, event, decision);
-    return describe(n.status, decision, input, prefs.version, n.status === "cancelled" ? "أُلغي هذا التحديث." : "أُرسل هذا التحديث سابقًا.");
+    const note = n.status === "cancelled" ? "أُلغي هذا التحديث."
+      : n.status === "failed" ? "فشلت محاولة الإرسال السابقة."
+      : n.status === "sending" ? "طلب الإرسال قيد التنفيذ."
+      : "أُرسل طلب هذا التحديث سابقًا؛ راجع سجل الإرسال لمعرفة النتيجة.";
+    return describe(n.status, decision, input, prefs.version, note);
   }
   const { decision, input, prefsVersion } = await saveDecision(supabase, n.student_id, n.demo_event_id, event, student, "update", n.id);
   return describe(decision.status, decision, input, prefsVersion);
@@ -580,28 +606,14 @@ export async function resetPreferences(supabase: SupabaseClient, studentId: stri
  * leave the dashboard, unsent updates are cancelled and imported exams cancelled by the demo come back.
  * Attempts already handed to a provider stay in the log; clearing does not recall a sent SMS or call.
  */
-export async function clearSimulation(supabase: SupabaseClient, studentId: string) {
+export async function clearSimulation(supabase: SupabaseClient, studentId: string, eventId?: string) {
   await loadStudent(supabase, studentId);
-  const events = await supabase.from("demo_events").select("id, kind, payload").eq("student_id", studentId).is("archived_at", null);
-  if (events.error) dbFail("تحميل الأحداث");
-  const ids = (events.data ?? []).map((e) => e.id);
-  if (ids.length === 0) return { cleared: 0, cancelled: 0, alreadySent: 0 };
-  const now = new Date().toISOString();
-
-  const restore = (events.data ?? []).filter((e) => e.kind === "exam_cancelled").map((e) => (e.payload as { examId?: string }).examId).filter(Boolean) as string[];
-  const steps = await Promise.all([
-    supabase.from("attendance_records").update({ archived_at: now }).in("demo_event_id", ids),
-    supabase.from("grades").update({ archived_at: now }).in("demo_event_id", ids),
-    supabase.from("exams").update({ archived_at: now }).in("demo_event_id", ids),
-    restore.length ? supabase.from("exams").update({ status: "scheduled" }).in("id", restore).is("archived_at", null) : Promise.resolve({ error: null }),
-  ]);
-  if (steps.some((s) => s.error)) dbFail("مسح سجلات المحاكاة");
-  const pending = await supabase.from("notifications").update({ status: "cancelled", reason: "مُسح الحدث من المحاكاة." }).in("demo_event_id", ids).in("status", ["waiting", "ready", "suppressed"]).select("id");
-  if (pending.error) dbFail("إلغاء التحديثات المعلقة");
-  const sent = await supabase.from("notifications").select("id").in("demo_event_id", ids).in("status", ["sending", "accepted", "delivered"]);
-  const archived = await supabase.from("demo_events").update({ archived_at: now }).in("id", ids);
-  if (archived.error) dbFail("أرشفة الأحداث");
-  return { cleared: ids.length, cancelled: (pending.data ?? []).length, alreadySent: (sent.data ?? []).length };
+  if (eventId && !/^[0-9a-f-]{36}$/.test(eventId)) throw new OperatorError(400, "رقم الحدث غير صالح.");
+  try {
+    return await archiveDemoEvents(supabase, studentId, eventId);
+  } catch {
+    throw new OperatorError(503, "تعذّر حذف الحدث بالكامل. أعد المحاولة.");
+  }
 }
 
 export const todayInRiyadh = () => riyadhDay(new Date());

@@ -1,37 +1,37 @@
 "use client";
 
 import Link from "next/link";
+import { TammeniExperience } from "@/components/brand/experience";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { TammeniMark } from "@/components/brand/mark";
 import { isLeavingOnPurpose, useDemoSession } from "@/lib/demo-session";
-import { ComingSoonProvider, useComingSoon } from "./coming-soon";
-import { AccessibilityIcon, InfoIcon } from "./icons";
+import { InfoIcon } from "./icons";
 import { BrandHeader, SiteHeader, type PageKey } from "./site-header";
 
 /** Pages behind the demo entry. Without a demo session they send the visitor to /welcome, then on to /login and back. */
 export function PageShell({ current, children }: { current: PageKey; children: React.ReactNode }) {
   return (
-    <ComingSoonProvider>
+    <TammeniExperience>
       <DemoNotice />
       <DemoSessionGate>
         <SiteHeader current={current} />
         {children}
-        <AccessibilityButton />
       </DemoSessionGate>
       <Footer />
-    </ComingSoonProvider>
+    </TammeniExperience>
   );
 }
 
 /** The login page: the same notice, logo bar and footer, without the signed-in navigation. */
 export function PublicShell({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <TammeniExperience>
       <DemoNotice />
       <BrandHeader />
       {children}
       <Footer />
-    </>
+    </TammeniExperience>
   );
 }
 
@@ -50,16 +50,17 @@ function DemoSessionGate({ children }: { children: React.ReactNode }) {
 
   if (status === "signed-in") return children;
   return (
-    <main id="main" className="flex-1 px-4 py-16 text-center text-lg">
+    <main id="main" className="grid flex-1 place-items-center px-4 py-20">
       {status === "checking" ? (
-        <p role="status" className="text-ink-soft">
-          جارٍ فتح الصفحة…
+        <p role="status" className="flex items-center gap-3 text-ink-soft">
+          <span className="spinner text-brand" aria-hidden="true" />
+          جارٍ فتح طمّني…
         </p>
       ) : (
-        <p role="status" className="text-ink">
-          هذه الصفحة تحتاج إلى الدخول التجريبي أولًا.{" "}
-          <Link href="/login" className="font-bold text-brand-700 underline underline-offset-4">
-            الانتقال إلى الدخول التجريبي
+        <p role="status" className="max-w-md text-center text-ink">
+          هذي الصفحة تحتاج الدخول التجريبي أولًا.{" "}
+          <Link href="/login" className="link">
+            الدخول التجريبي
           </Link>
         </p>
       )}
@@ -67,43 +68,26 @@ function DemoSessionGate({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Always visible: this is a prototype with fictional data, not the official platform. */
 export function DemoNotice() {
   return (
-    <p
-      role="note"
-      className="flex items-center justify-center gap-2 border-b-2 border-warn-line bg-warn-bg px-4 py-3 text-center text-base font-bold text-warn"
-    >
-      <InfoIcon size={20} className="shrink-0" />
-      نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية
+    <p role="note" className="flex items-center justify-center gap-2 bg-ink px-4 py-1.5 text-center text-[0.8125rem] leading-6 text-white">
+      <InfoIcon size={16} className="shrink-0" />
+      نسخة تجريبية ببيانات خيالية — غير تابعة لمنصة مدرستي الرسمية
     </p>
   );
 }
 
 export function Footer() {
   return (
-    <footer className="mt-auto border-t border-mint-300 bg-mint-100 px-4 py-5 text-center text-base text-ink">
-      <p className="tammeni-mark mb-1 text-xl">طمّني</p>
-      نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية ولا يمثل خدمة صادرة عن وزارة التعليم.
+    <footer className="mt-auto border-t border-line">
+      <div className="mx-auto flex max-w-[1100px] flex-col gap-3 px-4 py-6 text-[0.875rem] leading-6 text-faint sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <span className="inline-flex items-center gap-2 font-semibold text-ink">
+          <TammeniMark size={22} />
+          طمّني
+        </span>
+        <p>نموذج تعليمي تجريبي ببيانات خيالية. غير تابع لمنصة مدرستي، ولا يمثل خدمة صادرة عن وزارة التعليم.</p>
+      </div>
     </footer>
-  );
-}
-
-function AccessibilityButton() {
-  const openComingSoon = useComingSoon();
-  return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      aria-label="أدوات إمكانية الوصول — غير متوفرة بعد في هذه النسخة"
-      onClick={() =>
-        openComingSoon({
-          title: "إمكانية الوصول",
-          description: "هذه الأداة غير جاهزة بعد. حجم الخط والتباين مضبوطان من الصفحة نفسها؛ أدوات التخصيص ستتوفر لاحقًا.",
-        })
-      }
-      className="fixed bottom-4 left-4 z-20 hidden size-14 cursor-pointer place-items-center rounded-full bg-brand-600 text-white hover:bg-brand-700 lg:grid"
-    >
-      <AccessibilityIcon size={26} />
-    </button>
   );
 }

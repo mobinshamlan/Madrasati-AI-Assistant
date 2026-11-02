@@ -75,7 +75,7 @@ export async function endDemoSession() {
 }
 
 /** Pages a "next" link may return to after entry. Anything else falls back to the home page. */
-const RETURN_PATHS = new Set(["/", "/assistant", "/assistant/confirmation"]);
+const RETURN_PATHS = new Set(["/", "/tammeni", "/assistant", "/assistant/confirmation"]);
 
 export function safeReturnPath(next: string | null): string {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return "/";

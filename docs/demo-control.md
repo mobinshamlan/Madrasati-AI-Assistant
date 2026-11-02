@@ -1,3 +1,15 @@
+## Current local operator access (updated)
+
+`/demo-control` opens directly with no operator form, automatic sign-in, session check, or logout. Operator session endpoints return 410. Parent-account behavior is unchanged.
+
+The Next.js server uses `NEXT_PUBLIC_SUPABASE_URL` and a server-only `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SECRET_KEY`). Obtain this from the project API settings and place it only in `.env.local`, never browser code or Git. No operator password is needed. A missing key shows a configuration error, not a login screen. Restart Next after configuring it.
+
+Direct control APIs are restricted to local development requests; hosted/tunnel access is refused. Server credentials bypass RLS for these local operations; existing database policies remain unchanged for parent/browser clients. Only Reem/Nawaf can be selected by these handlers. Keep this local test setup private.
+
+Dispatch is forced to mock unless `TAMMENI_DEMO_REAL_DISPATCH=1` is explicitly set on the website server. The Python provider and destination allow-list still apply. This update never sends a notification by itself.
+
+The older session-based instructions below describe the previous implementation and do not apply to operator access now.
+
 # Tammeni demo: Supabase data, demo control and dispatch
 
 Everything here is fictional demo data. The website, the demo control page and the Python backend read

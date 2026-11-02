@@ -1,162 +1,85 @@
 import Image from "next/image";
-import type { LinkedStudent } from "@/lib/tammeni/parent-data";
-import { topicSummary, topics, usesCalls, type LegacyInfo, type Preferences, type Topic } from "./preferences";
+import { AttendanceIcon, ExamIcon, GradesIcon, MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
+import { topicSummary, topics, usesCalls, type Method, type Preferences, type Topic } from "./preferences";
 
-/** What a «تعديل» button opens: the student choice, one topic, or the retry choice on the review. */
-export type EditTarget = "student" | Topic | "retry";
+export const topicIcons: Record<Topic, typeof AttendanceIcon> = { attendance: AttendanceIcon, exams: ExamIcon, grades: GradesIcon };
 
 /**
  * طمّني's two assistants, لولوة and تركي, drawn together. They are the assistants, never a picture of
  * the student, so the same illustration appears for every child. Decorative: every instruction is in
  * the text beside it, so it has empty alt text.
  */
-export function Character({ className }: { className: string }) {
+export function Character({ className, size = 128 }: { className: string; size?: number }) {
   return (
-    <Image
-      src="/characters/combined.png"
-      alt=""
-      width={128}
-      height={128}
-      loading="eager"
-      className={`shrink-0 object-contain ${className}`}
-    />
+    <Image src="/characters/combined.png" alt="" width={size} height={size} loading="eager" className={`shrink-0 object-contain ${className}`} />
   );
 }
 
-export function ReviewList({
-  preferences,
-  student,
-  legacy,
-  showStudent,
-  showRetry,
-  onEdit,
-}: {
-  preferences: Preferences;
-  student: Pick<LinkedStudent, "name" | "grade">;
-  legacy: LegacyInfo | null;
-  showStudent?: boolean;
-  showRetry?: boolean;
-  /** Without it the list is read-only (the confirmation page). */
-  onEdit?: (target: EditTarget) => void;
-}) {
+/** The channel, always as an icon and a word. */
+export function MethodChip({ method }: { method: Method | "call" | "message" | string | null | undefined }) {
+  if (method !== "call" && method !== "message" && method !== "اتصال" && method !== "رسالة") return null;
+  const isCall = method === "call" || method === "اتصال";
+  const Icon = isCall ? PhoneIcon : MessageIcon;
   return (
-    <ul className="divide-y divide-mint-200 rounded-xl border border-mint-300 bg-white">
-      {showStudent && (
-        <ReviewRow label="الابن أو الابنة" target="student" onEdit={onEdit}>
-          <p className="text-lg font-bold text-ink">{student.name}</p>
-          <p className="text-base text-ink-soft">{student.grade}</p>
-        </ReviewRow>
-      )}
+    <span className="chip" data-tone="outline">
+      <Icon size={15} />
+      {isCall ? "اتصال" : "رسالة"}
+    </span>
+  );
+}
+
+/**
+ * What the parent will receive for one child: per topic, the channel and the schedule, or that it is off.
+ * One reading of the saved choices, shared by the home page and the confirmation.
+ */
+export function PreferenceSummary({ preferences, firstName }: { preferences: Preferences; firstName: string }) {
+  return (
+    <ul className="divide-y divide-rule">
       {topics.map((topic) => {
         const s = topicSummary(preferences, topic);
-        const was = legacy?.needsReview.find((r) => r.topic === topic);
+        const Icon = topicIcons[topic];
         return (
-          <ReviewRow key={topic} label={s.label} target={topic} onEdit={onEdit}>
-            <p
-              className={`text-lg font-bold ${
-                s.status === "choose" ? "text-[#b42318]" : s.status === "off" ? "text-ink-soft" : "text-ink"
-              }`}
-            >
-              {s.timing}
-            </p>
-            {s.status === "choose" && was && (
-              <p className="text-base text-ink-soft">
-                {was.previousRequest ? (
-                  <>
-                    طلبك السابق: <bdi>«{was.was}»</bdi>
-                  </>
+          <li key={topic} className="flex gap-3.5 py-4 first:pt-1 last:pb-1">
+            <Icon size={22} className={`mt-0.5 shrink-0 ${s.status === "on" ? "text-brand" : "text-faint"}`} />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                <p className="font-semibold text-ink">{s.label}</p>
+                {s.status === "on" ? (
+                  <MethodChip method={preferences[topic].method} />
+                ) : s.status === "off" ? (
+                  <span className="chip">متوقف</span>
                 ) : (
-                  <>كان: «{was.was}»</>
+                  <span className="chip" data-tone="danger">
+                    يحتاج اختيارًا
+                  </span>
                 )}
+              </div>
+              <p className={`mt-1 text-[0.9375rem] leading-7 ${s.status === "choose" ? "text-danger" : "text-ink-soft"}`}>
+                {s.status === "on" ? s.when : s.status === "off" ? `ما يوصلك شيء عن ${s.label} لـ${firstName}.` : "الخيار السابق ما عاد متاحًا. اختر موعدًا جديدًا."}
               </p>
-            )}
-            {s.status === "off" && <p className="text-base text-ink">متوقف — لن يُرسل تحديث عن هذا النوع.</p>}
-            {s.status === "on" && (
-              <dl className="mt-1 space-y-0.5 text-base leading-7">
-                <SummaryLine term="الطريقة" value={s.method} />
-                <SummaryLine term="الموعد" value={s.when} />
-                {s.note && <p className="text-ink-soft">{s.note}</p>}
-              </dl>
-            )}
-          </ReviewRow>
+            </div>
+          </li>
         );
       })}
-      {showRetry && usesCalls(preferences) && (
-        <ReviewRow label="إعادة الاتصال" target="retry" onEdit={onEdit}>
-          <p className="text-lg font-bold text-ink">
-            {preferences.retryUnansweredCall ? "مختارة: مرة واحدة بعد ٥ دقائق إذا لم ترد" : "لا"}
-          </p>
-          <p className="text-base text-ink">اختيار محفوظ فقط. لا تُعاد المكالمة تلقائيًا في هذه النسخة التجريبية.</p>
-        </ReviewRow>
+      {usesCalls(preferences) && (
+        <li className="flex gap-3.5 py-4 last:pb-1">
+          <PhoneIcon size={22} className="mt-0.5 shrink-0 text-faint" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-ink">إذا ما رديت على الاتصال</p>
+            <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">
+              {preferences.retryUnansweredCall ? "نعيد الاتصال مرة وحدة بعد ٥ دقائق." : "ما نعيد الاتصال."}
+            </p>
+          </div>
+        </li>
       )}
     </ul>
-  );
-}
-
-function ReviewRow({
-  label,
-  target,
-  onEdit,
-  children,
-}: {
-  label: string;
-  target: EditTarget;
-  onEdit?: (target: EditTarget) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-      <div className="min-w-0">
-        <p className="font-bold text-brand-800">{label}</p>
-        {children}
-      </div>
-      {onEdit && (
-        <button
-          type="button"
-          onClick={() => onEdit(target)}
-          aria-label={`تعديل ${label}`}
-          className="inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center self-start rounded-lg border-2 border-brand-600 bg-white px-6 font-bold text-brand-700 transition-colors hover:bg-mint-100 sm:self-center"
-        >
-          تعديل
-        </button>
-      )}
-    </li>
-  );
-}
-
-function SummaryLine({ term, value }: { term: string; value?: React.ReactNode }) {
-  if (value === undefined) return null;
-  return (
-    <div className="flex gap-x-2">
-      <dt className="shrink-0 text-ink-soft">{term}:</dt>
-      <dd className="min-w-0 flex-1 text-ink">{value}</dd>
-    </div>
-  );
-}
-
-/** The rules that apply to every saved choice, as one plain list. */
-export function DeliveryNotes({ student }: { student: Pick<LinkedStudent, "firstName"> }) {
-  return (
-    <ul className="list-disc space-y-1.5 ps-6 text-base leading-7 text-ink marker:text-brand-600">
-      <li>هذه اختياراتك لـ{student.firstName}: متى وكيف نخبرك. لا يُرسل شيء تلقائيًا عند حلول الموعد في هذه النسخة التجريبية.</li>
-      <li>كل تحديث يُعرض على حدة. جمع عدة تحديثات في اتصال واحد غير مفعّل بعد.</li>
-      <li>جميع الأوقات بتوقيت السعودية (الرياض).</li>
-    </ul>
-  );
-}
-
-export function DemoLabel() {
-  return (
-    <span className="inline-flex items-center rounded-md bg-tile-navy px-2.5 py-1 text-sm leading-none font-bold text-white">
-      نسخة تجريبية
-    </span>
   );
 }
 
 export function formatSavedAt(iso: string) {
   try {
-    return new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", {
-      dateStyle: "long",
+    return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {
+      dateStyle: "medium",
       timeStyle: "short",
       timeZone: "Asia/Riyadh",
     }).format(new Date(iso));

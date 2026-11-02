@@ -44,7 +44,7 @@
   animation: rise 320ms ease-out both;
 }
 
-/* The bubble's tail points at the character: to the start side on phones, down on wide screens. */
+/* The bubble's tail points down at the character. */
 .welcome-bubble::after {
   content: "";
   position: absolute;
@@ -52,15 +52,8 @@
   height: 18px;
   background: inherit;
   transform: rotate(45deg);
-  inset-inline-start: -8px;
-  top: calc(50% - 9px);
-}
-@media (min-width: 1024px) {
-  .welcome-bubble::after {
-    inset-inline-start: 48px;
-    top: auto;
-    bottom: -8px;
-  }
+  left: calc(50% - 9px);
+  bottom: -8px;
 }
 
 /* The character is a button: it answers hover, focus, press and touch with a small lift. */
@@ -77,7 +70,7 @@
   }
 }
 .welcome-character:focus-visible {
-  outline: 3px solid var(--color-tile-navy);
+  outline: 3px solid var(--color-info);
   outline-offset: 6px;
   transform: translateY(-6px);
 }

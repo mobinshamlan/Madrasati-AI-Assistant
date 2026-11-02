@@ -1,4 +1,4 @@
-import { ParentDashboard } from "@/components/dashboard/parent-dashboard";
+import { ParentDashboard } from "@/components/madrasati/parent-dashboard";
 
 export default function Home() {
   return <ParentDashboard />;

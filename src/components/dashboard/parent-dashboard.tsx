@@ -2,518 +2,458 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import { topicSummary, topics } from "@/components/assistant/preferences";
-import { useDashboardStudent, useLinkedStudents, useStudentPreferences, type DashboardStudent, type LinkedStudent } from "@/lib/tammeni/parent-data";
-import { useComingSoon } from "./coming-soon";
-import { parent, today, type AttendanceStatus, type Student } from "./data";
+import { Suspense, useMemo } from "react";
+import { Character, PreferenceSummary, formatSavedAt } from "@/components/assistant/summary";
+import type { Preferences } from "@/components/assistant/preferences";
+import { arabicDay, arabicMoment, evaluate, riyadhDay } from "@/lib/tammeni/evaluate";
 import {
-  AttendanceIcon,
-  CheckIcon,
-  ClassIcon,
-  ClockIcon,
-  ExamIcon,
-  GradesIcon,
-  MegaphoneIcon,
-  PhoneIcon,
-  SchoolIcon,
-  SparkleIcon,
-  UserIcon,
-} from "./icons";
+  useDashboardStudent,
+  useLinkedStudents,
+  useStudentPreferences,
+  type DashboardStudent,
+  type LinkedStudent,
+} from "@/lib/tammeni/parent-data";
+import type { AttendanceStatus } from "./data";
+import { ClockIcon } from "./icons";
 import { PageShell } from "./page-shell";
-import { SectionTab, StudentPicker } from "./ui";
+import { ChildSwitcher, LoadProblem, Placeholder } from "./ui";
 
 export function ParentDashboard() {
   return (
     <PageShell current="home">
-      <Suspense fallback={<p className="flex-1 px-4 py-16 text-center text-lg text-ink-soft">جارٍ فتح الصفحة…</p>}>
+      <Suspense fallback={<HomeLoading />}>
         <DashboardBody />
       </Suspense>
     </PageShell>
   );
 }
 
+const container = "mx-auto w-full max-w-[1100px] px-4 sm:px-6";
+
 function DashboardBody() {
   const router = useRouter();
-  // The selected student lives in the address, so a refresh or a return from the assistant keeps it.
+  // The selected child lives in the address, so a refresh or a return from the settings keeps it.
   const selectedId = useSearchParams().get("student");
   // The parent's children and their records come from Supabase (RLS: only this parent's children).
   const linked = useLinkedStudents();
   const list = linked.status === "ready" ? linked.data : [];
   const current = list.find((s) => s.id === selectedId) ?? list[0] ?? null;
   const record = useDashboardStudent(current);
-  const setStudentId = (id: string) => router.replace(`/?student=${id}`, { scroll: false });
+  const prefs = useStudentPreferences(current?.dbId ?? null);
+  const setStudentId = (id: string) => router.replace(`/tammeni?student=${id}`, { scroll: false });
 
-  if (linked.status === "error") return <LoadProblem message={linked.message} onRetry={linked.reload} />;
-  if (linked.status === "loading") return <Loading />;
-  if (!current) return <LoadProblem message="لا يوجد أبناء مرتبطون بهذا الحساب بعد." />;
-  if (record.status === "error") return <LoadProblem message={record.message} onRetry={record.reload} />;
-  if (record.status === "loading") return <Loading />;
-  const student = record.data;
+  if (linked.status === "loading") return <HomeLoading />;
+  if (linked.status === "error") return <Problem message={linked.message} onRetry={linked.reload} />;
+  if (!current) return <Problem message="ما فيه أبناء مرتبطين بهذا الحساب بعد." />;
 
   return (
-    <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-      <WelcomeBanner student={student} students={list} onSelect={setStudentId} />
+    <main id="main" tabIndex={-1} className="flex-1 pb-16 focus:outline-none">
       <p className="sr-only" aria-live="polite">
-        يتم الآن عرض بيانات {student.name}
+        يتم الآن عرض أخبار {current.name}
       </p>
-
-      <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] lg:px-6">
-        <div className="space-y-6">
-          <AttendanceSection student={student} />
-          <ExamsSection student={student} />
-          <GradesSection student={student} />
-        </div>
-        <aside className="space-y-6" aria-label="الإعلانات وطمّني والملف الشخصي">
-          <AssistantCard student={current} />
-          <AnnouncementsSection student={student} />
-          <ProfileCard childCount={list.length} />
-        </aside>
-      </div>
-    </main>
-  );
-}
-
-function Loading() {
-  return (
-    <main id="main" className="flex-1 px-4 py-16 text-center text-lg">
-      <p role="status" className="text-ink-soft">
-        جارٍ تحميل بيانات الأبناء…
-      </p>
-    </main>
-  );
-}
-
-/** A failure says so; the page never falls back to bundled data. */
-function LoadProblem({ message, onRetry }: { message: string; onRetry?: () => void }) {
-  return (
-    <main id="main" className="flex-1 px-4 py-16">
-      <div role="alert" className="notice notice-danger mx-auto max-w-xl">
-        <p>{message}</p>
-        {onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="btn-danger mt-4"
-          >
-            إعادة المحاولة
-          </button>
-        )}
-      </div>
-    </main>
-  );
-}
-
-function WelcomeBanner({
-  student,
-  students,
-  onSelect,
-}: {
-  student: DashboardStudent;
-  students: LinkedStudent[];
-  onSelect: (id: string) => void;
-}) {
-  const rate = attendanceRate(student);
-  const average = gradeAverage(student);
-
-  return (
-    <section aria-labelledby="greeting" className="bg-mint-200 pb-8">
-      <div className="mx-auto max-w-[1440px] px-4 pt-6 lg:px-6">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-4">
-            <span className="grid size-16 shrink-0 place-items-center rounded-full border-4 border-white/70 bg-[#e5e7eb] text-[#9da4ae]">
-              <UserIcon size={30} />
-            </span>
-            <div>
-              <h1 id="greeting" className="text-2xl font-extrabold text-ink">
-                مرحبًا بك في طمّني، <span className="text-brand-700">{parent.name}</span>
-              </h1>
-              <p className="mt-1 text-base text-ink">
-                {parent.role} · {today.gregorian} · {today.hijri}
-              </p>
-            </div>
+      <section aria-labelledby="home-title" className={`${container} pt-8 sm:pt-10`}>
+        <div className="flex flex-col-reverse gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[0.9375rem] text-faint">
+              {current.grade}
+              <span aria-hidden="true"> · </span>
+              {current.school}
+            </p>
+            <h1 id="home-title" className="mt-1 text-[1.75rem] leading-tight font-bold tracking-tight sm:text-[2rem]">
+              أخبار {current.firstName}
+            </h1>
           </div>
-
-          <StudentPicker
-            legend="اختر الابن لعرض بياناته"
-            students={students}
-            legendClassName="mb-2 text-base font-bold text-brand-800"
-            selectedId={student.id}
-            onSelect={onSelect}
-            tone="tinted"
-            size="lg"
-          />
+          <ChildSwitcher students={list} selectedId={current.id} onSelect={setStudentId} />
         </div>
+        <Finding student={current} record={record.status === "ready" ? record.data : null} prefs={prefs} />
+      </section>
 
-        <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-white/60 pt-6 md:grid-cols-3">
-          <InfoRing Icon={UserIcon} label="الطالب" value={student.name} />
-          <InfoRing Icon={ClassIcon} label="الصف" value={`${student.grade} — ${student.classroom}`} />
-          <InfoRing Icon={SchoolIcon} label="المدرسة" value={student.school} />
-        </dl>
-
-        <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-label="ملخص سريع">
-          <Tile href="#attendance" Icon={AttendanceIcon} color="bg-tile-navy" label="نسبة الحضور" value={`${rate}%`} />
-          <Tile href="#exams" Icon={ExamIcon} color="bg-tile-orange" label="اختبارات قادمة" value={`${student.exams.length}`} />
-          <Tile href="#grades" Icon={GradesIcon} color="bg-tile-green" label="متوسط آخر الدرجات" value={`${average}%`} />
-          <Tile href="#announcements" Icon={MegaphoneIcon} color="bg-tile-olive" label="إعلانات المدرسة" value={`${student.announcements.length}`} />
-        </ul>
+      {/* Two columns that each stack on their own, so no panel is stretched to its neighbour's height. On phones
+          the wrappers dissolve (display: contents) and the panels follow the reading order below. */}
+      <div className={`${container} mt-8 flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start`}>
+        <div className="contents lg:col-span-7 lg:flex lg:flex-col lg:gap-4">
+          <div className="order-1">
+            <PreferencesPanel student={current} prefs={prefs} />
+          </div>
+          {record.status === "ready" && (
+            <div className="order-4">
+              <GradesPanel student={record.data} />
+            </div>
+          )}
+        </div>
+        <div className="contents lg:col-span-5 lg:flex lg:flex-col lg:gap-4">
+          <div className="order-2">
+            {record.status === "error" ? (
+              <LoadProblem title="تعذّر تحميل سجلات المدرسة" message={record.message} onRetry={record.reload} />
+            ) : record.status === "loading" ? (
+              <PanelLoading className="" />
+            ) : (
+              <ExamsPanel student={record.data} prefs={prefs.status === "ready" && prefs.data.exists ? prefs.data.preferences : null} />
+            )}
+          </div>
+          {record.status === "ready" && (
+            <div className="order-3">
+              <AttendancePanel student={record.data} />
+            </div>
+          )}
+        </div>
       </div>
-    </section>
+    </main>
   );
 }
 
-function InfoRing({ Icon, label, value }: { Icon: typeof UserIcon; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="grid size-14 shrink-0 place-items-center rounded-full border-2 border-brand-400 bg-white/50 text-brand-600">
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0">
-        <dt className="text-base text-ink">{label}</dt>
-        <dd className="font-bold text-ink">{value}</dd>
+type PrefsState = ReturnType<typeof useStudentPreferences>;
+
+/** The one fact that matters most now, in a sentence: the next exam and when Tammeni would remind. */
+function Finding({ student, record, prefs }: { student: LinkedStudent; record: DashboardStudent | null; prefs: PrefsState }) {
+  const href = `/assistant?student=${student.id}`;
+  if (prefs.status === "loading" || !record) {
+    return (
+      <div className="mt-4 max-w-[62ch] space-y-2" aria-hidden="true">
+        <Placeholder className="h-6 w-full" />
+        <Placeholder className="h-6 w-2/3" />
       </div>
+    );
+  }
+  if (prefs.status === "error") return null;
+  if (!prefs.data.exists) {
+    return (
+      <div className="mt-5 flex flex-col gap-4 rounded-2xl bg-brand-soft p-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[1.0625rem] leading-8 text-brand-ink">
+          <strong className="font-semibold">ما ضبطت تنبيهات {student.firstName} بعد.</strong> اختر وش يوصلك عنها، ومتى، وكيف.
+        </p>
+        <Link href={href} className="btn-primary shrink-0">
+          اضبط التنبيهات
+        </Link>
+      </div>
+    );
+  }
+  const next = nextExam(record, prefs.data.preferences);
+  return (
+    <p className="mt-4 max-w-[62ch] text-[1.0625rem] leading-8 text-ink">
+      {next ? (
+        <>
+          أقرب اختبار: <strong className="font-semibold">{next.subject}</strong> يوم {arabicDay(next.examDate)}.{" "}
+          {next.reminder.status === "suppressed"
+            ? "تذكير الاختبارات متوقف."
+            : `${reminderText(next.reminder)}، ${next.reminder.method === "call" ? "باتصال" : "برسالة"}.`}
+        </>
+      ) : (
+        <>ما فيه اختبارات قادمة مسجّلة لـ{student.firstName}.</>
+      )}
+    </p>
+  );
+}
+
+function upcomingExams(record: DashboardStudent) {
+  const today = riyadhDay(new Date());
+  return record.examDates.filter((e) => !e.cancelled && e.examDate >= today).sort((a, b) => a.examDate.localeCompare(b.examDate));
+}
+
+/** When the saved choices would remind about an exam — the same rules the demo studio uses. */
+function reminderFor(exam: DashboardStudent["examDates"][number], prefs: Preferences | null) {
+  const now = new Date();
+  return evaluate(
+    { kind: "exam_added", date: riyadhDay(now), examDate: exam.examDate, startTime: exam.startTime, subject: exam.subject, examKind: exam.kind },
+    prefs,
+    now,
+  );
+}
+
+/** A reminder whose time has passed says so, rather than reading as still to come. */
+function reminderText(r: ReturnType<typeof reminderFor>) {
+  if (r.status === "suppressed") return "بدون تذكير";
+  if (!r.dueAt) return "التذكير مباشرة";
+  return r.status === "ready" ? `موعد التذكير مضى (${arabicMoment(r.dueAt)})` : `التذكير ${arabicMoment(r.dueAt)}`;
+}
+
+function nextExam(record: DashboardStudent, prefs: Preferences) {
+  const exam = upcomingExams(record)[0];
+  return exam ? { ...exam, reminder: reminderFor(exam, prefs) } : null;
+}
+
+function PanelHeader({ id, title, aside }: { id: string; title: string; aside?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h2 id={id} className="text-[1.125rem] font-semibold">
+        {title}
+      </h2>
+      {aside}
     </div>
   );
 }
 
-function Tile({
-  href,
-  Icon,
-  color,
-  label,
-  value,
-}: {
-  href: string;
-  Icon: typeof UserIcon;
-  color: string;
-  label: string;
-  value: string;
-}) {
+function PreferencesPanel({ student, prefs }: { student: LinkedStudent; prefs: PrefsState }) {
+  const href = `/assistant?student=${student.id}`;
   return (
-    <li>
-      <a
-        href={href}
-        className="flex h-full min-h-24 flex-col items-start gap-3 rounded-lg bg-brand-600 p-3 text-white transition-colors hover:bg-brand-700 sm:flex-row sm:items-center sm:gap-4"
-      >
-        <span className={`grid size-11 shrink-0 place-items-center rounded-md sm:size-14 ${color}`}>
-          <Icon size={28} />
-        </span>
-        <span>
-          <span className="block text-2xl font-extrabold leading-none">{value}</span>
-          <span className="mt-1 block font-bold">{label}</span>
-        </span>
-      </a>
-    </li>
+    <section aria-labelledby="prefs-title" className="sheet p-5 sm:p-6">
+      <PanelHeader
+        id="prefs-title"
+        title={`كيف يوصلك الخبر عن ${student.firstName}`}
+        aside={
+          prefs.status === "ready" && prefs.data.exists ? (
+            <Link href={href} className="btn-secondary btn-sm">
+              تعديل
+              <span className="sr-only"> تفضيلات {student.firstName}</span>
+            </Link>
+          ) : null
+        }
+      />
+      <div className="mt-4">
+        {prefs.status === "loading" ? (
+          <div className="space-y-5 py-2" aria-busy="true">
+            <p role="status" className="sr-only">
+              جارٍ تحميل التفضيلات
+            </p>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-2">
+                <Placeholder className="h-5 w-40" />
+                <Placeholder className="h-5 w-3/4" />
+              </div>
+            ))}
+          </div>
+        ) : prefs.status === "error" ? (
+          <LoadProblem title="تعذّر تحميل التفضيلات" message={prefs.message} onRetry={prefs.reload} />
+        ) : prefs.data.exists ? (
+          <>
+            <PreferenceSummary preferences={prefs.data.preferences} firstName={student.firstName} />
+            <p className="mt-4 border-t border-rule pt-4 text-[0.875rem] leading-6 text-faint">
+              {prefs.data.updatedAt && <>آخر حفظ: {formatSavedAt(prefs.data.updatedAt)}. </>}
+              في النسخة التجريبية ما يُرسل شيء تلقائيًا عند حلول الموعد. كل الأوقات بتوقيت السعودية.
+            </p>
+          </>
+        ) : (
+          <div className="flex items-center gap-4 rounded-xl bg-panel p-4">
+            <Character className="size-16" size={64} />
+            <div>
+              <p className="font-semibold">ما فيه تفضيلات محفوظة لـ{student.firstName}</p>
+              <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">
+                لولوة وتركي يقدرون يبلغونك بالحضور والاختبارات والدرجات، باتصال أو رسالة. ما يُرسل شيء قبل ما تحفظ اختياراتك.
+              </p>
+              <Link href={href} className="link mt-2 inline-block">
+                ابدأ الإعداد
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
-function MoreButton({ title, label, description }: { title: string; label: string; description?: string }) {
-  const openComingSoon = useComingSoon();
+function ExamsPanel({ student, prefs }: { student: DashboardStudent; prefs: Preferences | null }) {
+  const upcoming = useMemo(() => upcomingExams(student), [student]);
+  const shown = upcoming.slice(0, 4);
   return (
-    <button
-      type="button"
-      aria-haspopup="dialog"
-      onClick={() => openComingSoon({ title, description })}
-      className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-md border-2 border-brand-600 px-4 py-2 text-base font-bold text-brand-700 hover:bg-mint-100"
-    >
-      {label}
-      <span className="rounded bg-mint-200 px-1.5 py-0.5 text-xs text-brand-800">قريبًا</span>
-    </button>
+    <section aria-labelledby="exams-title" className="tone p-5 sm:p-6">
+      <PanelHeader id="exams-title" title="الاختبارات القادمة" aside={<span className="num text-[0.9375rem] text-faint">{examCount(upcoming.length)}</span>} />
+      {shown.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-dashed border-control px-4 py-3 text-[0.9375rem] text-ink-soft">
+          ما فيه اختبارات قادمة مسجّلة لـ{student.firstName}.
+        </p>
+      ) : (
+        <ul className="mt-3 divide-y divide-line">
+          {shown.map((e, i) => {
+            const reminder = prefs ? reminderFor(e, prefs) : null;
+            return (
+              <li key={`${e.subject}-${e.examDate}-${i}`} className="py-3.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-semibold">{e.subject}</p>
+                  <p className="shrink-0 text-[0.9375rem] text-ink-soft">{arabicDay(e.examDate)}</p>
+                </div>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[0.875rem] leading-6 text-faint">
+                  <span>{e.kind}</span>
+                  {reminder && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <ClockIcon size={14} />
+                        {reminderText(reminder)}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {upcoming.length > shown.length && (
+        <p className="mt-2 text-[0.875rem] text-faint">وبعدها {examCount(upcoming.length - shown.length)}.</p>
+      )}
+    </section>
   );
 }
 
-const statusStyles: Record<AttendanceStatus, { label: string; className: string }> = {
-  present: { label: "حاضر", className: "bg-[#ecfdf3] text-[#067647] ring-[#abefc6]" },
-  absent: { label: "غائب", className: "bg-[#fef3f2] text-[#b42318] ring-[#fecdca]" },
-  late: { label: "متأخر", className: "bg-[#fffaeb] text-[#93370d] ring-[#fedf89]" },
-  excused: { label: "غياب بعذر", className: "bg-[#eff8ff] text-[#175cd3] ring-[#b2ddff]" },
+const statusLook: Record<AttendanceStatus, { label: string; tone: string }> = {
+  present: { label: "حاضر", tone: "ok" },
+  absent: { label: "غائب", tone: "danger" },
+  late: { label: "متأخر", tone: "warn" },
+  excused: { label: "غياب بعذر", tone: "info" },
 };
 
-function AttendanceSection({ student }: { student: Student }) {
+function AttendancePanel({ student }: { student: DashboardStudent }) {
   const a = student.attendance;
   const rate = attendanceRate(student);
-  const stats = [
-    { label: "أيام الحضور", value: a.present, tone: "text-[#067647]" },
-    { label: "أيام الغياب", value: a.absent, tone: "text-[#b42318]" },
-    { label: "مرات التأخر", value: a.late, tone: "text-[#93370d]" },
-    { label: "غياب بعذر", value: a.excused, tone: "text-[#175cd3]" },
-  ];
-
+  const days = [...a.week].reverse();
   return (
-    <section id="attendance" aria-labelledby="attendance-title" className="scroll-mt-6">
-      <SectionTab id="attendance-title" title="الحضور والغياب" aside={a.termLabel} />
-      <div className="rounded-b-xl border border-t-0 border-line bg-white p-5">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-          <div>
-            <p className="flex items-baseline justify-between">
-              <span className="font-bold">نسبة الحضور</span>
-              <span className="text-2xl font-extrabold text-brand-700" dir="ltr">{rate}%</span>
-            </p>
-            <div
-              role="meter"
-              aria-label="نسبة الحضور"
-              aria-valuenow={rate}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              className="mt-2 h-3 overflow-hidden rounded-full bg-mint-200"
-            >
-              <div className="h-full rounded-full bg-brand-500" style={{ width: `${rate}%` }} />
-            </div>
-            <p className="mt-2 text-base text-ink">من أصل {a.schoolDays} يومًا دراسيًا</p>
-            <dl className="mt-4 grid grid-cols-2 gap-3">
-              {stats.map((s) => (
-                <div key={s.label} className="rounded-lg bg-mint-50 px-3 py-2.5 ring-1 ring-mint-200">
-                  <dt className="text-base text-ink">{s.label}</dt>
-                  <dd className={`text-xl font-extrabold ${s.tone}`}>{s.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-
-          <div>
-            <h3 className="mb-3 font-bold">هذا الأسبوع</h3>
-            <ul className="divide-y divide-mint-200 rounded-lg border border-mint-200">
-              {a.week.map((d) => {
-                const st = statusStyles[d.status];
-                return (
-                  <li key={d.date} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-                    <span>
-                      <span className="font-bold">{d.day}</span>{" "}
-                      <span className="text-base text-ink">{d.date}/1448 هـ</span>
-                      {d.note && <span className="block text-base text-ink">{d.note}</span>}
-                    </span>
-                    <span className={`rounded-full px-3 py-1 text-sm font-bold ring-1 ${st.className}`}>{st.label}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
-        <div className="mt-5 flex justify-end">
-          <MoreButton title="الحضور والغياب" label="عرض السجل الكامل" />
-        </div>
+    <section aria-labelledby="attendance-title" className="tone p-5 sm:p-6">
+      <PanelHeader id="attendance-title" title="الحضور" aside={<span className="text-[0.875rem] text-faint">{a.termLabel}</span>} />
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <p className="num text-[2rem] leading-none font-medium" dir="ltr">
+          {rate}%
+        </p>
+        <p className="num text-[0.9375rem] text-ink-soft">
+          حضر {a.present + a.late} من {a.schoolDays} يومًا دراسيًا
+        </p>
       </div>
-    </section>
-  );
-}
-
-function ExamsSection({ student }: { student: Student }) {
-  return (
-    <section id="exams" aria-labelledby="exams-title" className="scroll-mt-6">
-      <SectionTab id="exams-title" title={`الاختبارات القادمة (${student.exams.length})`} />
-      <div className="rounded-b-xl border border-t-0 border-line bg-white p-5">
-        <ul className="space-y-4">
-          {student.exams.map((e) => (
-            <li key={`${e.subject}-${e.hijri}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
-              <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-mint-100 text-brand-600">
-                <ExamIcon size={28} />
+      <dl className="num mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.9375rem]">
+        {[
+          ["غياب", a.absent],
+          ["تأخر", a.late],
+          ["غياب بعذر", a.excused],
+        ].map(([label, value]) => (
+          <div key={label} className="flex gap-1.5">
+            <dt className="text-faint">{label}</dt>
+            <dd className="font-semibold">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <h3 className="mt-5 text-[0.875rem] font-semibold text-ink-soft">آخر الأيام المسجلة</h3>
+      <ul className="mt-1 divide-y divide-line">
+        {days.map((d) => {
+          const look = statusLook[d.status];
+          return (
+            <li key={d.date} className="flex min-h-12 items-center justify-between gap-3 py-2">
+              <span className="min-w-0">
+                <span className="font-medium">{d.day}</span> <span className="num text-[0.875rem] text-faint">{d.date}</span>
+                {d.note && <span className="block truncate text-[0.8125rem] text-faint">{d.note}</span>}
               </span>
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2">
-                  <span className="text-lg font-bold text-brand-700">{e.subject}</span>
-                  <span className="rounded bg-tile-navy px-2 py-0.5 text-xs font-bold text-white">{e.kind}</span>
-                </p>
-                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-ink">
-                  <span>
-                    التاريخ: {e.day} {e.hijri} هـ ({e.date})
-                  </span>
-                  <span aria-hidden="true" className="hidden sm:inline">•</span>
-                  <span className="inline-flex items-center gap-1">
-                    <ClockIcon size={15} />
-                    {e.period}
-                  </span>
-                </p>
-              </div>
+              <span className="chip" data-tone={look.tone}>
+                {look.label}
+              </span>
             </li>
-          ))}
-        </ul>
-        <div className="mt-5 flex justify-end">
-          <MoreButton title="الاختبارات" label="جدول الاختبارات" />
-        </div>
-      </div>
+          );
+        })}
+      </ul>
     </section>
   );
 }
 
-function GradesSection({ student }: { student: Student }) {
+function GradesPanel({ student }: { student: DashboardStudent }) {
+  const rows = student.grades.slice(0, 6);
   return (
-    <section id="grades" aria-labelledby="grades-title" className="scroll-mt-6">
-      <SectionTab id="grades-title" title="آخر الدرجات" aside={<>المتوسط: <bdi dir="ltr">{gradeAverage(student)}%</bdi></>} />
-      <div className="rounded-b-xl border border-t-0 border-line bg-white p-5">
-        <table className="w-full text-start text-base">
-          <caption className="sr-only">آخر الدرجات المرصودة لـ {student.name}</caption>
+    <section aria-labelledby="grades-title" className="tone p-5 sm:p-6">
+      <PanelHeader
+        id="grades-title"
+        title="آخر الدرجات"
+        aside={
+          rows.length > 0 ? (
+            <span className="text-[0.875rem] text-faint">
+              المتوسط{" "}
+              <bdi dir="ltr" className="num font-semibold text-ink">
+                {gradeAverage(student)}%
+              </bdi>
+            </span>
+          ) : null
+        }
+      />
+      {rows.length === 0 ? (
+        <p className="mt-4 rounded-xl border border-dashed border-control px-4 py-3 text-[0.9375rem] text-ink-soft">ما نُشرت درجات بعد.</p>
+      ) : (
+        <table className="mt-2 w-full text-[0.9375rem]">
+          <caption className="sr-only">آخر الدرجات المنشورة لـ{student.name}</caption>
           <thead>
-            <tr className="bg-mint-200 text-brand-800">
-              <th scope="col" className="rounded-s-md px-3 py-2.5 text-start font-bold">المادة</th>
-              <th scope="col" className="px-3 py-2.5 text-start font-bold">التقييم</th>
-              <th scope="col" className="hidden px-3 py-2.5 text-start font-bold sm:table-cell">التاريخ</th>
-              <th scope="col" className="rounded-e-md px-3 py-2.5 text-start font-bold">الدرجة</th>
+            <tr className="text-[0.8125rem] text-faint">
+              <th scope="col" className="py-2 text-start font-medium">
+                المادة
+              </th>
+              <th scope="col" className="py-2 text-end font-medium">
+                الدرجة
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-mint-200">
-            {student.grades.map((g) => {
-              const pct = Math.round((g.score / g.outOf) * 100);
+          <tbody className="divide-y divide-line border-t border-line">
+            {rows.map((g, i) => {
+              const low = g.score / g.outOf < 0.8;
               return (
-                <tr key={`${g.subject}-${g.assessment}`}>
-                  <th scope="row" className="px-3 py-3 text-start font-bold">{g.subject}</th>
-                  <td className="px-3 py-3 text-ink">{g.assessment}</td>
-                  <td className="hidden px-3 py-3 text-ink sm:table-cell">{g.date} هـ</td>
-                  <td className="px-3 py-3">
-                    <span className="font-bold whitespace-nowrap" dir="ltr">
-                      {g.score} / {g.outOf}
-                    </span>
-                    <span className="mt-1 block h-1.5 w-16 overflow-hidden rounded-full bg-mint-200" aria-hidden="true">
-                      <span
-                        className={`block h-full rounded-full ${pct >= 80 ? "bg-brand-500" : "bg-tile-orange"}`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </span>
+                <tr key={`${g.subject}-${g.assessment}-${i}`}>
+                  <th scope="row" className="py-2.5 text-start font-normal">
+                    <span className="block font-medium">{g.subject}</span>
+                    <span className="block text-[0.8125rem] text-faint">{g.assessment}</span>
+                  </th>
+                  <td className="num py-2.5 text-end align-top whitespace-nowrap">
+                    <bdi dir="ltr" className={`font-semibold ${low ? "text-warn" : ""}`}>
+                      {fmt(g.score)} / {fmt(g.outOf)}
+                    </bdi>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        <div className="mt-5 flex justify-end">
-          <MoreButton title="الدرجات" label="كشف الدرجات" />
-        </div>
-      </div>
+      )}
     </section>
   );
 }
 
-function AssistantCard({ student }: { student: LinkedStudent }) {
-  const prefs = useStudentPreferences(student.dbId);
-  const saved = prefs.status === "ready" && prefs.data.exists ? prefs.data : null;
-  const href = `/assistant?student=${student.id}`;
+/** "اختبار واحد" / "اختباران" / "٣ اختبارات" / "١١ اختبارًا". */
+function examCount(n: number) {
+  if (n === 0) return "لا اختبارات";
+  if (n === 1) return "اختبار واحد";
+  if (n === 2) return "اختباران";
+  return n <= 10 ? `${n} اختبارات` : `${n} اختبارًا`;
+}
+
+const fmt = (n: number) => (Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2))));
+
+function HomeLoading() {
   return (
-    <section aria-labelledby="assistant-title" className="overflow-hidden rounded-xl border-2 border-brand-600 bg-mint-100">
-      <div className="flex items-center gap-3 p-5 pb-3">
-        <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-tile-navy text-white">
-          <SparkleIcon size={28} />
-        </span>
-        <div>
-          <h2 id="assistant-title" className="text-xl font-extrabold text-brand-800">
-            طمّني — تفضيلات {student.firstName}
-          </h2>
-          <p className="text-base text-ink">الابن المختار الآن</p>
-        </div>
+    <main id="main" className="flex-1 pb-16" aria-busy="true">
+      <p role="status" className="sr-only">
+        جارٍ تحميل أخبار الأبناء
+      </p>
+      <div className={`${container} space-y-3 pt-10`}>
+        <Placeholder className="h-5 w-56" />
+        <Placeholder className="h-9 w-48" />
+        <Placeholder className="h-6 w-full max-w-xl" />
       </div>
-      <div className="px-5 pb-5">
-        {prefs.status === "loading" ? (
-          <p role="status" className="text-ink">جارٍ تحميل التفضيلات…</p>
-        ) : prefs.status === "error" ? (
-          <p role="alert" className="notice notice-danger">{prefs.message}</p>
-        ) : saved ? (
-          <>
-            <p className="font-bold text-ink">المحفوظة في الحساب التجريبي (توقيت السعودية):</p>
-            <ul className="mt-3 space-y-3">
-              {topics.map((t) => {
-                const s = topicSummary(saved.preferences, t);
-                const off = s.status === "off";
-                return (
-                  <li key={s.topic} className="flex gap-2.5">
-                    {off ? (
-                      <span className="mt-0.5 shrink-0 font-bold text-ink-soft" aria-hidden="true">—</span>
-                    ) : (
-                      <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-                    )}
-                    <span>
-                      <strong>{s.label}:</strong> {off ? "متوقف" : `${s.short}${s.method ? ` — ${s.method}` : ""}`}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="mt-3 text-base text-ink">الإرسال التلقائي عند حلول الموعد غير مفعّل في هذه النسخة.</p>
-          </>
-        ) : (
-          <>
-            <p className="leading-7 text-ink">لم تُحفظ تفضيلات لـ{student.firstName} بعد. يمكنك اختيار:</p>
-            <ul className="mt-3 space-y-2.5">
-              <li className="flex gap-2.5">
-                <CheckIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-                <span>التحديثات: الحضور والغياب، الاختبارات، الدرجات.</span>
-              </li>
-              <li className="flex gap-2.5">
-                <PhoneIcon size={20} className="mt-0.5 shrink-0 text-brand-600" />
-                <span>طريقة التواصل: اتصال أو رسالة، والوقت المناسب.</span>
-              </li>
-            </ul>
-          </>
-        )}
-        <Link href={href} className="btn-primary mt-5 w-full">
-          {saved ? "عرض التفضيلات وتعديلها" : "إعداد طمّني"}
-        </Link>
+      <div className={`${container} mt-8 grid gap-4 lg:grid-cols-12`}>
+        <PanelLoading className="lg:col-span-7" />
+        <PanelLoading className="lg:col-span-5" />
       </div>
-    </section>
+    </main>
   );
 }
 
-function AnnouncementsSection({ student }: { student: Student }) {
+function PanelLoading({ className }: { className: string }) {
   return (
-    <section id="announcements" aria-labelledby="announcements-title" className="scroll-mt-6">
-      <div className="flex border-b-4 border-mint-300">
-        <h2 id="announcements-title" className="rounded-t-xl bg-mint-300 px-5 pt-2.5 pb-2 text-lg font-bold text-brand-800">
-          الإعلانات
-        </h2>
-      </div>
-      <div className="rounded-b-xl border border-t-0 border-line bg-white">
-        <p className="border-b border-mint-200 bg-mint-50 px-5 py-2.5 text-base text-ink">{student.school}</p>
-        <ul className="divide-y divide-mint-200">
-          {student.announcements.map((n) => (
-            <li key={n.title} className="px-5 py-4">
-              <p className="flex items-center justify-between gap-2">
-                <span className="rounded-full bg-mint-200 px-2.5 py-1 text-sm font-bold text-brand-800">{n.tag}</span>
-                <span className="text-base text-ink">{n.date} هـ</span>
-              </p>
-              <h3 className="mt-2 font-bold text-brand-700">{n.title}</h3>
-              <p className="mt-1 text-base leading-7 text-ink">{n.body}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+    <div className={`tone space-y-4 p-6 ${className}`} aria-hidden="true">
+      <Placeholder className="h-6 w-40" />
+      <Placeholder className="h-5 w-full" />
+      <Placeholder className="h-5 w-5/6" />
+      <Placeholder className="h-5 w-2/3" />
+    </div>
   );
 }
 
-function ProfileCard({ childCount }: { childCount: number }) {
-  const rows = [
-    { label: "الاسم", value: parent.name },
-    { label: "الصفة", value: `${parent.role} (${parent.relation})` },
-    { label: "عدد الأبناء", value: `${childCount}` },
-    { label: "البريد الإلكتروني", value: parent.email, ltr: true },
-    { label: "الجوال", value: parent.phone, ltr: true },
-    { label: "آخر دخول", value: parent.lastLogin },
-  ];
+function Problem({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <section aria-labelledby="profile-title" className="rounded-xl border border-line bg-white">
-      <h2 id="profile-title" className="border-b border-mint-200 px-5 py-3 font-bold text-brand-800">
-        الملف الشخصي
-      </h2>
-      <dl className="divide-y divide-mint-100 px-5">
-        {rows.map((r) => (
-          <div key={r.label} className="flex flex-wrap justify-between gap-x-4 gap-y-0.5 py-2.5 text-base">
-            <dt className="text-ink">{r.label}</dt>
-            <dd className="font-bold break-all" dir={r.ltr ? "ltr" : undefined}>
-              {r.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <div className="px-5 pb-5 pt-2">
-        <MoreButton title="تعديل بياناتي" label="تعديل بياناتي" />
+    <main id="main" className={`${container} flex-1 py-12`}>
+      <h1 className="mb-4 text-[1.5rem] font-bold">أخبار الأبناء</h1>
+      <div className="max-w-xl">
+        <LoadProblem message={message} onRetry={onRetry} />
       </div>
-    </section>
+    </main>
   );
 }
 
-function attendanceRate(student: Student) {
+function attendanceRate(student: DashboardStudent) {
   const a = student.attendance;
-  return Math.round(((a.present + a.late) / a.schoolDays) * 100);
+  return a.schoolDays ? Math.round(((a.present + a.late) / a.schoolDays) * 100) : 0;
 }
 
-function gradeAverage(student: Student) {
+function gradeAverage(student: DashboardStudent) {
   const g = student.grades;
-  return Math.round((g.reduce((sum, x) => sum + x.score / x.outOf, 0) / g.length) * 100);
+  return g.length ? Math.round((g.reduce((sum, x) => sum + x.score / x.outOf, 0) / g.length) * 100) : 0;
 }

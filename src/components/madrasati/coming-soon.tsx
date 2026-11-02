@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
-import { ClockIcon, CloseIcon } from "./icons";
+import { ClockIcon, CloseIcon } from "@/components/dashboard/icons";
 
 type ComingSoonContent = { title: string; description?: string };
 
