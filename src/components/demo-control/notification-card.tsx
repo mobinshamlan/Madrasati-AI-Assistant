@@ -38,6 +38,7 @@ export type AttemptRow = {
   error_message: string | null;
   ran_early: boolean;
   original_due_at: string | null;
+  triggered_by?: string;
   created_at: string;
 };
 type Preview = {
@@ -248,6 +249,7 @@ export function NotificationCard({
                         </>
                       )}
                       {!isMock(a) && a.provider_status && <> — المزوّد: {providerWord(a.provider_status)}</>}
+                      {a.triggered_by === "scheduler" && <> — أُرسل تلقائيًا في موعده</>}
                       {a.ran_early && a.original_due_at && <> — أُرسل قبل موعده ({arabicMoment(a.original_due_at)})</>}
                     </p>
                     {a.error_message && <p className="mt-1 text-[0.875rem] font-medium text-danger">{a.error_message}</p>}

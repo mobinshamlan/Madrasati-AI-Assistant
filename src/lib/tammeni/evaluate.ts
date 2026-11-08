@@ -147,12 +147,16 @@ export type ContentInput = {
   decision: Decision;
   /** For a monthly summary: the grades published in its window. */
   monthGrades?: { subject: string; assessment: string; score: number; outOf: number; date: string }[];
+  /** For an attendance summary that covers several days: every day it reports. */
+  attendanceDays?: { date: string; status: AttendanceStatus }[];
 };
 
 /** The facts this update may mention, nothing else. Used for the message, the call and the AI context. */
 export function factLines(input: ContentInput): string[] {
   const { event, decision } = input;
-  if (event.kind === "attendance") return [`الحضور يوم ${arabicDay(event.date)}: ${statusWords[event.status]}.`];
+  if (event.kind === "attendance") {
+    return (input.attendanceDays ?? [event]).map((day) => `الحضور يوم ${arabicDay(day.date)}: ${statusWords[day.status]}.`);
+  }
   if (event.kind === "exam_added") {
     const at = event.startTime ? `، الساعة ${arabicTime(event.startTime)}` : "";
     return [`اختبار ${event.subject} يوم ${arabicDay(event.examDate)}${at}.`];

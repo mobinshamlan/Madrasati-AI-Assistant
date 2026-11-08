@@ -5,5 +5,5 @@
  */
 export const AFTER_SCHOOL_TIME = { time: "14:00", label: "2:00 مساءً" } as const;
 
-/** Saved schedules are real choices, but nothing runs them yet: every send is started by hand. */
+/** True while real automatic sending is off (TAMMENI_AUTO_DISPATCH_REAL). Change this wording before turning it on. */
 export const NO_AUTOMATIC_SENDING = "حفظ الموعد لا يعني إرسالًا تلقائيًا: في النسخة التجريبية يتم الإرسال يدويًا من استوديو العرض. كل الأوقات بتوقيت السعودية.";

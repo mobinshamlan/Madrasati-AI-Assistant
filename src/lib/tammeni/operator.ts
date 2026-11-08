@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
+import { planBatches, tooLate, type DueItem } from "./auto-dispatch";
 import { directDemoAllowed } from "./direct-demo";
 import { callStudentData } from "./call-student-data";
 import { archiveDemoEvents } from "./archive-events";
@@ -35,6 +36,11 @@ export async function requireOperator(): Promise<SupabaseClient> {
   if (!directDemoAllowed(process.env, await headers())) {
     throw new OperatorError(403, "لوحة التشغيل المباشرة متاحة على هذا الجهاز في وضع التطوير فقط.");
   }
+  return serverClient();
+}
+
+/** The server's own database connection. Callers must have authorised the request first. */
+export function serverClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
@@ -86,7 +92,7 @@ export async function studentPanel(supabase: SupabaseClient, studentId: string) 
   const [events, notifications, attempts, exams, absences, grades] = await Promise.all([
     supabase.from("demo_events").select("id, kind, event_date, summary, payload, created_at").eq("student_id", studentId).is("archived_at", null).order("created_at", { ascending: false }).limit(30),
     supabase.from("notifications").select("id, demo_event_id, topic, status, method, due_at, reason, content, window_start, window_end, prefs_version, evaluated_at").eq("student_id", studentId).order("evaluated_at", { ascending: false }).limit(40),
-    supabase.from("dispatch_attempts").select("id, notification_id, kind, provider, method, destination_masked, status, provider_status, error_message, ran_early, original_due_at, created_at").eq("student_id", studentId).order("created_at", { ascending: false }).limit(40),
+    supabase.from("dispatch_attempts").select("id, notification_id, kind, provider, method, destination_masked, status, provider_status, error_message, ran_early, original_due_at, triggered_by, created_at").eq("student_id", studentId).order("created_at", { ascending: false }).limit(40),
     supabase.from("exams").select("id, subject, kind, exam_date, origin").eq("student_id", studentId).eq("status", "scheduled").is("archived_at", null).order("exam_date"),
     supabase.from("attendance_records").select("demo_event_id, day, status").eq("student_id", studentId).eq("origin", "demo").is("archived_at", null).in("status", ["absent", "late"]),
     supabase.from("grades").select("subject, assessment").eq("student_id", studentId).is("archived_at", null),
@@ -336,6 +342,7 @@ async function saveDecision(
   student: { full_name: string; first_name: string },
   mode: "create" | "update",
   notificationId?: string,
+  onlyIfPending = false,
 ) {
   const prefs = await loadPreferences(supabase, studentId);
   const decision = evaluate(event, prefs.preferences, new Date());
@@ -355,7 +362,9 @@ async function saveDecision(
     const r = await supabase.from("notifications").insert({ ...row, student_id: studentId, demo_event_id: eventId, topic: topicOf(event) });
     if (r.error) dbFail("حفظ نتيجة التقييم");
   } else {
-    const r = await supabase.from("notifications").update(row).eq("id", notificationId!);
+    const update = supabase.from("notifications").update(row).eq("id", notificationId!);
+    // The scheduler must never overwrite an update another run has claimed in the meantime.
+    const r = await (onlyIfPending ? update.in("status", PENDING) : update);
     if (r.error) dbFail("تحديث نتيجة التقييم");
   }
   return { decision, input, prefsVersion: prefs.version, preferences: prefs.preferences };
@@ -374,6 +383,7 @@ async function loadNotification(supabase: SupabaseClient, notificationId: string
 }
 
 const FINAL = new Set(["sending", "accepted", "delivered", "failed", "cancelled"]);
+const PENDING = ["waiting", "ready", "suppressed"];
 
 /** «معاينة التحديث»: re-evaluates with the latest saved preferences and shows exactly what would go out. */
 export async function previewNotification(supabase: SupabaseClient, notificationId: string) {
@@ -482,8 +492,36 @@ export async function runNotification(
   }
   if (decision.status === "suppressed") throw new OperatorError(422, `لن يُرسل: ${decision.reason}`);
 
-  const ranEarly = decision.status === "waiting";
+  return deliver(supabase, { n, student, decision, input, key, resendOf, ranEarly: decision.status === "waiting", triggeredBy: "operator", forceMock: Boolean(opts.forceMock) });
+}
+
+/** Records one attempt, then hands it to the provider. The unique indexes make a second send impossible. */
+async function deliver(
+  supabase: SupabaseClient,
+  { n, student, decision, input, key, resendOf, ranEarly, triggeredBy, forceMock, backendMock = false }: {
+    n: { id: string; student_id: string };
+    student: Awaited<ReturnType<typeof loadStudent>>;
+    decision: Decision;
+    input: ContentInput;
+    key: string;
+    resendOf: string | null;
+    ranEarly: boolean;
+    triggeredBy: "operator" | "scheduler";
+    forceMock: boolean;
+    /** Go through the backend but make it answer as the mock provider. It can never reach Twilio. */
+    backendMock?: boolean;
+  },
+) {
   const content = decision.method === "call" ? callOpening(input) : messageText(input);
+  // Load before creating an attempt: a data outage must not start a call with stale facts.
+  let conversationData = null;
+  if (decision.method === "call") {
+    try {
+      conversationData = await callStudentData(supabase, n.student_id, riyadhDay(new Date()));
+    } catch {
+      throw new OperatorError(503, "تعذّر تحميل بيانات الطالب للمكالمة. أعد المحاولة.");
+    }
+  }
   const attempt = await supabase
     .from("dispatch_attempts")
     .insert({
@@ -496,6 +534,7 @@ export async function runNotification(
       provider: "mock",
       method: decision.method,
       status: "sending",
+      triggered_by: triggeredBy,
       ran_early: ranEarly,
       original_due_at: decision.dueAt,
       content,
@@ -509,18 +548,19 @@ export async function runNotification(
   const attemptId = attempt.data!.id as string;
   await supabase.from("notifications").update({ status: "sending" }).eq("id", n.id);
 
-  // The call/message context: only this update's facts, behind a random, short-lived token.
+  // The opening stays about the event; calls also carry current records for follow-up questions.
   const token = randomBytes(32).toString("base64url");
   const context = {
     version: 1,
     persona: "lulwa",
-    student: { key: student.demo_key, first_name: student.first_name, full_name: student.full_name },
+    student: { id: n.student_id, key: student.demo_key, first_name: student.first_name, full_name: student.full_name },
     topic: decision.topic,
     allowed_topics: [decision.topic],
     method: decision.method,
     facts: factLines(input),
     message: messageText(input),
     opening: callOpening(input),
+    ...(conversationData ? { conversation_data: conversationData } : {}),
     retry_unanswered_call: decision.method === "call" ? Boolean((await loadPreferences(supabase, n.student_id)).preferences?.retryUnansweredCall) : false,
     attempt_id: attemptId,
   };
@@ -540,7 +580,7 @@ export async function runNotification(
   try {
     // Shared-demo sessions never reach the provider. The mock result is built here so a tunnel
     // visitor cannot cause Twilio even if the Python process is set to twilio.
-    result = opts.forceMock
+    result = forceMock
       ? {
           provider: "mock",
           status: "accepted",
@@ -549,7 +589,7 @@ export async function runNotification(
           to_masked: null,
           error: null,
         }
-      : await callBackend("/api/notify/dispatch", { token, method: decision.method, idempotency_key: key, force_mock: false });
+      : await callBackend("/api/notify/dispatch", { token, method: decision.method, idempotency_key: key, force_mock: backendMock });
   } catch (e) {
     const message = e instanceof Error ? e.message : "فشل الإرسال.";
     await supabase.from("dispatch_attempts").update({ status: "failed", error_message: message }).eq("id", attemptId);
@@ -589,6 +629,188 @@ export async function refreshAttempt(supabase: SupabaseClient, attemptId: string
   await supabase.from("dispatch_attempts").update({ status, provider_status: result.provider_status ?? null, error_message: result.error ?? null }).eq("id", attemptId);
   await supabase.from("notifications").update({ status }).eq("id", a.data.notification_id);
   return { status, provider_status: result.provider_status ?? null };
+}
+
+// ---------- automatic dispatch ----------
+
+type DueRow = { id: string; student_id: string; demo_event_id: string; topic: string; status: string; method: string | null; due_at: string | null };
+type Loaded = { student: Awaited<ReturnType<typeof loadStudent>>; prefs: Awaited<ReturnType<typeof loadPreferences>> };
+type Report = { sent: number; failed: number; rescheduled: number; suppressed: number; tooLate: number; deferred: number; released: number; providers: string[] };
+
+const CLAIM_EXPIRES_MS = 5 * 60 * 1000;
+const sameInstant = (a: string | null, b: string | null) => (a && b ? Date.parse(a) === Date.parse(b) : a === b);
+
+/**
+ * One scheduler run: sends every update that is due under the parent's latest saved preferences.
+ * Safe to run repeatedly or concurrently. Each update is claimed atomically before anything is sent,
+ * and the database allows one send per update. A failed send is never retried automatically: a call
+ * may already have rung, so only an operator can send it again.
+ */
+export async function runDueNotifications(
+  supabase: SupabaseClient,
+  opts: { real: boolean; maxLateMs: number; maxBatches: number; budgetMs: number },
+) {
+  const started = Date.now();
+  const now = new Date();
+  const report: Report = { sent: 0, failed: 0, rescheduled: 0, suppressed: 0, tooLate: 0, deferred: 0, released: await releaseAbandonedClaims(supabase, now), providers: [] };
+
+  const pending = await supabase.from("notifications").select("id, student_id, demo_event_id, topic, status, method, due_at").in("status", PENDING).order("evaluated_at", { ascending: false }).limit(200);
+  if (pending.error) dbFail("تحميل التحديثات المستحقة");
+  const rows = (pending.data ?? []) as DueRow[];
+  if (rows.length === 0) return report;
+  const events = await supabase.from("demo_events").select("id, kind, event_date, payload, archived_at, created_at").in("id", rows.map((r) => r.demo_event_id));
+  if (events.error) dbFail("تحميل الأحداث");
+  const eventById = new Map((events.data ?? []).map((e) => [e.id as string, e]));
+
+  const loaded = new Map<string, Loaded>();
+  for (const studentId of new Set(rows.map((r) => r.student_id))) {
+    loaded.set(studentId, { student: await loadStudent(supabase, studentId), prefs: await loadPreferences(supabase, studentId) });
+  }
+
+  const due: (DueItem & { row: DueRow; event: SchoolEvent })[] = [];
+  for (const row of rows) {
+    const e = eventById.get(row.demo_event_id);
+    if (!e || e.archived_at) continue;
+    const { student, prefs } = loaded.get(row.student_id)!;
+    const event = toSchoolEvent(e.kind, e.event_date, e.payload);
+    // Always the latest saved preferences, never the decision stored when the event was recorded.
+    const decision = evaluate(event, prefs.preferences, now);
+    const moved = decision.status !== row.status || decision.method !== row.method || !sameInstant(decision.dueAt, row.due_at);
+    if (decision.status !== "ready") {
+      if (moved) {
+        await saveDecision(supabase, row.student_id, row.demo_event_id, event, student, "update", row.id, true);
+        if (decision.status === "suppressed") report.suppressed += 1;
+        else report.rescheduled += 1;
+      }
+      continue;
+    }
+    if (tooLate(decision, Date.parse(e.created_at), now, opts.maxLateMs)) {
+      report.tooLate += 1;
+      continue;
+    }
+    if (row.status === "suppressed") await saveDecision(supabase, row.student_id, row.demo_event_id, event, student, "update", row.id, true);
+    due.push({ id: row.id, studentId: row.student_id, topic: decision.topic, eventDate: e.event_date, decision, prefsVersion: prefs.version, row, event });
+  }
+
+  const batches = planBatches(due);
+  report.deferred += Math.max(0, batches.length - opts.maxBatches);
+  for (const batch of batches.slice(0, opts.maxBatches)) {
+    if (Date.now() - started > opts.budgetMs) {
+      report.deferred += 1;
+      continue;
+    }
+    await sendBatch(supabase, batch.primary, batch.members, loaded.get(batch.primary.studentId)!, opts.real, report);
+  }
+  return report;
+}
+
+async function sendBatch(
+  supabase: SupabaseClient,
+  primary: DueItem & { row: DueRow; event: SchoolEvent },
+  members: (DueItem & { row: DueRow; event: SchoolEvent })[],
+  { student }: Loaded,
+  real: boolean,
+  report: Report,
+) {
+  const claimedAt = new Date().toISOString();
+  const release = async (ids: string[]) => {
+    await supabase.from("notifications").update({ status: "ready", auto_claimed_at: null, covered_by: null }).in("id", ids).eq("status", "sending");
+  };
+
+  // Whoever flips the status first owns this update; every other run gets no row back and moves on.
+  const claim = await supabase.from("notifications").update({ status: "sending", auto_claimed_at: claimedAt }).eq("id", primary.id).in("status", ["waiting", "ready"]).select("id");
+  if (claim.error) dbFail("حجز التحديث");
+  if ((claim.data ?? []).length === 0) return;
+
+  // Last look: a parent who saved in the last moments is honoured on the next run.
+  const latest = await loadPreferences(supabase, primary.studentId);
+  if (latest.version !== primary.prefsVersion) {
+    await release([primary.id]);
+    report.deferred += 1;
+    return;
+  }
+
+  let covered: typeof members = [];
+  if (members.length > 0) {
+    const m = await supabase.from("notifications").update({ status: "sending", auto_claimed_at: claimedAt, covered_by: primary.id }).in("id", members.map((x) => x.id)).in("status", ["waiting", "ready"]).select("id");
+    if (m.error) {
+      await release([primary.id]);
+      dbFail("حجز الملخص");
+    }
+    const ids = new Set((m.data ?? []).map((x) => x.id));
+    covered = members.filter((x) => ids.has(x.id));
+  }
+  const group = [primary.id, ...covered.map((x) => x.id)];
+  const coveredIds = group.slice(1);
+
+  try {
+    const input = await contentFor(supabase, primary.studentId, { full_name: student.full_name, first_name: student.first_name }, primary.event, primary.decision);
+    if (primary.event.kind === "attendance" && covered.length > 0) {
+      input.attendanceDays = [primary, ...covered]
+        .map((x) => x.event as Extract<SchoolEvent, { kind: "attendance" }>)
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((x) => ({ date: x.date, status: x.status }));
+    }
+    const { decision } = primary;
+    await supabase.from("notifications").update({
+      method: decision.method,
+      due_at: decision.dueAt,
+      reason: decision.reason,
+      content: decision.method === "call" ? callOpening(input) : messageText(input),
+      window_start: decision.window?.start ?? null,
+      window_end: decision.window?.end ?? null,
+      prefs_version: primary.prefsVersion,
+      evaluated_at: new Date().toISOString(),
+    }).eq("id", primary.id);
+
+    const result = await deliver(supabase, {
+      n: { id: primary.id, student_id: primary.studentId },
+      student,
+      decision,
+      input,
+      key: `auto:${primary.id}`,
+      resendOf: null,
+      ranEarly: false,
+      triggeredBy: "scheduler",
+      forceMock: false,
+      backendMock: !real,
+    });
+    if (coveredIds.length > 0) {
+      await supabase.from("notifications").update({ status: result.attempt.status, reason: "أُرسل ضمن ملخص واحد مع تحديثات نفس الموعد." }).in("id", coveredIds);
+    }
+    if (result.attempt.status === "failed") report.failed += 1;
+    else report.sent += 1;
+    if (result.attempt.provider && !report.providers.includes(result.attempt.provider)) report.providers.push(result.attempt.provider);
+  } catch (error) {
+    const attempt = await supabase.from("dispatch_attempts").select("status").eq("notification_id", primary.id).eq("kind", "send").maybeSingle();
+    if (attempt.data) {
+      // It reached the attempt stage, so the outcome stands and the group is not sent again.
+      await supabase.from("notifications").update({ status: attempt.data.status }).in("id", group);
+      if (attempt.data.status === "failed") report.failed += 1;
+    } else if (attempt.error) {
+      throw error;
+    } else {
+      await release(group);
+      report.deferred += 1;
+    }
+  }
+}
+
+/** A run that died after claiming but before recording an attempt sent nothing, so its claim can go back. */
+async function releaseAbandonedClaims(supabase: SupabaseClient, now: Date) {
+  const cutoff = new Date(now.getTime() - CLAIM_EXPIRES_MS).toISOString();
+  const stale = await supabase.from("notifications").select("id, covered_by").eq("status", "sending").lt("auto_claimed_at", cutoff);
+  if (stale.error) dbFail("مراجعة الحجوزات");
+  const rows = stale.data ?? [];
+  if (rows.length === 0) return 0;
+  const attempts = await supabase.from("dispatch_attempts").select("notification_id").eq("kind", "send").in("notification_id", rows.map((r) => (r.covered_by ?? r.id) as string));
+  if (attempts.error) dbFail("مراجعة المحاولات");
+  const attempted = new Set((attempts.data ?? []).map((a) => a.notification_id));
+  const ids = rows.filter((r) => !attempted.has(r.covered_by ?? r.id)).map((r) => r.id as string);
+  if (ids.length === 0) return 0;
+  const r = await supabase.from("notifications").update({ status: "ready", auto_claimed_at: null, covered_by: null }).in("id", ids).eq("status", "sending");
+  if (r.error) dbFail("تحرير الحجوزات");
+  return ids.length;
 }
 
 // ---------- resets ----------

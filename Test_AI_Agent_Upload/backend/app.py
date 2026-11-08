@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, os, re, uuid
+import asyncio, contextlib, json, os, re, uuid
 from pathlib import Path
 from typing import Any
 import httpx
@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from backend.notify import router as notify_router
 from backend.parent_preview import router as parent_preview_router
 from backend.phone_bridge import router as phone_router
+from backend.scheduler import run_forever, scheduler_enabled
 from backend.student_insights import enrich, fmt
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +25,21 @@ TEXT_MODEL = os.getenv("TEXT_MODEL", "gpt-4.1-mini")
 DATA_PATH = Path(os.getenv("MADRASATI_DATASET") or ROOT.parent / "supabase" / "data" / "madrasati-dataset.json")
 LIVE_SESSIONS: dict[str, str] = {}
 CONVERSATIONS: dict[str, dict[str, Any]] = {}
-app = FastAPI(title="Madrasati Student Assistant", version="2.3.0")
+
+
+@contextlib.asynccontextmanager
+async def lifespan(_: FastAPI):
+    task = asyncio.create_task(run_forever()) if scheduler_enabled() else None
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+
+app = FastAPI(title="Madrasati Student Assistant", version="2.3.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"], allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type"])
 app.include_router(phone_router)
 app.include_router(parent_preview_router)
