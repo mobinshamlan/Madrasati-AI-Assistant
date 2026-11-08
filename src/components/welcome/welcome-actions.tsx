@@ -18,7 +18,7 @@ const note = "تدخل كولي أمر تجريبي ببيانات خيالية�
 export function WelcomeActions() {
   const router = useRouter();
   const requested = useSearchParams().get("next");
-  const next = requested ? safeReturnPath(requested) : "/tammeni";
+  const next = safeReturnPath(requested).replace(/^\/(?=\?|$)/, "/tammeni");
   const [starting, setStarting] = useState(false);
   const [failed, setFailed] = useState(false);
 

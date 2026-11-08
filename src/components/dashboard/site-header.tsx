@@ -37,9 +37,9 @@ export function SiteHeader({ current }: { current: PageKey }) {
   return (
     <header className="border-b border-line bg-surface">
       <div className="mx-auto flex min-h-16 max-w-[1100px] flex-wrap items-center gap-x-6 px-4 sm:px-6">
-        <Link href="/tammeni" aria-label="طمّني — الرئيسية" className="rounded-lg py-3">
-          <Wordmark />
-        </Link>
+        <Suspense fallback={<HomeLink student={null} />}>
+          <HomeLinkWithStudent />
+        </Suspense>
         <Suspense fallback={<Nav current={current} student={null} />}>
           <NavWithStudent current={current} />
         </Suspense>
@@ -52,6 +52,18 @@ export function SiteHeader({ current }: { current: PageKey }) {
         </div>
       </div>
     </header>
+  );
+}
+
+function HomeLinkWithStudent() {
+  return <HomeLink student={useSearchParams().get("student")} />;
+}
+
+function HomeLink({ student }: { student: string | null }) {
+  return (
+    <Link href={student ? `/tammeni?student=${encodeURIComponent(student)}` : "/tammeni"} aria-label="طمّني — الرئيسية" className="rounded-lg py-3">
+      <Wordmark />
+    </Link>
   );
 }
 

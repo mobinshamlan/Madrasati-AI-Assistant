@@ -9,7 +9,8 @@ import { safeReturnPath, startDemoSession, useDemoSession } from "@/lib/demo-ses
 
 export function DemoLogin() {
   const router = useRouter();
-  const next = safeReturnPath(useSearchParams().get("next"));
+  const returnPath = safeReturnPath(useSearchParams().get("next"));
+  const next = returnPath.replace(/^\/(?=\?|$)/, "/tammeni");
   const status = useDemoSession();
   const [failed, setFailed] = useState(false);
 

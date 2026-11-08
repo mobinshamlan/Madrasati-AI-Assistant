@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { PublicShell } from "@/components/madrasati/page-shell";
+import { PublicShell } from "@/components/dashboard/page-shell";
 import { DemoLogin } from "@/components/login/demo-login";
 
 export const metadata: Metadata = {

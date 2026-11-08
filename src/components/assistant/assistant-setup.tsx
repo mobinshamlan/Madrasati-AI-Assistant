@@ -297,8 +297,12 @@ function Editor({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  const lastView = useRef(`${mode}/${stepId}/${editTopic}`);
   useEffect(() => {
-    if (mode !== "wizard") return;
+    // Move focus only when the view changes, never on page load.
+    const view = `${mode}/${stepId}/${editTopic}`;
+    if (view === lastView.current) return;
+    lastView.current = view;
     headingRef.current?.focus({ preventScroll: true });
     headingRef.current?.scrollIntoView({ block: "nearest" });
   }, [mode, stepId, editTopic]);
@@ -442,7 +446,7 @@ function Editor({
           <div className="flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-[0.9375rem] font-semibold text-brand-ink">{dirty ? "تغييرات غير محفوظة" : savedExists ? "ملخص التفضيلات المحفوظة" : "مراجعة وحفظ"}</p>
-              <h2 id="summary-heading" className="mt-1 text-[1.5rem] leading-tight font-bold sm:text-[1.75rem]">
+              <h2 ref={headingRef} id="summary-heading" tabIndex={-1} className="mt-1 text-[1.5rem] leading-tight font-bold focus:outline-none sm:text-[1.75rem]">
                 تنبيهات {student.firstName}
               </h2>
               {savedExists && !dirty && students.length > 1 && (
@@ -668,7 +672,7 @@ function TopicReviewList({ prefs, onEdit }: { prefs: Preferences; onEdit: (topic
               </p>
               {summary.note && <p className="mt-1 text-[0.9375rem] leading-6 text-ink-soft">{summary.note}</p>}
             </div>
-            <button type="button" className="btn-secondary btn-sm min-w-24" onClick={() => onEdit(topic)}>
+            <button type="button" className="btn-secondary btn-sm min-w-24" aria-label={`تعديل ${guidedLabels[topic]}`} onClick={() => onEdit(topic)}>
               تعديل
             </button>
           </article>
