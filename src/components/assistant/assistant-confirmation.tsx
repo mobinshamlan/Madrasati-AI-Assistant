@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { NO_AUTOMATIC_SENDING } from "./config";
 import { CheckIcon } from "@/components/dashboard/icons";
 import { LoadProblem, Placeholder } from "@/components/dashboard/ui";
 import { useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
@@ -103,7 +104,7 @@ function Success({
             حفظنا تنبيهات {student.firstName}
           </h1>
           <p className="mt-2 text-[1.0625rem] leading-8 text-ink-soft">
-            هذا اللي بيوصلك عن {student.firstName}. تقدر تعدّله أي وقت.
+            هذي المواعيد المحفوظة لـ{student.firstName}. تقدر تعدّلها أي وقت.
             {updatedAt && <span className="block text-[0.9375rem] text-faint">آخر حفظ: {formatSavedAt(updatedAt)}</span>}
           </p>
         </div>
@@ -142,7 +143,7 @@ function Success({
         </aside>
       )}
 
-      <p className="mt-8 text-[0.875rem] leading-6 text-faint">في النسخة التجريبية ما يُرسل شيء تلقائيًا عند حلول الموعد. كل الأوقات بتوقيت السعودية.</p>
+      <p className="mt-8 text-[1rem] leading-7 text-ink-soft">{NO_AUTOMATIC_SENDING}</p>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
+import { NO_AUTOMATIC_SENDING } from "@/components/assistant/config";
 import { Character, PreferenceSummary, formatSavedAt } from "@/components/assistant/summary";
 import type { Preferences } from "@/components/assistant/preferences";
 import { arabicDay, arabicMoment, evaluate, riyadhDay } from "@/lib/tammeni/evaluate";
@@ -217,9 +218,9 @@ function PreferencesPanel({ student, prefs }: { student: LinkedStudent; prefs: P
         ) : prefs.data.exists ? (
           <>
             <PreferenceSummary preferences={prefs.data.preferences} firstName={student.firstName} />
-            <p className="mt-4 border-t border-rule pt-4 text-[0.875rem] leading-6 text-faint">
+            <p className="mt-4 border-t border-rule pt-4 text-[0.9375rem] leading-7 text-ink-soft">
               {prefs.data.updatedAt && <>آخر حفظ: {formatSavedAt(prefs.data.updatedAt)}. </>}
-              في النسخة التجريبية ما يُرسل شيء تلقائيًا عند حلول الموعد. كل الأوقات بتوقيت السعودية.
+              {NO_AUTOMATIC_SENDING}
             </p>
           </>
         ) : (

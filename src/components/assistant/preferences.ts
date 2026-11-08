@@ -17,8 +17,8 @@ export const topicLabels: Record<Topic, string> = {
 
 export const attendanceTimingOptions = [
   { value: "immediate", label: "مباشرة", hint: "عند تسجيل الحضور أو الغياب أو التأخر" },
-  { value: "end-of-day", label: "بعد نهاية اليوم", hint: `ملخص واحد كل يوم الساعة ${AFTER_SCHOOL_TIME.label}` },
-  { value: "custom", label: "موعد آخر", hint: "تختار الوقت بنفسك" },
+  { value: "end-of-day", label: "بعد نهاية اليوم", hint: `ملخص واحد كل يوم الساعة ${AFTER_SCHOOL_TIME.label} بتوقيت السعودية` },
+  { value: "custom", label: "اختيار وقت آخر", hint: "تحدد الأيام والساعة بنفسك" },
 ] as const;
 
 export const attendanceCustomOptions = [
@@ -29,7 +29,7 @@ export const attendanceCustomOptions = [
 export const examTimingOptions = [
   { value: "day-before", label: "قبل الاختبار بيوم", hint: "تذكير لكل اختبار قادم" },
   { value: "week-before", label: "قبل الاختبار بأسبوع", hint: "تذكير لكل اختبار قادم" },
-  { value: "custom", label: "موعد آخر", hint: "تختار عدد الأيام قبل الاختبار" },
+  { value: "custom", label: "اختيار وقت آخر", hint: "تحدد عدد الأيام قبل الاختبار والساعة بنفسك" },
 ] as const;
 
 /** Any whole number of days from 1 to 30 before the exam. */
@@ -57,7 +57,7 @@ export function examDaysPhrase(n: number) {
 
 export const gradesTimingOptions = [
   { value: "immediate", label: "مباشرة أول ما تطلع درجة كل مادة", hint: "تحديث مستقل لكل مادة عند نشر درجتها" },
-  { value: "monthly", label: "كل شهر — جميع المواد معًا", hint: "ملخص واحد في اليوم الذي تختاره من الشهر" },
+  { value: "monthly", label: "كل شهر — جميع المواد معًا", hint: "ملخص واحد في اليوم والساعة اللي تحددها" },
 ] as const;
 
 /** "message" is deliberately generic: no SMS or WhatsApp channel is chosen yet. */
@@ -271,13 +271,13 @@ function fromLegacy(input: {
       attendance.timing = a.timing;
       if (a.timing === "end-of-day") {
         notes.push(
-          `الحضور والغياب «بعد نهاية اليوم»: يصلك الملخص الآن في وقت ثابت هو ${AFTER_SCHOOL_TIME.label} بتوقيت السعودية، وهو وقت افتراضي للنموذج التجريبي وليس وقت انصراف رسميًا. إذا أردت وقتًا آخر فاختر «موعد آخر».`,
+          `الحضور والغياب «بعد نهاية اليوم»: يصلك الملخص الآن في وقت ثابت هو ${AFTER_SCHOOL_TIME.label} بتوقيت السعودية، وهو وقت افتراضي للنموذج التجريبي وليس وقت انصراف رسميًا. إذا أردت وقتًا آخر فاختر «اختيار وقت آخر».`,
         );
       }
     } else if (a.timing === "daily") {
       attendance.timing = "end-of-day";
       notes.push(
-        `الحضور والغياب «يوميًا»: أصبح «بعد نهاية اليوم» ويصلك الملخص في وقت ثابت هو ${AFTER_SCHOOL_TIME.label} بتوقيت السعودية، وهو وقت افتراضي للنموذج التجريبي. إذا أردت وقتك السابق (${timeWas}) فاختر «موعد آخر».`,
+        `الحضور والغياب «يوميًا»: أصبح «بعد نهاية اليوم» ويصلك الملخص في وقت ثابت هو ${AFTER_SCHOOL_TIME.label} بتوقيت السعودية، وهو وقت افتراضي للنموذج التجريبي. إذا أردت وقتك السابق (${timeWas}) فاختر «اختيار وقت آخر».`,
       );
     } else if (a.timing === "weekly") {
       const day = isOneOf(days, a.day) ? a.day : null;
@@ -624,15 +624,15 @@ export function topicSummary(p: Preferences, topic: Topic): TopicSummary {
     const { kind, day, time } = p.attendance.custom;
     const t = timeLabel(time);
     return kind === "daily"
-      ? on("موعد آخر: ملخص يومي", `كل يوم ${t}`, `كل يوم الساعة ${saudi(t)}`, summaryNote)
-      : on("موعد آخر: ملخص أسبوعي", `كل ${labelOf(dayOptions, day)} ${t}`, `كل أسبوع يوم ${labelOf(dayOptions, day)} الساعة ${saudi(t)}`, summaryNote);
+      ? on("وقت آخر: ملخص يومي", `كل يوم ${t}`, `كل يوم الساعة ${saudi(t)}`, summaryNote)
+      : on("وقت آخر: ملخص أسبوعي", `كل ${labelOf(dayOptions, day)} ${t}`, `كل أسبوع يوم ${labelOf(dayOptions, day)} الساعة ${saudi(t)}`, summaryNote);
   }
 
   if (topic === "exams") {
     const t = timeLabel(p.exams.time);
     const phrase =
       timing === "day-before" ? "بيوم واحد" : timing === "week-before" ? "بأسبوع" : examDaysPhrase(p.exams.customDays);
-    const name = timing === "custom" ? `موعد آخر: ${examDaysName(p.exams.customDays)} قبل الاختبار` : labelOf(examTimingOptions, timing);
+    const name = timing === "custom" ? `وقت آخر: ${examDaysName(p.exams.customDays)} قبل الاختبار` : labelOf(examTimingOptions, timing);
     return on(name, `قبل الاختبار ${phrase} (${t})`, `قبل كل اختبار ${phrase}، الساعة ${saudi(t)}`, "ونبلغك أيضًا إذا أُلغي اختبار.");
   }
 

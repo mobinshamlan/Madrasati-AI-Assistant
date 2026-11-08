@@ -67,7 +67,7 @@ export function PreferenceSummary({ preferences, firstName }: { preferences: Pre
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-ink">إذا ما رديت على الاتصال</p>
             <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">
-              {preferences.retryUnansweredCall ? "نعيد الاتصال مرة وحدة بعد ٥ دقائق." : "ما نعيد الاتصال."}
+              {preferences.retryUnansweredCall ? "اخترت إعادة الاتصال مرة وحدة بعد ٥ دقائق. محفوظ، لكنه غير مفعّل في النسخة التجريبية." : "ما نعيد الاتصال."}
             </p>
           </div>
         </li>

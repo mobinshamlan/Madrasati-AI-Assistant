@@ -367,6 +367,11 @@ select.field {
 }
 
 /* A segmented control: the same hidden inputs, laid out as one track. */
+.field.field-lg {
+  min-height: 3.5rem;
+  font-size: 1.125rem;
+}
+
 .seg {
   display: inline-flex;
   flex-wrap: wrap;

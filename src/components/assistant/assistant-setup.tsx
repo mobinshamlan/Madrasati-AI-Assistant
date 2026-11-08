@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { savePreferencesToDb, useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import { CheckIcon, ClockIcon, InfoIcon } from "@/components/dashboard/icons";
 import { ChildSwitcher, Choice, LoadProblem, Placeholder, childTone } from "@/components/dashboard/ui";
-import { AFTER_SCHOOL_TIME } from "./config";
+import { NO_AUTOMATIC_SENDING } from "./config";
 import {
   DAYS_OF_MONTH,
   EXAM_DAYS,
@@ -661,7 +661,7 @@ function TopicReviewList({ prefs, onEdit }: { prefs: Preferences; onEdit: (topic
               </h3>
               <p className="mt-1 text-[1rem] leading-7 font-semibold text-ink">
                 {summary.status === "on"
-                  ? `${prefs[topic].method === "message" ? "رسالة نصية" : "مكالمة هاتفية"} · ${summary.short}`
+                  ? `${prefs[topic].method === "message" ? "رسالة نصية" : "مكالمة هاتفية"} · ${summary.when}`
                   : summary.status === "off"
                     ? `لن يصلك تنبيه عن ${guidedLabels[topic]}.`
                     : "اختر وقتًا لهذا التنبيه."}
@@ -674,6 +674,10 @@ function TopicReviewList({ prefs, onEdit }: { prefs: Preferences; onEdit: (topic
           </article>
         );
       })}
+      <p className="notice notice-info my-5">
+        <InfoIcon size={18} />
+        <span>{NO_AUTOMATIC_SENDING}</span>
+      </p>
     </div>
   );
 }
@@ -718,7 +722,16 @@ function TimingQuestion({
   const timing = prefs[topic].timing;
   const setTiming = (value: string) => patchTopic(topic, { timing: value });
   const showProblem = problem?.kind === "choose";
-  const timingLabel = (value: string, label: string) => value === "custom" ? "اختيار وقت آخر" : label;
+  const summary = topicSummary(prefs, topic);
+  // Choosing an option can open its controls below the fold, behind the sticky buttons: bring them up.
+  const details = useRef<HTMLDivElement>(null);
+  const shownTiming = useRef(timing);
+  useEffect(() => {
+    if (shownTiming.current === timing) return;
+    shownTiming.current = timing;
+    // Instant: the page's smooth scrolling can be dropped while these controls are still appearing.
+    details.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
+  }, [timing]);
   return (
     <div className="space-y-5">
       {(previous || clearedWas) && timing === null && (
@@ -742,87 +755,93 @@ function TimingQuestion({
             value={option.value}
             checked={timing === option.value}
             onChange={() => setTiming(option.value)}
-            title={timingLabel(option.value, option.label)}
+            title={option.label}
             hint={option.hint}
           />
         ))}
         {showProblem && <p id={`${topic}-timing-error`} className="font-semibold text-danger">اختر موعدًا للمتابعة.</p>}
       </fieldset>
 
-      {topic === "attendance" && timing === "end-of-day" && (
-        <p className="rounded-xl bg-panel px-4 py-3 leading-7 text-ink-soft">
-          يصل الملخص بعد نهاية اليوم، الساعة {AFTER_SCHOOL_TIME.label}. هذا وقت افتراضي للتنبيه.
-        </p>
-      )}
-
-      {topic === "attendance" && timing === "custom" && (
-        <div className="space-y-5 rounded-xl border border-line bg-ground p-4 sm:p-5">
-          <fieldset className="space-y-3">
-            <legend className="mb-3 font-semibold">كم مرة ترغب بالملخص؟</legend>
-            {attendanceCustomOptions.map((option) => (
-              <LargeChoice
-                key={option.value}
-                name="attendance-custom-kind"
-                value={option.value}
-                checked={prefs.attendance.custom.kind === option.value}
-                onChange={() => patchAttendanceCustom({ kind: option.value })}
-                title={option.label}
-                hint={option.hint}
-              />
-            ))}
-          </fieldset>
-          {prefs.attendance.custom.kind === "weekly" && <DayPicker value={prefs.attendance.custom.day} onChange={(day) => patchAttendanceCustom({ day })} />}
-          <TimePicker
-            topic="attendance"
-            value={getTime(prefs, "attendance")}
-            onChange={(time) => patchAttendanceCustom({ time })}
-            showError={problem?.kind === "time"}
-          />
-        </div>
-      )}
-
-      {topic === "exams" && timing !== null && timing !== "off" && (
-        <div className="space-y-5 rounded-xl border border-line bg-ground p-4 sm:p-5">
-          {timing === "custom" && (
-            <SelectRow
-              id="exams-days"
-              label="قبل الاختبار بكم يوم؟"
-              value={prefs.exams.customDays}
-              options={EXAM_DAYS.map((day) => ({ value: day, label: examDaysOptionLabel(day) }))}
-              onChange={(customDays) => patchTopic("exams", { customDays })}
-              hint="اختر من يوم إلى ٣٠ يومًا."
+      <div ref={details} className="scroll-mt-24 scroll-mb-28 space-y-5">
+        {topic === "attendance" && timing === "custom" && (
+          <div className="space-y-5 rounded-xl border border-line bg-ground p-4 sm:p-5">
+            <fieldset className="space-y-3">
+              <legend className="mb-3 font-semibold">كم مرة ترغب بالملخص؟</legend>
+              {attendanceCustomOptions.map((option) => (
+                <LargeChoice
+                  key={option.value}
+                  name="attendance-custom-kind"
+                  value={option.value}
+                  checked={prefs.attendance.custom.kind === option.value}
+                  onChange={() => patchAttendanceCustom({ kind: option.value })}
+                  title={option.label}
+                  hint={option.hint}
+                />
+              ))}
+            </fieldset>
+            {prefs.attendance.custom.kind === "weekly" && <DayPicker value={prefs.attendance.custom.day} onChange={(day) => patchAttendanceCustom({ day })} />}
+            <TimePicker
+              topic="attendance"
+              value={getTime(prefs, "attendance")}
+              onChange={(time) => patchAttendanceCustom({ time })}
+              showError={problem?.kind === "time"}
             />
-          )}
-          <TimePicker
-            topic="exams"
-            value={getTime(prefs, "exams")}
-            onChange={(time) => patchTopic("exams", { time })}
-            showError={problem?.kind === "time"}
-          />
-        </div>
-      )}
+          </div>
+        )}
 
-      {topic === "grades" && timing === "monthly" && (
-        <div className="space-y-5 rounded-xl border border-line bg-ground p-4 sm:p-5">
-          <SelectRow
-            id="grades-day-of-month"
-            label="في أي يوم من الشهر؟"
-            value={prefs.grades.dayOfMonth}
-            options={DAYS_OF_MONTH.map((day) => ({ value: day, label: `يوم ${day}` }))}
-            onChange={(dayOfMonth) => patchTopic("grades", { dayOfMonth })}
-            hint="يشمل الدرجات المنشورة في الشهر السابق."
-          />
-          <TimePicker
-            topic="grades"
-            value={getTime(prefs, "grades")}
-            onChange={(time) => patchTopic("grades", { time })}
-            showError={problem?.kind === "time"}
-          />
-        </div>
-      )}
+        {topic === "exams" && timing !== null && timing !== "off" && (
+          <div className="space-y-5 rounded-xl border border-line bg-ground p-4 sm:p-5">
+            {timing === "custom" && (
+              <SelectRow
+                id="exams-days"
+                label="قبل الاختبار بكم يوم؟"
+                value={prefs.exams.customDays}
+                options={EXAM_DAYS.map((day) => ({ value: day, label: examDaysOptionLabel(day) }))}
+                onChange={(customDays) => patchTopic("exams", { customDays })}
+                hint="اختر من يوم إلى ٣٠ يومًا."
+              />
+            )}
+            <TimePicker
+              topic="exams"
+              value={getTime(prefs, "exams")}
+              onChange={(time) => patchTopic("exams", { time })}
+              showError={problem?.kind === "time"}
+            />
+          </div>
+        )}
+
+        {topic === "grades" && timing === "monthly" && (
+          <div className="space-y-5 rounded-xl border border-line bg-ground p-4 sm:p-5">
+            <SelectRow
+              id="grades-day-of-month"
+              label="في أي يوم من الشهر؟"
+              value={prefs.grades.dayOfMonth}
+              options={DAYS_OF_MONTH.map((day) => ({ value: day, label: `يوم ${day}` }))}
+              onChange={(dayOfMonth) => patchTopic("grades", { dayOfMonth })}
+              hint="يشمل الدرجات المنشورة في الشهر السابق."
+            />
+            <TimePicker
+              topic="grades"
+              value={getTime(prefs, "grades")}
+              onChange={(time) => patchTopic("grades", { time })}
+              showError={problem?.kind === "time"}
+            />
+          </div>
+        )}
+
+        {summary.status === "on" && timing !== "immediate" && (
+          <div role="status" className="rounded-xl bg-panel px-4 py-3 text-[1.0625rem] leading-8">
+            <p><span className="text-ink-soft">الموعد المختار: </span><strong className="font-bold">{summary.when}</strong></p>
+            {timing === "end-of-day" && <p className="text-[1rem] leading-7 text-ink-soft">هذا وقت مقترح. لتغييره اختر «اختيار وقت آخر».</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+const bigOption =
+  "flex min-h-14 cursor-pointer items-center justify-center rounded-xl border-2 border-line bg-surface px-3 text-center text-[1.0625rem] font-bold transition-colors hover:border-control has-[:checked]:border-brand has-[:checked]:bg-brand-soft has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-info has-[:focus-visible]:outline-offset-2";
 
 function TimePicker({
   topic,
@@ -842,13 +861,13 @@ function TimePicker({
 
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-2.5 flex items-center gap-2 font-semibold">
+      <legend className="mb-2.5 flex items-center gap-2 text-[1.0625rem] font-semibold">
         <ClockIcon size={18} className="text-faint" />
-        الوقت <span className="font-normal text-faint">(بتوقيت السعودية)</span>
+        الساعة <span className="text-brand-ink">بتوقيت السعودية</span>
       </legend>
-      <div className="seg">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {presetTimeOptions.map((o) => (
-          <label key={o.value}>
+          <label key={o.value} className={bigOption}>
             <input
               type="radio"
               name={`${topic}-time`}
@@ -864,7 +883,7 @@ function TimePicker({
             {o.label}
           </label>
         ))}
-        <label>
+        <label className={bigOption}>
           <input
             type="radio"
             name={`${topic}-time`}
@@ -877,12 +896,12 @@ function TimePicker({
             }}
             className="sr-only"
           />
-          اختيار وقت آخر
+          وقت آخر
         </label>
       </div>
 
       {other && (
-        <div className="arrive mt-3 grid max-w-md grid-cols-3 gap-2">
+        <div className="arrive mt-3 grid max-w-lg grid-cols-3 gap-2">
           <TimeSelect id={`${topic}-hour`} label="الساعة" value={hour} describedBy={describedBy} invalid={showError} onChange={(h) => onChange(joinTime(h, minute, period))}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
               <option key={h} value={h}>
@@ -898,7 +917,7 @@ function TimePicker({
             ))}
           </TimeSelect>
           <div>
-            <label htmlFor={`${topic}-period`} className="mb-1 block text-[0.875rem] font-medium text-ink-soft">
+            <label htmlFor={`${topic}-period`} className="mb-1 block text-[1rem] font-medium text-ink-soft">
               الفترة
             </label>
             <select
@@ -907,7 +926,7 @@ function TimePicker({
               onChange={(e) => onChange(joinTime(hour, minute, e.target.value as Period))}
               aria-describedby={describedBy}
               aria-invalid={showError || undefined}
-              className="field"
+              className="field field-lg"
             >
               <option value="am">صباحًا</option>
               <option value="pm">مساءً</option>
@@ -943,10 +962,10 @@ function TimeSelect({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-[0.875rem] font-medium text-ink-soft">
+      <label htmlFor={id} className="mb-1 block text-[1rem] font-medium text-ink-soft">
         {label}
       </label>
-      <select id={id} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-describedby={describedBy} aria-invalid={invalid || undefined} className="field num">
+      <select id={id} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-describedby={describedBy} aria-invalid={invalid || undefined} className="field field-lg num">
         {children}
       </select>
     </div>
@@ -973,14 +992,14 @@ function SelectRow({
       <label htmlFor={id} className="mb-2 block font-semibold">
         {label}
       </label>
-      <select id={id} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-describedby={`${id}-hint`} className="field max-w-xs">
+      <select id={id} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-describedby={`${id}-hint`} className="field field-lg max-w-xs">
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
       </select>
-      <p id={`${id}-hint`} className="mt-1.5 text-[0.875rem] text-faint">
+      <p id={`${id}-hint`} className="mt-1.5 text-[1rem] leading-7 text-ink-soft">
         {hint}
       </p>
     </div>
@@ -990,10 +1009,10 @@ function SelectRow({
 function DayPicker({ value, onChange }: { value: Day; onChange: (day: Day) => void }) {
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-2.5 font-semibold">يوم الملخص الأسبوعي</legend>
-      <div className="seg">
+      <legend className="mb-2.5 text-[1.0625rem] font-semibold">يوم الملخص الأسبوعي</legend>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {dayOptions.map((o) => (
-          <label key={o.value}>
+          <label key={o.value} className={bigOption}>
             <input type="radio" name="attendance-day" value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="sr-only" />
             {o.label}
           </label>

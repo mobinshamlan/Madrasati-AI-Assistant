@@ -45,7 +45,7 @@ export default function WelcomePage() {
                 أخبار أبنائك توصلك باتصال أو رسالة
               </h1>
               <p className="welcome-rise welcome-after2 mt-5 max-w-[46ch] text-[1.1875rem] leading-9 text-ink-soft">
-                تختار وش يهمك من الحضور والاختبارات والدرجات، ومتى يوصلك، وكيف. بدون ما تدخل المنصة كل يوم.
+                تختار وش يهمك من الحضور والاختبارات والدرجات، والوقت اللي يناسبك، وكيف. بدون ما تدخل المنصة كل يوم.
               </p>
               <Suspense fallback={<WelcomeActionsFallback />}>
                 <WelcomeActions />
