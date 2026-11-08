@@ -10,7 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 from backend.supabase_students import current_dataset, load_dataset, snapshot
 from pydantic import BaseModel, Field
-from backend.notify import router as notify_router
+from backend.notify import public_deployment, router as notify_router
 from backend.parent_preview import router as parent_preview_router
 from backend.phone_bridge import router as phone_router
 from backend.scheduler import run_forever, scheduler_enabled
@@ -289,6 +289,20 @@ async def live_student_snapshot(request, call_next):
         return await call_next(request)
     finally:
         snapshot.reset(token)
+
+
+# Registered last so it runs first: nothing below reaches Supabase or OpenAI for a blocked path.
+PUBLIC_EXACT_PATHS = ("/api/health", "/api/parent/preview")
+PUBLIC_PATH_PREFIXES = ("/api/phone/", "/api/notify/")
+
+
+@app.middleware("http")
+async def public_deployment_gate(request, call_next):
+    # The routed path; request.url is rebuilt from the client-controlled Host header.
+    path = request.scope["path"]
+    if public_deployment() and path not in PUBLIC_EXACT_PATHS and not path.startswith(PUBLIC_PATH_PREFIXES):
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return await call_next(request)
 
 
 

@@ -25,7 +25,7 @@ def configuration():
     key = value("SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
     email = value("TAMMENI_DEMO_PARENT_EMAIL")
     password = value("TAMMENI_DEMO_PARENT_PASSWORD")
-    if not all((url, key, email, password)) or key.startswith("sb_secret_"):
+    if not all((url, key)) or key.startswith("sb_secret_"):
         raise HTTPException(503, "إعداد قراءة بيانات ولي الأمر غير مكتمل. لا يتم استخدام بيانات قديمة بديلة.")
     return url, key, email, password
 
@@ -83,12 +83,21 @@ def load_dataset():
     url, key, email, password = configuration()
     try:
         with httpx.Client(timeout=12) as client:
-            auth = client.post(url + "/auth/v1/token", params={"grant_type": "password"}, headers={"apikey": key}, json={"email": email, "password": password})
+            if email and password:
+                auth = client.post(url + "/auth/v1/token", params={"grant_type": "password"}, headers={"apikey": key}, json={"email": email, "password": password})
+            else:
+                # Reuse the local website's existing fictional-parent entry. It mints a parent
+                # session without resetting the account or giving Python service-role access.
+                auth = client.post("http://127.0.0.1:3000/api/demo/parent-session", headers={"Origin": "http://127.0.0.1:3000"})
             auth.raise_for_status()
             identity = auth.json()
-            if identity.get("user", {}).get("app_metadata", {}).get("tammeni_role") == "demo_operator":
-                raise HTTPException(503, "يجب استخدام حساب ولي الأمر لقراءة بيانات المحادثة.")
+            if not identity.get("access_token"):
+                raise ValueError("Missing parent session")
             headers = {"apikey": key, "Authorization": "Bearer " + identity["access_token"], "Cache-Control": "no-cache"}
+            user = client.get(url + "/auth/v1/user", headers=headers)
+            user.raise_for_status()
+            if user.json().get("app_metadata", {}).get("tammeni_role"):
+                raise HTTPException(503, "يجب استخدام حساب ولي الأمر لقراءة بيانات المحادثة.")
             tables = {}
             for name in TABLES:
                 page, collected = 0, []

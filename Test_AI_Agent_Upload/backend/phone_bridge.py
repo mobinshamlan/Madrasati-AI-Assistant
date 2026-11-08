@@ -21,17 +21,22 @@ import json
 import logging
 import os
 import re
+import ssl
+import time
 import uuid
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 from xml.sax.saxutils import escape, quoteattr
 
+import certifi
 import websockets
 from dotenv import load_dotenv
 from fastapi import APIRouter, Request, Response, WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
-from backend.call_context import context_instructions, load_context
+from backend.call_context import ARABIC_CALL_RULE, context_instructions, load_context
+from backend.notify import public_deployment
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
@@ -45,8 +50,8 @@ LIVE_MODEL = "gpt-live-1"
 # نفس ملف البيانات اللي يُستورد لـSupabase ويقرؤه الـ Agent (نسخة واحدة، مو نسخة ثانية).
 DATA_PATH = Path(os.getenv("MADRASATI_DATASET") or ROOT.parent / "supabase" / "data" / "madrasati-dataset.json")
 
-# أقصى مدة للمكالمة بالثواني (حماية للفاتورة). الـ PDF يقول 20-40 ثانية.
-MAX_CALL_SECONDS = int(os.getenv("MAX_CALL_SECONDS", "90"))
+# Leave room for the parent's follow-up questions, with a bounded call duration.
+MAX_CALL_SECONDS = int(os.getenv("MAX_CALL_SECONDS", "300"))
 # بعد ما المساعد يودّع، نسكّر المكالمة بعد كم ثانية (عشان يكمل صوته).
 HANGUP_AFTER_GOODBYE = float(os.getenv("HANGUP_AFTER_GOODBYE", "6"))
 # ١ = المساعد يجاوب من بيانات الطالب الكاملة (درجات وواجبات)، ٠ = يلتزم بالـ PDF (يحيل للحساب المعتمد).
@@ -56,6 +61,9 @@ VOICES = {
     "lulwa": os.getenv("LULWA_VOICE", "marin"),
     "turki": os.getenv("TURKI_VOICE", "marin"),
 }
+
+# Public deployment: how long a media socket may stay open without presenting a valid context.
+MEDIA_START_DEADLINE_SECONDS = float(os.getenv("MEDIA_START_DEADLINE_SECONDS", "15"))
 
 GOODBYE_RE = re.compile(r"(مع السلامة|يومك سعيد|يعطيك العافية|شكرا لتعاونك|شكرا لك)[\s.!،؟]*$")
 
@@ -104,7 +112,9 @@ def build_instructions(p: dict[str, str]) -> str:
         facts = ("\n\nبيانات الطالب الموثقة (استخدمها وحدها للإجابة، ولا تخترع شيئا غيرها):\n"
                  + json.dumps(student, ensure_ascii=False))
 
-    return f"""أنت {name} من خدمة «طمني»، مساعد صوتي يتصل بولي أمر طالب لتنبيهه بخصوص منصة مدرستي.
+    return f"""{ARABIC_CALL_RULE}
+
+أنت {name} من خدمة «طمني»، مساعد صوتي يتصل بولي أمر طالب لتنبيهه بخصوص منصة مدرستي.
 تتكلم باللهجة السعودية الطبيعية، بجمل قصيرة ونبرة ودودة. هذي مكالمة هاتفية.
 
 افتح المكالمة بهذي الجملة حرفيا (بعد ما يرد ولي الأمر):
@@ -150,6 +160,24 @@ def _twilio_signature_ok(request: Request, form: dict[str, str]) -> bool:
     return RequestValidator(token).validate(url, form, signature)
 
 
+# Calls Twilio has announced on the signed voice webhook: CallSid -> (ctx token, expiry).
+# The media socket has no signature of its own, so each signed call may open exactly one stream.
+SIGNED_CALL_TTL_SECONDS = 120
+_signed_calls: dict[str, tuple[str, float]] = {}
+
+
+def _remember_signed_call(call_sid: str, token: str) -> None:
+    now = time.monotonic()
+    for sid in [sid for sid, (_, expiry) in _signed_calls.items() if expiry <= now]:
+        del _signed_calls[sid]
+    _signed_calls[call_sid] = (token, now + SIGNED_CALL_TTL_SECONDS)
+
+
+def _claim_signed_call(call_sid: str | None, token: str) -> bool:
+    entry = _signed_calls.pop(call_sid or "", None)
+    return entry is not None and entry[0] == token and entry[1] > time.monotonic()
+
+
 async def _context_voice(request: Request, token: str) -> Response:
     form: dict[str, str] = {}
     if request.method == "POST":
@@ -160,6 +188,8 @@ async def _context_voice(request: Request, token: str) -> Response:
     if ctx is None or ctx["method"] != "call":
         # No facts, no fallback: end the call politely without naming anyone.
         return Response(content='<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>', media_type="application/xml")
+    if form.get("CallSid"):
+        _remember_signed_call(form["CallSid"], token)
     twiml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         f'<Response><Connect><Stream url={quoteattr(_public_ws_url(request))}>'
@@ -173,6 +203,9 @@ async def voice(request: Request) -> Response:
     q = request.query_params
     if "ctx" in q:
         return await _context_voice(request, q["ctx"])
+    if public_deployment():
+        # The parameter-driven local path is unsigned and would open a paid session.
+        return Response(status_code=403)
     params = {
         "persona": q.get("persona", "lulwa"),
         "student": q.get("student", "محمد"),
@@ -198,10 +231,13 @@ async def voice(request: Request) -> Response:
 # ----------------------------------------------------------------------------
 async def _connect_openai():
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+    # Python installations on macOS may lack a system CA bundle.
+    # Keep certificate verification enabled with the maintained CA bundle.
+    tls = ssl.create_default_context(cafile=certifi.where())
     try:  # websockets >= 14
-        return await websockets.connect(OPENAI_WS_URL, additional_headers=headers, max_size=None)
+        return await websockets.connect(OPENAI_WS_URL, additional_headers=headers, max_size=None, ssl=tls)
     except TypeError:  # websockets < 14
-        return await websockets.connect(OPENAI_WS_URL, extra_headers=headers, max_size=None)
+        return await websockets.connect(OPENAI_WS_URL, extra_headers=headers, max_size=None, ssl=tls)
 
 
 @router.websocket("/media")
@@ -213,6 +249,22 @@ async def media(twilio: WebSocket) -> None:
     tasks: list[asyncio.Task] = []
     oa = None
     hangup_task: asyncio.Task | None = None
+    public = public_deployment()
+    start_guard: asyncio.Task | None = None
+
+    async def refuse() -> None:
+        """Close an unverified stream: no OpenAI session and no Twilio request for a client-supplied callSid."""
+        try:
+            await twilio.close(code=1008)
+        except Exception:  # noqa: BLE001
+            pass
+
+    async def refuse_after_deadline() -> None:
+        await asyncio.sleep(MEDIA_START_DEADLINE_SECONDS)
+        await refuse()
+
+    if public:
+        start_guard = asyncio.create_task(refuse_after_deadline())
 
     async def send_oa(event: dict[str, Any]) -> None:
         if oa is not None:
@@ -227,7 +279,7 @@ async def media(twilio: WebSocket) -> None:
                 client = Client(os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"])
                 await asyncio.to_thread(lambda: client.calls(sid).update(status="completed"))
             except Exception as exc:  # noqa: BLE001
-                log.warning("Twilio hangup failed: %s", exc)
+                log.warning("Twilio hangup failed (code %s)", getattr(exc, "code", None))
         try:
             await twilio.close()
         except Exception:  # noqa: BLE001
@@ -253,13 +305,15 @@ async def media(twilio: WebSocket) -> None:
                     "event": "media", "streamSid": call["stream_sid"],
                     "media": {"payload": ev.get("delta", "")}}))
             elif t == "session.input_transcript.delta":
+                # A follow-up question cancels a goodbye already queued by the assistant.
+                if hangup_task:
+                    hangup_task.cancel()
+                    hangup_task = None
                 # ولي الأمر بدأ يتكلم -> نفضّي الصوت المتراكم عند Twilio (barge-in)
                 if call["stream_sid"]:
                     await twilio.send_text(json.dumps({"event": "clear", "streamSid": call["stream_sid"]}))
-                log.info("PARENT: %s", ev.get("delta", ""))
             elif t == "session.output_transcript.delta":
                 assistant_text += ev.get("delta", "")
-                log.info("AGENT: %s", ev.get("delta", ""))
                 # كل ما جا كلام جديد نلغي أي إنهاء مجدول؛ ننهي بس لو آخر شي قاله وداع.
                 if hangup_task:
                     hangup_task.cancel()
@@ -276,25 +330,42 @@ async def media(twilio: WebSocket) -> None:
     async def twilio_to_openai() -> None:
         nonlocal oa
         try:
-            while True:
+            while twilio.application_state == WebSocketState.CONNECTED and twilio.client_state == WebSocketState.CONNECTED:
                 msg = json.loads(await twilio.receive_text())
                 ev = msg.get("event")
+                if public and oa is None and ev not in ("connected", "start"):
+                    log.warning("media before a verified start; closing")
+                    await refuse()
+                    return
                 if ev == "start":
-                    call["stream_sid"] = msg["start"]["streamSid"]
-                    call["call_sid"] = msg["start"].get("callSid")
-                    call["params"] = msg["start"].get("customParameters", {})
-                    p = call["params"]
+                    if oa is not None:
+                        continue  # one OpenAI session per stream
+                    start = msg["start"]
+                    p = start.get("customParameters", {})
+                    if public and not ("ctx" in p and _claim_signed_call(start.get("callSid"), p["ctx"])):
+                        log.warning("stream not announced by a signed voice webhook; closing")
+                        await refuse()
+                        return
+                    call["stream_sid"] = start["streamSid"]
+                    call["call_sid"] = start.get("callSid")
+                    call["params"] = p
                     if "ctx" in p:
-                        # Context path: facts come only from Supabase for this one update.
+                        # Event opening plus same-student school records from Supabase.
                         ctx = await load_context(p["ctx"])
                         if ctx is None or ctx["method"] != "call":
                             log.warning("call context unavailable; hanging up without fallback")
-                            await hang_up()
+                            await (refuse() if public else hang_up())
                             return
                         instructions, persona = context_instructions(ctx), ctx["persona"]
+                    elif public:
+                        log.warning("stream without a call context; closing")
+                        await refuse()
+                        return
                     else:
                         p.setdefault("persona", "lulwa")
                         instructions, persona = build_instructions(p), p["persona"]
+                    if start_guard:
+                        start_guard.cancel()
                     oa = await _connect_openai()
                     await send_oa({"type": "session.start", "session": {
                         "model": LIVE_MODEL,
@@ -314,6 +385,12 @@ async def media(twilio: WebSocket) -> None:
                     return
         except WebSocketDisconnect:
             return
+        except RuntimeError:
+            # A goodbye/watchdog can close the socket while receive_text is waiting.
+            # Treat an already closed stream as a normal hangup, not an ASGI crash.
+            if twilio.application_state == WebSocketState.DISCONNECTED or twilio.client_state == WebSocketState.DISCONNECTED:
+                return
+            raise
 
     async def _watchdog() -> None:
         await asyncio.sleep(MAX_CALL_SECONDS)
@@ -323,6 +400,8 @@ async def media(twilio: WebSocket) -> None:
     try:
         await twilio_to_openai()
     finally:
+        if start_guard:
+            start_guard.cancel()
         if hangup_task:
             hangup_task.cancel()
         if oa is not None:

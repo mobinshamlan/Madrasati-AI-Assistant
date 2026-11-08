@@ -53,6 +53,11 @@ def _authorise(secret: str | None) -> None:
         raise HTTPException(403, "طلب غير مصرح به.")
 
 
+def public_deployment() -> bool:
+    """True on an internet-facing host: only production routes are reachable (see backend/app.py)."""
+    return os.getenv("TAMMENI_PUBLIC_DEPLOYMENT", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def provider_mode() -> str:
     return "twilio" if os.getenv("TAMMENI_PROVIDER", "mock").strip().lower() == "twilio" else "mock"
 
@@ -121,6 +126,9 @@ async def dispatch(body: DispatchRequest, x_tammeni_dispatch_secret: str | None 
         caller = os.getenv("TWILIO_FROM", "")
         if not public_url or not caller:
             raise HTTPException(503, "المكالمة تحتاج PUBLIC_URL و TWILIO_FROM على الخادم.")
+        if not (os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")):
+            # Without it the parent would answer a silent, billed call.
+            raise HTTPException(503, "المكالمة تحتاج مفتاح OpenAI على الخادم.")
         voice_url = f"{public_url}/api/phone/voice?{urlencode({'ctx': body.token})}"
         call = await asyncio.to_thread(lambda: client.calls.create(url=voice_url, method="POST", to=to, from_=caller))
         return {"provider": "twilio", "status": "accepted", "provider_sid": call.sid, "provider_status": call.status, "to_masked": mask(to), "error": None}

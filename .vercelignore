@@ -1,0 +1,10 @@
+/Test_AI_Agent_Upload
+/.claude
+/.cursor
+/.taste-skill
+/.demo
+/docs
+.env*
+.next
+node_modules
+*.DS_Store

@@ -29,7 +29,8 @@ BODY = {"token": TOKEN, "method": "message", "idempotency_key": "key-12345678"}
 class DispatchTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
-        self.env = patch.dict(os.environ, {"TAMMENI_DISPATCH_SECRET": SECRET, "TAMMENI_PROVIDER": "mock"}, clear=False)
+        self.env = patch.dict(os.environ, {"TAMMENI_DISPATCH_SECRET": SECRET, "TAMMENI_PROVIDER": "mock",
+                                               "PARENT_PHONE1": "", "TWILIO_SMS_FROM": "Tammeni"}, clear=False)
         self.env.start()
 
     def tearDown(self):
@@ -89,7 +90,7 @@ class DispatchTests(unittest.TestCase):
     def test_calls_and_messages_go_to_their_own_numbers(self):
         env = {"TAMMENI_PROVIDER": "twilio", "PARENT_PHONE": "+447700900222", "PARENT_PHONE1": "+447700900333",
                "TAMMENI_ALLOWED_DESTINATIONS": "+447700900222,+447700900333", "TWILIO_ACCOUNT_SID": "AC" + "0" * 32, "TWILIO_AUTH_TOKEN": "x" * 32,
-               "TWILIO_FROM": "+447700900000", "PUBLIC_URL": "https://example.test"}
+               "TWILIO_FROM": "+447700900000", "PUBLIC_URL": "https://example.test", "OPENAI_API_KEY": "test-key"}
         fake = MagicMock()
         fake.messages.create.return_value = MagicMock(sid="SM" + "1" * 32, status="queued")
         fake.calls.create.return_value = MagicMock(sid="CA" + "2" * 32, status="queued")
@@ -138,6 +139,61 @@ class CallContextTests(unittest.TestCase):
     def test_context_with_more_than_one_topic_is_refused(self):
         self.assertTrue(valid_context(CTX))
         self.assertFalse(valid_context({**CTX, "allowed_topics": ["attendance", "grades"]}))
+
+    def test_off_topic_redirect_uses_the_current_students_name(self):
+        for name in ("ريم", "نواف"):
+            with self.subTest(student=name):
+                ctx = {**CTX, "method": "call", "student": {"first_name": name}}
+                text = context_instructions(ctx)
+                self.assertIn(f"أنا أساعدك بمتابعة أخبار {name} الدراسية. عندك سؤال عن الحضور أو الدرجات أو الاختبارات؟", text)
+                self.assertIn("ولا تنه المكالمة لمجرد هذا السؤال", text)
+                self.assertIn("يبقى داخل النطاق؛ أجب عنه من السجلات المتاحة", text)
+                self.assertIn(CTX["opening"], text)
+
+    def test_call_language_is_arabic_even_with_english_school_data(self):
+        from backend.call_context import ARABIC_CALL_RULE
+        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "reem-id"}, "conversation_data": {
+            "student_id": "reem-id", "records": {"grades": [{"subject": "English", "assessment": "Quiz - Unit 3", "score": 9, "out_of": 10}]}}}
+        text = context_instructions(ctx)
+        self.assertTrue(text.startswith(ARABIC_CALL_RULE))
+        self.assertIn("لا تبدأ بالإنجليزية ولا تنتقل إليها", text)
+        self.assertIn('"score": 9', text)
+        self.assertIn(CTX["opening"], text)
+
+    def test_legacy_phone_path_uses_the_same_arabic_language_rule(self):
+        from backend.call_context import ARABIC_CALL_RULE
+        from backend.phone_bridge import build_instructions
+        with patch("backend.phone_bridge._load_student", return_value=None), patch("backend.phone_bridge.opening_line", return_value="مرحبا، معك لولوة"):
+            text = build_instructions({"persona": "lulwa", "gender": "f", "student": "reem"})
+        self.assertTrue(text.startswith(ARABIC_CALL_RULE))
+
+    def test_call_can_answer_other_topics_for_the_same_student(self):
+        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "reem-id"}, "conversation_data": {
+            "student_id": "reem-id", "as_of": "2026-10-29T14:00:00Z", "records": {
+                "grades": [{"subject": "رياضيات", "assessment": "اختبار", "score": 9, "out_of": 10, "published_on": "2026-10-29"}],
+                "attendance_terms": [{"school_days": 2, "present": 2, "absent": 0, "late": 0, "excused": 0}],
+                "attendance_records": [
+                    {"day": "2026-10-29", "status": "present", "origin": "import"},
+                    {"day": "2026-10-29", "status": "absent", "origin": "demo"}],
+            }}}
+        self.assertTrue(valid_context(ctx))
+        text = context_instructions(ctx)
+        self.assertIn('"score": 9', text)
+        self.assertIn("حتى لو اختلف السؤال عن سبب المكالمة", text)
+        self.assertIn('"present": 1, "absent": 1', text)
+        self.assertNotIn("سؤال توضيحي واحد كحد أقصى", text)
+        # The triggering event remains unchanged while conversation scope expands.
+        self.assertIn(CTX["opening"], text)
+        wrong = {**ctx, "conversation_data": {**ctx["conversation_data"], "student_id": "nawaf-id"}}
+        self.assertFalse(valid_context(wrong))
+        self.assertFalse(valid_context({**ctx, "method": "message"}))
+
+    def test_empty_grade_list_is_not_treated_as_zero(self):
+        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "reem-id"}, "conversation_data": {
+            "student_id": "reem-id", "records": {"grades": []}}}
+        text = context_instructions(ctx)
+        self.assertIn('"grades": []', text)
+        self.assertIn("لا تعتبرها صفرًا", text)
 
     def test_voice_with_context_requires_a_valid_twilio_signature(self):
         env = {"TWILIO_AUTH_TOKEN": "x" * 32, "PUBLIC_URL": "https://example.ngrok-free.app"}

@@ -1,10 +1,12 @@
 import copy
+import httpx
 import unittest
 from unittest.mock import patch
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 import backend.app as backend
 from backend.supabase_students import assemble, TABLES
+from backend.supabase_students import load_dataset
 from backend.call_context import context_instructions
 
 
@@ -18,6 +20,38 @@ def tables():
 
 
 class LiveTests(unittest.TestCase):
+    def test_local_parent_entry_is_used_without_old_password_and_keeps_parent_rls(self):
+        seen = []
+        client_type = httpx.Client
+        fixture = tables()
+        def respond(request):
+            seen.append(request)
+            if request.url.path == '/api/demo/parent-session':
+                return httpx.Response(200, json={'access_token': 'parent-only-token'})
+            if request.url.path == '/auth/v1/user':
+                return httpx.Response(200, json={'app_metadata': {}})
+            return httpx.Response(200, json=fixture[request.url.path.rsplit('/', 1)[-1]])
+        client = client_type(transport=httpx.MockTransport(respond))
+        with patch('backend.supabase_students.configuration', return_value=('https://example.supabase.co', 'publishable', '', '')), patch('backend.supabase_students.httpx.Client', return_value=client):
+            result = load_dataset()
+        self.assertEqual([s['id'] for s in result['students']], ['reem', 'nawaf'])
+        self.assertEqual(seen[0].url.host, '127.0.0.1')
+        self.assertEqual(seen[0].headers['origin'], 'http://127.0.0.1:3000')
+        for request in seen[1:]:
+            self.assertEqual(request.headers['authorization'], 'Bearer parent-only-token')
+
+    def test_local_entry_cannot_supply_an_operator_session(self):
+        client_type = httpx.Client
+        def respond(request):
+            if request.url.path == '/api/demo/parent-session':
+                return httpx.Response(200, json={'access_token': 'wrong-role-token'})
+            return httpx.Response(200, json={'app_metadata': {'tammeni_role': 'demo_operator'}})
+        client = client_type(transport=httpx.MockTransport(respond))
+        with patch('backend.supabase_students.configuration', return_value=('https://example.supabase.co', 'publishable', '', '')), patch('backend.supabase_students.httpx.Client', return_value=client):
+            with self.assertRaises(HTTPException) as caught:
+                load_dataset()
+        self.assertEqual(caught.exception.status_code, 503)
+
     def test_attendance_overlay_and_archived_records(self):
         t = tables()
         t['attendance_records'] = [

@@ -55,7 +55,8 @@ export async function POST(request: Request) {
     const base = process.env.TAMMENI_BACKEND_URL || "http://127.0.0.1:8000";
     const response = await fetch(new URL("/api/parent/preview", base), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      // The public backend only answers this server; the secret never reaches the browser.
+      headers: { "Content-Type": "application/json", "X-Tammeni-Dispatch-Secret": process.env.TAMMENI_DISPATCH_SECRET ?? "" },
       body: JSON.stringify(body),
       cache: "no-store",
       signal: AbortSignal.timeout(8000),

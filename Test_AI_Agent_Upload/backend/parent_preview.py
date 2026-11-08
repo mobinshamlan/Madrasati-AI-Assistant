@@ -1,7 +1,9 @@
 """Preference-aware preview for fictional website records; never sends communications."""
 from typing import Any, Literal
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field, model_validator
+
+from backend.notify import _authorise, public_deployment
 
 router = APIRouter(prefix="/api/parent")
 
@@ -74,7 +76,12 @@ def topic_text(student: DemoStudent, topic: str) -> str:
     return "\n".join(f"{x.get('subject', '')}: {x.get('score', '')} من {x.get('outOf', '')} — {x.get('assessment', '')}." for x in rows)
 
 
-@router.post("/preview")
+def _secret_when_public(x_tammeni_dispatch_secret: str | None = Header(default=None)) -> None:
+    if public_deployment():
+        _authorise(x_tammeni_dispatch_secret)
+
+
+@router.post("/preview", dependencies=[Depends(_secret_when_public)])
 def preview(body: PreviewRequest):
     updates = []
     for topic, label in LABELS.items():

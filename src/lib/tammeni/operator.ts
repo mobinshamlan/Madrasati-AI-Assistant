@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { planBatches, tooLate, type DueItem } from "./auto-dispatch";
 import { directDemoAllowed } from "./direct-demo";
+import { operatorCredentialsValid } from "./operator-access";
 import { callStudentData } from "./call-student-data";
 import { archiveDemoEvents } from "./archive-events";
 import {
@@ -33,7 +34,8 @@ export class OperatorError extends Error {
 
 /** Direct server database connection; no operator account, password, session or cookie. */
 export async function requireOperator(): Promise<SupabaseClient> {
-  if (!directDemoAllowed(process.env, await headers())) {
+  const requestHeaders = await headers();
+  if (!directDemoAllowed(process.env, requestHeaders) && !operatorCredentialsValid(process.env, requestHeaders.get("authorization"))) {
     throw new OperatorError(403, "لوحة التشغيل المباشرة متاحة على هذا الجهاز في وضع التطوير فقط.");
   }
   return serverClient();
