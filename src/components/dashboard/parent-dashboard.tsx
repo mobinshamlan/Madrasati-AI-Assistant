@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
-import { NO_AUTOMATIC_SENDING } from "@/components/assistant/config";
-import { Character, PreferenceSummary, formatSavedAt } from "@/components/assistant/summary";
+import { Character, PreferenceSummary } from "@/components/assistant/summary";
 import type { Preferences } from "@/components/assistant/preferences";
 import { arabicDay, arabicMoment, evaluate, riyadhDay } from "@/lib/tammeni/evaluate";
 import {
@@ -66,7 +65,7 @@ function DashboardBody() {
           </div>
           <ChildSwitcher students={list} selectedId={current.id} onSelect={setStudentId} />
         </div>
-        <Finding student={current} record={record.status === "ready" ? record.data : null} prefs={prefs} />
+        {record.status !== "error" && <Finding student={current} record={record.status === "ready" ? record.data : null} prefs={prefs} />}
       </section>
 
       {/* Two columns that each stack on their own, so no panel is stretched to its neighbour's height. On phones
@@ -216,25 +215,11 @@ function PreferencesPanel({ student, prefs }: { student: LinkedStudent; prefs: P
         ) : prefs.status === "error" ? (
           <LoadProblem title="تعذّر تحميل التفضيلات" message={prefs.message} onRetry={prefs.reload} />
         ) : prefs.data.exists ? (
-          <>
-            <PreferenceSummary preferences={prefs.data.preferences} firstName={student.firstName} />
-            <p className="mt-4 border-t border-rule pt-4 text-[0.9375rem] leading-7 text-ink-soft">
-              {prefs.data.updatedAt && <>آخر حفظ: {formatSavedAt(prefs.data.updatedAt)}. </>}
-              {NO_AUTOMATIC_SENDING}
-            </p>
-          </>
+          <PreferenceSummary preferences={prefs.data.preferences} firstName={student.firstName} />
         ) : (
           <div className="flex items-center gap-4 rounded-xl bg-panel p-4">
             <Character className="size-16" size={64} />
-            <div>
-              <p className="font-semibold">ما فيه تفضيلات محفوظة لـ{student.firstName}</p>
-              <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">
-                لولوة وتركي يقدرون يبلغونك بالحضور والاختبارات والدرجات، باتصال أو رسالة. ما يُرسل شيء قبل ما تحفظ اختياراتك.
-              </p>
-              <Link href={href} className="link mt-2 inline-block">
-                ابدأ الإعداد
-              </Link>
-            </div>
+            <p className="text-[0.9375rem] leading-7 text-ink-soft">ما يوصلك شيء عن {student.firstName} قبل ما تحفظ اختياراتك.</p>
           </div>
         )}
       </div>
@@ -398,7 +383,7 @@ function GradesPanel({ student }: { student: DashboardStudent }) {
   );
 }
 
-/** "اختبار واحد" / "اختباران" / "٣ اختبارات" / "١١ اختبارًا". */
+/** "اختبار واحد" / "اختباران" / "3 اختبارات" / "11 اختبارًا". */
 function examCount(n: number) {
   if (n === 0) return "لا اختبارات";
   if (n === 1) return "اختبار واحد";

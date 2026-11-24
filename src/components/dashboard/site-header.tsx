@@ -107,7 +107,7 @@ function SignOut() {
     if (leaving) return;
     setLeaving(true);
     await endDemoSession();
-    router.replace("/login");
+    router.replace("/welcome");
   };
   return (
     <button type="button" onClick={leave} aria-busy={leaving || undefined} className="btn-secondary btn-sm">

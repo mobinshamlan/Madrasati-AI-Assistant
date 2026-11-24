@@ -114,7 +114,7 @@ export function SiteHeader({ current }: { current: PageKey }) {
   const leave = async () => {
     setMenuOpen(false);
     await endDemoSession();
-    router.replace("/login");
+    router.replace("/welcome");
   };
 
   return (

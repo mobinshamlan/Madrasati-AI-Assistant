@@ -42,9 +42,9 @@ function DemoSessionGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status !== "signed-out") return;
     // A first visit meets the welcome page and comes back to the same page (and student) after entry.
-    // A parent who chose to leave goes straight to the login, as before.
+    // A parent who chose to leave goes back to the welcome page.
     const here = `${window.location.pathname}${window.location.search}`;
-    if (isLeavingOnPurpose()) router.replace("/login");
+    if (isLeavingOnPurpose()) router.replace("/welcome");
     else router.replace(here === "/" ? "/welcome" : `/welcome?next=${encodeURIComponent(here)}`);
   }, [status, router]);
 

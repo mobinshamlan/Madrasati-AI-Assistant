@@ -59,6 +59,11 @@ body {
   outline-offset: 2px;
 }
 
+/* Headings that receive focus programmatically (after a step or page change) show no ring. */
+[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
 dialog::backdrop {
   background: rgb(17 24 39 / 0.45);
 }
