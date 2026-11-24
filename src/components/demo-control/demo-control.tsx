@@ -63,7 +63,7 @@ export function DemoControl() {
         <p role="note" className="border-b border-line bg-panel">
           <span className={`${container} flex items-start gap-2.5 py-2.5 text-[0.9375rem] leading-6 text-ink-soft`}>
             <InfoIcon size={18} className="mt-0.5 shrink-0" />
-            وضع تجريبي: الإرسال يُسجَّل في السجل فقط، وما يصل شيء لأي جوال.
+            وضع تجريبي: ما يصل شيء لأي جوال.
           </span>
         </p>
       ))}
@@ -72,9 +72,7 @@ export function DemoControl() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <h1 className="text-[1.5rem] leading-tight font-bold tracking-tight sm:text-[1.75rem]">جرّب طمّني مع أحداث المدرسة</h1>
-            <p className="mt-1.5 max-w-[70ch] leading-7 text-ink-soft">
-              سجّل حدثًا لطالب، وشوف وش يقرر طمّني حسب تفضيلات ولي الأمر{overview?.parent ? ` (${overview.parent.name})` : ""}، ثم اعرض الرسالة وأرسلها.
-            </p>
+            <p className="mt-1.5 max-w-[70ch] leading-7 text-ink-soft">سجّل حدثًا، وشوف قرار طمّني، ثم أرسله.</p>
           </div>
           {overview && selected && (
             <ChildSwitcher students={overview.students} selectedId={selected} onSelect={setSelected} name="studio-student" legend="الطالب" />

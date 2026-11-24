@@ -358,7 +358,7 @@ function Steps({ n, previewed, last }: { n: NotificationRow; previewed: boolean;
         ? ["stop", "أُلغي"]
         : n.status === "waiting"
           ? ["wait", "بانتظار الموعد"]
-          : ["done", sent ? "أُرسل" : "جاهز"];
+          : ["done", "جاهز"];
   const preview: [State, string] = previewed || sent ? ["done", previewed ? "عُرضت" : "تمّت"] : decision[0] === "stop" ? ["na", "—"] : ["todo", "لم تُعرض"];
   const send: [State, string] = !last
     ? [decision[0] === "stop" ? "na" : "todo", decision[0] === "stop" ? "—" : "لم يُرسل"]
@@ -373,7 +373,7 @@ function Steps({ n, previewed, last }: { n: NotificationRow; previewed: boolean;
         ? ["na", "لا ينطبق (تجريبي)"]
         : last.status === "delivered"
           ? ["done", last.method === "call" ? "اكتملت المكالمة" : "وصلت"]
-          : ["wait", "بانتظار التأكيد"];
+          : ["wait", "ما تأكد"];
   const steps: [string, [State, string]][] = [
     ["القرار", decision],
     ["المعاينة", preview],

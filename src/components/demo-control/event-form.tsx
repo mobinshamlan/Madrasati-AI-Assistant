@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AttendanceIcon, CheckIcon, CloseIcon, ExamIcon, GradesIcon } from "@/components/dashboard/icons";
-import { arabicDay, arabicTime } from "@/lib/tammeni/evaluate";
+import { addDays, arabicDay, arabicTime, weekday } from "@/lib/tammeni/evaluate";
 import type { Panel } from "./student-panel";
 import { api, DecisionChip, ErrorNote, MethodLabel, newKey } from "./shared";
 
@@ -24,6 +24,13 @@ const statusOptions = [
   { value: "excused", label: "غياب بعذر" },
 ];
 
+/** The nearest school day (Sunday–Thursday) from `day`, stepping by `step` days. */
+function schoolDay(day: string, step: 1 | -1) {
+  let d = day;
+  while (weekday(d) === 5 || weekday(d) === 6) d = addDays(d, step);
+  return d;
+}
+
 type Result = {
   duplicate: boolean;
   event: { summary: string };
@@ -35,7 +42,7 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
   const name = panel.student.firstName;
   const [kind, setKind] = useState<Kind>("attendance");
   const [f, setF] = useState({
-    date: today,
+    date: schoolDay(today, -1),
     status: "absent",
     subject: "",
     assessment: "",
@@ -58,6 +65,19 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
   const scores = Number.isFinite(maxScore) && maxScore > 0 && maxScore <= 1000
     ? Array.from({ length: Math.floor(maxScore) + 1 }, (_, i) => String(Math.floor(maxScore) - i))
     : [];
+  const pick = (preferred: string) => (subjects.includes(preferred) ? preferred : subjects[0] ?? preferred);
+  // One-click starters: each fills the form (nothing is saved until «سجّل الحدث»).
+  const starters: { label: string; kind: Kind; fill: Partial<typeof f> }[] = [
+    { label: "غياب اليوم", kind: "attendance", fill: { date: schoolDay(today, -1), status: "absent" } },
+    { label: "درجة 6 من 10", kind: "grade_published", fill: { date: today, subject: pick("الرياضيات"), assessment: "اختبار قصير", outOf: "10", score: "6" } },
+    { label: "اختبار بكرة", kind: "exam_added", fill: { date: today, subject: pick("العلوم"), examKind: "اختبار قصير", examDate: schoolDay(addDays(today, 1), 1), startTime: "08:00" } },
+  ];
+  const applyStarter = (s: (typeof starters)[number]) => {
+    setKind(s.kind);
+    setF((x) => ({ ...x, ...s.fill }));
+    setResult(null);
+    setError("");
+  };
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   const summary = (() => {
@@ -103,7 +123,14 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
       <h2 id="event-title" className="text-[1.125rem] font-semibold">
         سجّل حدثًا لـ{name}
       </h2>
-      <p className="mt-1 text-[0.875rem] leading-6 text-faint">التسجيل ما يرسل شيئًا. الإرسال من بطاقة الحدث بعد المعاينة.</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-[0.875rem] text-faint">جرّب مثال:</span>
+        {starters.map((s) => (
+          <button key={s.label} type="button" onClick={() => applyStarter(s)} className="btn-secondary btn-sm">
+            {s.label}
+          </button>
+        ))}
+      </div>
 
       <form onSubmit={submit} className="mt-4 space-y-4">
         <fieldset className="min-w-0">
@@ -266,7 +293,13 @@ function EvaluationResult({ result, name }: { result: Result; name: string }) {
             {result.notification.reason}
             {result.notification.dueLabel ? ` الموعد: ${result.notification.dueLabel}.` : ""}
           </p>
-          <p className="mt-1 text-[0.875rem] text-faint">بطاقته أول السجل؛ منها تعرض الرسالة وترسلها.</p>
+          <button
+            type="button"
+            onClick={() => document.querySelector("[id^='event-']")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            className="mt-2 font-semibold text-brand underline underline-offset-4"
+          >
+            اعرض البطاقة وأرسلها
+          </button>
         </>
       ) : null}
     </div>

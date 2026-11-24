@@ -18,6 +18,7 @@ import {
   messageText,
   riyadhDay,
   topicOf,
+  weekday,
   type ContentInput,
   type Decision,
   type SchoolEvent,
@@ -96,7 +97,7 @@ export async function studentPanel(supabase: SupabaseClient, studentId: string) 
     supabase.from("notifications").select("id, demo_event_id, topic, status, method, due_at, reason, content, window_start, window_end, prefs_version, evaluated_at").eq("student_id", studentId).order("evaluated_at", { ascending: false }).limit(40),
     supabase.from("dispatch_attempts").select("id, notification_id, kind, provider, method, destination_masked, status, provider_status, error_message, ran_early, original_due_at, triggered_by, created_at").eq("student_id", studentId).order("created_at", { ascending: false }).limit(40),
     supabase.from("exams").select("id, subject, kind, exam_date, origin").eq("student_id", studentId).eq("status", "scheduled").is("archived_at", null).order("exam_date"),
-    supabase.from("attendance_records").select("demo_event_id, day, status").eq("student_id", studentId).eq("origin", "demo").is("archived_at", null).in("status", ["absent", "late"]),
+    supabase.from("attendance_records").select("demo_event_id, day, status").eq("student_id", studentId).eq("origin", "demo").is("archived_at", null).in("status", ["absent", "late"]).order("day", { ascending: false }),
     supabase.from("grades").select("subject, assessment").eq("student_id", studentId).is("archived_at", null),
   ]);
   if (events.error || notifications.error || attempts.error || exams.error || absences.error || grades.error) dbFail("تحميل أحداث الطالب");
@@ -114,7 +115,9 @@ export async function studentPanel(supabase: SupabaseClient, studentId: string) 
       summary: e.kind === "exam_added" ? `اختبار ${payload.subject} — ${arabicDay(payload.examDate)}` : e.summary,
       notification: byEvent.get(e.id) ?? null })),
     attempts: attempts.data ?? [],
-    examsToCancel: (exams.data ?? []).map((e) => ({ id: e.id, label: `${e.subject} — ${arabicDay(e.exam_date)}`, examDate: e.exam_date })),
+    examsToCancel: (exams.data ?? [])
+      .filter((e) => e.exam_date >= riyadhDay(new Date()))
+      .map((e) => ({ id: e.id, label: `${e.subject} (${e.kind}) — ${arabicDay(e.exam_date)}`, examDate: e.exam_date })),
     absencesToExcuse: (absences.data ?? []).map((a) => ({ eventId: a.demo_event_id as string, label: `${a.status === "absent" ? "غياب" : "تأخر"} يوم ${arabicDay(a.day)}` })),
   };
 }
@@ -204,6 +207,8 @@ export async function recordEvent(supabase: SupabaseClient, studentId: string, r
   let excuse: { recordEventId: string } | null = null;
 
   if (input.kind === "attendance") {
+    // Friday and Saturday are the Saudi weekend: no school day to record.
+    if (weekday(input.date) === 5 || weekday(input.date) === 6) throw new OperatorError(400, "هذا اليوم إجازة نهاية الأسبوع. اختر يومًا دراسيًا.");
     const clash = await supabase.from("attendance_records").select("id").eq("student_id", studentId).eq("origin", "demo").eq("day", input.date).is("archived_at", null).maybeSingle();
     if (clash.error) dbFail("التحقق من الحضور");
     if (clash.data) throw new OperatorError(409, "يوجد حدث حضور تجريبي لهذا اليوم. امسح أحداث المحاكاة أو اختر يومًا آخر.");

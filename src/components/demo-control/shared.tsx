@@ -77,7 +77,7 @@ export function attemptLook(a: AttemptLike): { label: string; tone: Tone } {
   if (a.status === "failed") return { label: "فشل", tone: "danger" };
   if (isMock(a)) return { label: "سُجّل تجريبيًا — ما وصل لأحد", tone: "neutral" };
   if (a.status === "delivered") return { label: call ? "اكتملت المكالمة" : "وصلت الرسالة", tone: "ok" };
-  if (a.status === "accepted") return { label: "قُبل الطلب — بانتظار تأكيد التسليم", tone: "info" };
+  if (a.status === "accepted") return { label: "أُرسل — ما تأكد التسليم", tone: "info" };
   if (a.status === "sending") return { label: "جارٍ الإرسال", tone: "info" };
   return decisionLook[a.status] ?? { label: a.status, tone: "neutral" };
 }
