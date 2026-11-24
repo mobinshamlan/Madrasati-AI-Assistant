@@ -10,7 +10,10 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://tammeni-demo.vercel.app"),
   title: "طمّني",
+  openGraph: { siteName: "طمّني", locale: "ar_SA", type: "website" },
+  twitter: { card: "summary_large_image" },
   description: "أخبار أبنائك في المدرسة توصلك باتصال أو رسالة، حسب اختياراتك. نموذج تعليمي تجريبي ببيانات خيالية، غير تابع لمنصة مدرستي الرسمية.",
 };
 
