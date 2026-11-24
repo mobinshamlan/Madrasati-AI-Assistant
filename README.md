@@ -1,4 +1,15 @@
 # Madrasati-AI-Assistant
+## 📄 Project Documentation
+
+Explore the full project report and final presentation for more details about the project, its features, implementation, and results.
+
+- 📑 [View Final Project Report](<طمني_Report_Final22222 (1).pdf>)
+- 📊 [View Final Presentation](<(1) طمني عرض النهائي.pptx>)
+- عقم
+- - 📑 [URL طمني](https://tammeni-demo.vercel.app/)
+
+- URL : https://tammeni-demo.vercel.app/
+
 
 Educational Arabic RTL prototype inspired by Madrasati (منصة مدرستي). Fictional student records only. Not affiliated with the official Madrasati platform.
 

@@ -139,3 +139,27 @@ The mock provider is the default. Before the first real SMS or call:
   - "Leaked password protection" is off. Turning it on is an Auth setting in the dashboard.
   - `get_call_context` is callable with the publishable key on purpose. It returns only for an unguessable token
     that has not expired (one hour).
+
+
+## SMS connection troubleshooting
+
+The website calls Python server-to-server using `TAMMENI_BACKEND_URL` in the root
+`.env.local` (default `http://127.0.0.1:8000`). Keep this local when both servers run
+on this Mac. SMS does not require ngrok. Voice calls require the public tunnel in
+`PUBLIC_URL`; keep the existing tunnel running for two-way audio.
+
+With the website already running, start only Python (no sends occur at startup):
+
+```sh
+cd Test_AI_Agent_Upload
+.venv/bin/python manage_backend.py start
+```
+
+From the repository root run `npm run backend:check`. It checks health and the
+shared dispatch secret using a mock status request, without sending SMS/calls or
+changing database records. Restart Next.js after changing `.env.local`.
+
+For a fresh local website + backend without starting ngrok, use
+`Test_AI_Agent_Upload/run_demo.sh local`. The regular launcher still starts ngrok
+for voice. Both launcher modes require free ports 3000/8000; use the Python-only
+command above when the website is already running.
