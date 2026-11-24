@@ -68,9 +68,9 @@ export function EventForm({ panel, today, onSaved }: { panel: Panel; today: stri
   const pick = (preferred: string) => (subjects.includes(preferred) ? preferred : subjects[0] ?? preferred);
   // One-click starters: each fills the form (nothing is saved until «سجّل الحدث»).
   const starters: { label: string; kind: Kind; fill: Partial<typeof f> }[] = [
-    { label: "غياب اليوم", kind: "attendance", fill: { date: schoolDay(today, -1), status: "absent" } },
+    { label: "غياب", kind: "attendance", fill: { date: schoolDay(today, -1), status: "absent" } },
     { label: "درجة 6 من 10", kind: "grade_published", fill: { date: today, subject: pick("الرياضيات"), assessment: "اختبار قصير", outOf: "10", score: "6" } },
-    { label: "اختبار بكرة", kind: "exam_added", fill: { date: today, subject: pick("العلوم"), examKind: "اختبار قصير", examDate: schoolDay(addDays(today, 1), 1), startTime: "08:00" } },
+    { label: "اختبار قادم", kind: "exam_added", fill: { date: today, subject: pick("العلوم"), examKind: "اختبار قصير", examDate: schoolDay(addDays(today, 1), 1), startTime: "08:00" } },
   ];
   const applyStarter = (s: (typeof starters)[number]) => {
     setKind(s.kind);

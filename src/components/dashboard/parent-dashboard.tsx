@@ -129,18 +129,14 @@ function Finding({ student, record, prefs }: { student: LinkedStudent; record: D
     );
   }
   const next = nextExam(record, prefs.data.preferences);
+  // With no upcoming exam, the exams panel already says so.
+  if (!next) return null;
   return (
     <p className="mt-4 max-w-[62ch] text-[1.0625rem] leading-8 text-ink">
-      {next ? (
-        <>
-          أقرب اختبار: <strong className="font-semibold">{next.subject}</strong> يوم {arabicDay(next.examDate)}.{" "}
-          {next.reminder.status === "suppressed"
-            ? "تذكير الاختبارات متوقف."
-            : `${reminderText(next.reminder)}، ${next.reminder.method === "call" ? "باتصال" : "برسالة"}.`}
-        </>
-      ) : (
-        <>ما فيه اختبارات قادمة مسجّلة لـ{student.firstName}.</>
-      )}
+      أقرب اختبار: <strong className="font-semibold">{next.subject}</strong> يوم {arabicDay(next.examDate)}.{" "}
+      {next.reminder.status === "suppressed"
+        ? "تذكير الاختبارات متوقف."
+        : `${reminderText(next.reminder)}، ${next.reminder.method === "call" ? "باتصال" : "برسالة"}.`}
     </p>
   );
 }
@@ -193,8 +189,7 @@ function PreferencesPanel({ student, prefs }: { student: LinkedStudent; prefs: P
         aside={
           prefs.status === "ready" && prefs.data.exists ? (
             <Link href={href} className="btn-secondary btn-sm">
-              تعديل
-              <span className="sr-only"> تفضيلات {student.firstName}</span>
+              عدّل التنبيهات
             </Link>
           ) : null
         }

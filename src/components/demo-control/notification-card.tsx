@@ -158,7 +158,7 @@ export function NotificationCard({
   const isCall = method === "call";
   const sendLabel = realDispatch ? (isCall ? "اتصل الآن" : "أرسل الرسالة") : isCall ? "اتصال تجريبي" : "إرسال تجريبي";
   const Icon = kindIcons[event.kind] ?? InfoIcon;
-  const visibleAttempts = showAll ? attempts : attempts.slice(0, 2);
+  const visibleAttempts = showAll ? attempts : attempts.slice(0, 1);
   const deleteButton = (
     <button type="button" disabled={busy !== null} onClick={() => { setError(""); setDeleteOpen(true); }} className="btn-quiet btn-sm shrink-0 !text-danger">
       حذف الحدث
@@ -271,7 +271,7 @@ export function NotificationCard({
                   </li>
                 ))}
               </ul>
-              {attempts.length > 2 && (
+              {attempts.length > 1 && (
                 <button type="button" className="btn-quiet btn-sm" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)}>
                   {showAll ? "إخفاء المحاولات الأقدم" : `عرض كل المحاولات (${attempts.length})`}
                 </button>
