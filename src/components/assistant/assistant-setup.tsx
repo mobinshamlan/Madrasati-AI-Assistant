@@ -252,7 +252,8 @@ function Editor({
   onSaved: () => void;
 }) {
   const [prefs, setPrefs] = useState<Preferences>(initial);
-  const [mode, setMode] = useState<"summary" | "wizard">(savedExists ? "summary" : "wizard");
+  // A new parent starts from the suggested choices, ready to save; each topic can still be changed step by step.
+  const [mode, setMode] = useState<"summary" | "wizard">("summary");
   const [editTopic, setEditTopic] = useState<Topic | null>(null);
   const [stepId, setStepId] = useState("student");
   const [studentSelection, setStudentSelection] = useState({ id: student.id, cancelCount: switchCancelCount });
@@ -429,13 +430,13 @@ function Editor({
               <h2 ref={headingRef} id="summary-heading" tabIndex={-1} className="text-[1.5rem] leading-tight font-bold focus:outline-none sm:text-[1.75rem]">
                 كيف يوصلك الخبر عن {student.firstName}
               </h2>
-              {savedExists && !dirty && students.length > 1 && (
+              {!dirty && students.length > 1 && (
                 <div className="mt-3">
                   <ChildSwitcher students={students} selectedId={student.id} onSelect={onSelectStudent} name="assistant-summary-student" legend="عرض تفضيلات" />
                 </div>
               )}
             </div>
-            <span className="chip shrink-0" data-tone={dirty ? "warn" : savedExists ? "ok" : "neutral"}>
+            <span className="chip shrink-0 self-start sm:self-center" data-tone={dirty ? "warn" : savedExists ? "ok" : "neutral"}>
               {dirty ? "لم تُحفظ التغييرات" : savedExists ? "محفوظة" : "لم تُحفظ بعد"}
             </span>
           </div>
@@ -444,13 +445,14 @@ function Editor({
           <CallRetryOption prefs={prefs} onChange={(retryUnansweredCall) => updatePrefs((previous) => ({ ...previous, retryUnansweredCall }))} />
           {saveFailed && (
             <p role="alert" className="notice notice-danger mt-5">
-              تعذّر الحفظ. اختياراتك ما زالت موجودة؛ تحقق من الاتصال ثم جرّب مرة ثانية.
+              ما قدرنا نحفظ. اختياراتك باقية، جرّب مرة ثانية.
             </p>
           )}
           {validationMessage && <p role="alert" className="mt-4 font-semibold text-danger">{validationMessage}</p>}
-          <div className="mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+          {/* While there is something to save, the save button stays in view on phones. */}
+          <div className={`mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between ${!savedExists || dirty ? "sticky bottom-0 z-10 -mx-5 bg-surface px-5 pb-4 sm:static sm:mx-0 sm:px-0 sm:pb-0" : ""}`}>
             <p role="status" className="text-[0.9375rem] leading-6 text-ink-soft">
-              {dirty ? "راجع التغييرات قبل حفظها." : savedExists ? "تقدر تعدّل كل موضوع على حدة." : "تأكد من اختياراتك، ثم احفظها."}
+              {dirty ? "راجع التغييرات قبل حفظها." : savedExists ? "تقدر تعدّل كل موضوع على حدة." : "هذا اقتراحنا. عدّل اللي تبي، ثم احفظ."}
             </p>
             {(!savedExists || dirty) && (
               <button type="button" className="btn-primary w-full sm:w-auto" onClick={save} disabled={saving} aria-busy={saving || undefined}>
@@ -466,12 +468,6 @@ function Editor({
               <span>الخطوة {stepIndex + 1} من {steps.length}</span>
               <span className="truncate text-brand-ink">{progressTopic}</span>
             </div>
-            {/* A new parent can keep the suggested choices and go straight to saving them. */}
-            {!savedExists && editTopic === null && current.kind !== "review" && stepIndex === 0 && (
-              <button type="button" onClick={() => setStepId("review")} className="mt-2 text-[0.9375rem] font-semibold text-brand underline underline-offset-4">
-                استخدم الاقتراح واحفظ مباشرة
-              </button>
-            )}
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel-strong" aria-hidden="true">
               <div className="h-full rounded-full bg-brand transition-[width] duration-200" style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} />
             </div>
@@ -568,7 +564,7 @@ function Editor({
                 {validationMessage && <p role="alert" className="mt-4 font-semibold text-danger">{validationMessage}</p>}
                 {saveFailed && (
                   <p role="alert" className="notice notice-danger mt-5">
-                    تعذّر الحفظ. اختياراتك ما زالت موجودة؛ تحقق من الاتصال ثم جرّب مرة ثانية.
+                    ما قدرنا نحفظ. اختياراتك باقية، جرّب مرة ثانية.
                   </p>
                 )}
               </div>
