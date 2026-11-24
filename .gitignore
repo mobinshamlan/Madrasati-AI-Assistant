@@ -43,3 +43,12 @@ next-env.d.ts
 # Safe, empty configuration template
 !.env.example
 Test_AI_Agent_Upload/.claude/settings.local.json
+
+# agent and editor notes
+AGENTS.md
+CLAUDE.md
+.claude/
+.codex/
+.agents/
+.cursor/
+.taste-skill/
