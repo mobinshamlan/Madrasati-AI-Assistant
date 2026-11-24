@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { savePreferencesToDb, useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import { CheckIcon, ClockIcon, InfoIcon } from "@/components/dashboard/icons";
 import { ChildSwitcher, Choice, LoadProblem, Placeholder, childTone } from "@/components/dashboard/ui";
-import { NO_AUTOMATIC_SENDING } from "./config";
 import {
   DAYS_OF_MONTH,
   EXAM_DAYS,
@@ -38,18 +38,14 @@ import {
   type Preferences,
   type Topic,
 } from "./preferences";
-import { formatSavedAt, topicIcons } from "./summary";
+import { topicIcons } from "./summary";
 
 export const confirmationHref = (studentId: string) => `/assistant/confirmation?student=${studentId}`;
 
 const container = "mx-auto w-full max-w-[1100px] px-4 sm:px-6";
 const timingOptions = { attendance: attendanceTimingOptions, exams: examTimingOptions, grades: gradesTimingOptions };
 const firstTiming: Record<Topic, Preferences[Topic]["timing"]> = { attendance: "immediate", exams: "day-before", grades: "monthly" };
-const guidedLabels: Record<Topic, string> = {
-  attendance: "الحضور والغياب",
-  exams: "تذكير الاختبارات",
-  grades: "الدرجات",
-};
+const guidedLabels = topicLabels;
 const guidedAbout: Record<Topic, string> = {
   attendance: "تنبيهات عن تسجيل الحضور والغياب والتأخر.",
   exams: "تذكير قبل موعد الاختبار أو عند إلغائه.",
@@ -102,7 +98,6 @@ function Setup() {
     router.push(confirmationHref(student.id));
   };
 
-  const saved = dbPrefs.status === "ready" && dbPrefs.data.exists ? dbPrefs.data : null;
   const pendingName = list.find((s) => s.id === pendingSwitch)?.firstName;
 
   return (
@@ -113,22 +108,6 @@ function Setup() {
             <h1 id="page-title" className="text-[1.75rem] leading-tight font-bold tracking-tight sm:text-[2rem]">
               {student ? `تنبيهات ${student.firstName}` : "تفضيلات التنبيه"}
             </h1>
-            <p className="mt-2 max-w-[60ch] text-[1.0625rem] leading-8 text-ink-soft">
-              {student ? `اضبط التنبيهات الخاصة بـ${student.firstName} خطوة بخطوة.` : "اضبط تنبيهات أبنائك خطوة بخطوة."} لكل ابن تفضيلاته الخاصة.
-            </p>
-            {student && dbPrefs.status === "ready" && (
-              <p className="mt-3">
-                {saved ? (
-                  <span className="chip" data-tone="ok">
-                    محفوظة{saved.updatedAt ? ` · ${formatSavedAt(saved.updatedAt)}` : ""}
-                  </span>
-                ) : (
-                  <span className="chip" data-tone="warn">
-                    ما حُفظت بعد — هذي اختيارات مقترحة
-                  </span>
-                )}
-              </p>
-            )}
           </div>
         </div>
       </section>
@@ -169,6 +148,7 @@ function Setup() {
                   students={list}
                   switchCancelCount={switchCancelCount}
                   savedExists={hasSaved}
+                  studentChosen={searchParams.get("student") === student.id}
                   initial={fromSaved.preferences}
                   cleared={fromSaved.cleared}
                   legacy={bringingLocal ? local.legacy : null}
@@ -240,11 +220,10 @@ function guidedSteps(prefs: Preferences, editTopic: Topic | null, includeStudent
   return steps;
 }
 
-const arabicDigits = (value: number) => String(value).replace(/\d/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[Number(digit)]);
 const enabledQuestion: Record<Topic, string> = {
-  attendance: "هل ترغب بتنبيهات الحضور والغياب؟",
-  exams: "هل ترغب بتذكير الاختبارات؟",
-  grades: "هل ترغب بتنبيهات الدرجات؟",
+  attendance: "تبي يوصلك خبر الحضور والغياب؟",
+  exams: "تبي نذكّرك بالاختبارات؟",
+  grades: "تبي يوصلك خبر الدرجات؟",
 };
 
 function Editor({
@@ -252,6 +231,7 @@ function Editor({
   students,
   switchCancelCount,
   savedExists,
+  studentChosen,
   initial,
   cleared,
   legacy,
@@ -263,6 +243,7 @@ function Editor({
   students: LinkedStudent[];
   switchCancelCount: number;
   savedExists: boolean;
+  studentChosen: boolean;
   initial: Preferences;
   cleared: ClearedChoice[];
   legacy: LegacyInfo | null;
@@ -306,7 +287,7 @@ function Editor({
     headingRef.current?.focus({ preventScroll: true });
     headingRef.current?.scrollIntoView({ block: "nearest" });
   }, [mode, stepId, editTopic]);
-  const steps = guidedSteps(prefs, editTopic, !savedExists && editTopic === null);
+  const steps = guidedSteps(prefs, editTopic, !savedExists && !studentChosen && editTopic === null);
   const stepIndex = Math.max(0, steps.findIndex((step) => step.id === stepId));
   const current = steps[stepIndex];
   const selectedStudentId = studentSelection.cancelCount === switchCancelCount ? studentSelection.id : student.id;
@@ -432,11 +413,11 @@ function Editor({
       : current.kind === "enabled"
         ? enabledQuestion[current.topic]
         : current.kind === "method"
-          ? `كيف ترغب بالتنبيه عن ${guidedLabels[current.topic]}؟`
+          ? `كيف يوصلك خبر ${guidedLabels[current.topic]}؟`
           : current.topic === "exams"
-            ? "متى ترغب بتذكيرك بالاختبار؟"
-            : `متى ترغب بتنبيهات ${guidedLabels[current.topic]}؟`;
-  const progressTopic = topic ? guidedLabels[topic] : current.kind === "review" ? "مراجعة وحفظ" : "اختيار الابن أو الابنة";
+            ? "متى نذكّرك بالاختبار؟"
+            : `متى يوصلك خبر ${guidedLabels[current.topic]}؟`;
+  const progressTopic = topic ? guidedLabels[topic] : current.kind === "review" ? "آخر خطوة" : "اختيار الابن أو الابنة";
 
   return (
     <div ref={formRef} className="mx-auto w-full max-w-3xl">
@@ -445,9 +426,8 @@ function Editor({
         <section aria-labelledby="summary-heading" className="sheet p-5 sm:p-8">
           <div className="flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[0.9375rem] font-semibold text-brand-ink">{dirty ? "تغييرات غير محفوظة" : savedExists ? "ملخص التفضيلات المحفوظة" : "مراجعة وحفظ"}</p>
-              <h2 ref={headingRef} id="summary-heading" tabIndex={-1} className="mt-1 text-[1.5rem] leading-tight font-bold focus:outline-none sm:text-[1.75rem]">
-                تنبيهات {student.firstName}
+              <h2 ref={headingRef} id="summary-heading" tabIndex={-1} className="text-[1.5rem] leading-tight font-bold focus:outline-none sm:text-[1.75rem]">
+                كيف يوصلك الخبر عن {student.firstName}
               </h2>
               {savedExists && !dirty && students.length > 1 && (
                 <div className="mt-3">
@@ -483,9 +463,15 @@ function Editor({
         <>
           <div className="mb-4 rounded-2xl border border-line bg-surface px-5 py-4" aria-live="polite">
             <div className="flex items-center justify-between gap-4 text-[0.9375rem] font-semibold text-ink-soft">
-              <span>الخطوة {arabicDigits(stepIndex + 1)} من {arabicDigits(steps.length)}</span>
+              <span>الخطوة {stepIndex + 1} من {steps.length}</span>
               <span className="truncate text-brand-ink">{progressTopic}</span>
             </div>
+            {/* A new parent can keep the suggested choices and go straight to saving them. */}
+            {!savedExists && editTopic === null && current.kind !== "review" && stepIndex === 0 && (
+              <button type="button" onClick={() => setStepId("review")} className="mt-2 text-[0.9375rem] font-semibold text-brand underline underline-offset-4">
+                استخدم الاقتراح واحفظ مباشرة
+              </button>
+            )}
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel-strong" aria-hidden="true">
               <div className="h-full rounded-full bg-brand transition-[width] duration-200" style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} />
             </div>
@@ -493,8 +479,7 @@ function Editor({
 
           <section aria-labelledby="wizard-question" className="sheet p-5 sm:p-8">
             <div className="mb-6 border-b border-line pb-5">
-              <p className="text-[0.9375rem] font-semibold text-brand-ink">لـ{student.firstName}</p>
-              <h2 ref={headingRef} id="wizard-question" tabIndex={-1} className="mt-1 text-[1.5rem] leading-tight font-bold focus:outline-none sm:text-[1.875rem]">
+              <h2 ref={headingRef} id="wizard-question" tabIndex={-1} className="text-[1.5rem] leading-tight font-bold focus:outline-none sm:text-[1.875rem]">
                 {heading}
               </h2>
               {current.kind === "enabled" && <p className="mt-2 text-[1.0625rem] leading-8 text-ink-soft">{guidedAbout[current.topic]}</p>}
@@ -520,14 +505,13 @@ function Editor({
 
             {current.kind === "enabled" && (
               <fieldset className="space-y-3">
-                <legend className="mb-3 text-lg font-semibold">اختر نعم أو لا للمتابعة</legend>
+                <legend className="sr-only">{heading}</legend>
                 <LargeChoice
                   name={`${current.topic}-enabled`}
                   value="yes"
                   checked={prefs[current.topic].timing !== "off"}
                   onChange={() => setTopicEnabled(current.topic, true)}
                   title="نعم"
-                  hint="أرغب في استقبال هذا النوع من التنبيهات."
                 />
                 <LargeChoice
                   name={`${current.topic}-enabled`}
@@ -535,29 +519,28 @@ function Editor({
                   checked={prefs[current.topic].timing === "off"}
                   onChange={() => setTopicEnabled(current.topic, false)}
                   title="لا"
-                  hint="لا أرغب في تنبيهات هذا الموضوع."
                 />
               </fieldset>
             )}
 
             {current.kind === "method" && (
               <fieldset className="space-y-3">
-                <legend className="mb-3 text-lg font-semibold">اختر طريقة واحدة</legend>
+                <legend className="sr-only">{heading}</legend>
                 <LargeChoice
                   name={`${current.topic}-method`}
                   value="message"
                   checked={prefs[current.topic].method === "message"}
                   onChange={() => patchTopic(current.topic, { method: "message" })}
                   title="رسالة نصية"
-                  hint="يصل التنبيه برسالة إلى هاتفك."
+                  hint="رسالة قصيرة على جوالك."
                 />
                 <LargeChoice
                   name={`${current.topic}-method`}
                   value="call"
                   checked={prefs[current.topic].method === "call"}
                   onChange={() => patchTopic(current.topic, { method: "call" })}
-                  title="مكالمة هاتفية"
-                  hint="يصل التنبيه على شكل مكالمة إلى هاتفك."
+                  title="اتصال"
+                  hint="لولوة تتصل عليك وتقول لك الخبر."
                 />
               </fieldset>
             )}
@@ -594,9 +577,15 @@ function Editor({
 
           <div className="sticky bottom-0 z-10 mt-5 border-t border-line bg-ground/95 py-3 backdrop-blur-sm">
             <div className="flex gap-3">
-              <button type="button" className="btn-secondary flex-1" onClick={goPrevious} disabled={saving || (stepIndex === 0 && editTopic === null)}>
-                السابق
-              </button>
+              {stepIndex === 0 && editTopic === null ? (
+                <Link href={`/tammeni?student=${student.id}`} className="btn-secondary flex-1">
+                  رجوع
+                </Link>
+              ) : (
+                <button type="button" className="btn-secondary flex-1" onClick={goPrevious} disabled={saving}>
+                  السابق
+                </button>
+              )}
               {current.kind === "review" ? (
                 <button type="button" className="btn-primary flex-1" onClick={save} disabled={saving || (savedExists && !dirty)} aria-busy={saving || undefined}>
                   {saving ? <><span className="spinner" aria-hidden="true" /> جارٍ الحفظ…</> : saveFailed ? "إعادة المحاولة" : savedExists && !dirty ? "لا توجد تغييرات للحفظ" : "حفظ التفضيلات"}
@@ -665,9 +654,9 @@ function TopicReviewList({ prefs, onEdit }: { prefs: Preferences; onEdit: (topic
               </h3>
               <p className="mt-1 text-[1rem] leading-7 font-semibold text-ink">
                 {summary.status === "on"
-                  ? `${prefs[topic].method === "message" ? "رسالة نصية" : "مكالمة هاتفية"} · ${summary.when}`
+                  ? `${prefs[topic].method === "message" ? "رسالة" : "اتصال"} · ${summary.when}`
                   : summary.status === "off"
-                    ? `لن يصلك تنبيه عن ${guidedLabels[topic]}.`
+                    ? "ما يوصلك شيء عنه."
                     : "اختر وقتًا لهذا التنبيه."}
               </p>
               {summary.note && <p className="mt-1 text-[0.9375rem] leading-6 text-ink-soft">{summary.note}</p>}
@@ -678,10 +667,6 @@ function TopicReviewList({ prefs, onEdit }: { prefs: Preferences; onEdit: (topic
           </article>
         );
       })}
-      <p className="notice notice-info my-5">
-        <InfoIcon size={18} />
-        <span>{NO_AUTOMATIC_SENDING}</span>
-      </p>
     </div>
   );
 }
@@ -698,8 +683,8 @@ function CallRetryOption({ prefs, onChange }: { prefs: Preferences; onChange: (v
           value="retry"
           checked={prefs.retryUnansweredCall}
           onChange={() => onChange(!prefs.retryUnansweredCall)}
-          title="أعد الاتصال مرة واحدة بعد ٥ دقائق إذا لم ترد."
-          hint="يُحفظ هذا الاختيار مع التفضيلات. في النسخة التجريبية لا تُعاد المكالمة تلقائيًا."
+          title="إذا ما رديت، نعيد الاتصال بعد 5 دقائق."
+          hint="يُحفظ، لكن ما يشتغل في النسخة التجريبية."
         />
       </div>
     </details>
@@ -802,7 +787,7 @@ function TimingQuestion({
                 value={prefs.exams.customDays}
                 options={EXAM_DAYS.map((day) => ({ value: day, label: examDaysOptionLabel(day) }))}
                 onChange={(customDays) => patchTopic("exams", { customDays })}
-                hint="اختر من يوم إلى ٣٠ يومًا."
+                hint="من يوم إلى 30 يومًا."
               />
             )}
             <TimePicker

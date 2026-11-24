@@ -182,7 +182,7 @@ function PreferencesCard({ panel }: { panel: Panel }) {
             );
           })}
           {prefs.retryUnansweredCall && (
-            <li className="py-2.5 text-[0.875rem] leading-6 text-ink-soft">إعادة الاتصال بعد ٥ دقائق: مختارة، لكن ما تُنفَّذ تلقائيًا.</li>
+            <li className="py-2.5 text-[0.875rem] leading-6 text-ink-soft">إعادة الاتصال بعد 5 دقائق: مختارة، لكن ما تُنفَّذ تلقائيًا.</li>
           )}
         </ul>
       )}
@@ -217,7 +217,7 @@ function ArchivedAttempts({ attempts }: { attempts: AttemptRow[] }) {
 const DEFAULTS_SUMMARY = [
   "الحضور والغياب: بعد نهاية اليوم (2:00 مساءً) — اتصال",
   "تذكير الاختبار: قبل الاختبار بيوم، 6:00 مساءً — اتصال",
-  "ملخص الدرجات: يوم ١ من كل شهر، 6:00 مساءً — اتصال",
+  "ملخص الدرجات: يوم 1 من كل شهر، 6:00 مساءً — اتصال",
   "إعادة الاتصال: لا",
 ];
 

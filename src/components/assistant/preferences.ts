@@ -11,8 +11,8 @@ export const topics: Topic[] = ["attendance", "exams", "grades"];
 
 export const topicLabels: Record<Topic, string> = {
   attendance: "الحضور والغياب",
-  exams: "تذكير الاختبار",
-  grades: "ملخص الدرجات",
+  exams: "تذكير الاختبارات",
+  grades: "الدرجات",
 };
 
 export const attendanceTimingOptions = [
@@ -36,19 +36,19 @@ export const examTimingOptions = [
 export const EXAM_DAYS = Array.from({ length: 30 }, (_, i) => i + 1);
 const isExamDays = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 30;
 
-const toArabicDigits = (n: number) => String(n).replace(/\d/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
-/** "يوم واحد" / "يومان" / "٣ أيام" … "١١ يومًا", with the correct Arabic number agreement. */
+/** "يوم واحد" / "يومان" / "3 أيام" … "11 يومًا", with the correct Arabic number agreement. */
 export function examDaysName(n: number) {
   if (n === 1) return "يوم واحد";
   if (n === 2) return "يومان";
-  return n <= 10 ? `${toArabicDigits(n)} أيام` : `${toArabicDigits(n)} يومًا`;
+  return n <= 10 ? `${n} أيام` : `${n} يومًا`;
 }
-/** Select option text. It starts with the plain number so typing "14" on a keyboard jumps to it. */
+/** Select option text. From 3 on it starts with the number, so typing "14" on a keyboard jumps to it. */
 export function examDaysOptionLabel(n: number) {
-  const unit = n === 1 ? "يوم" : n === 2 ? "يومين" : n <= 10 ? "أيام" : "يومًا";
-  return `${n} ${unit} قبل الاختبار`;
+  if (n === 1) return "يوم واحد قبل الاختبار";
+  if (n === 2) return "يومين قبل الاختبار";
+  return `${n} ${n <= 10 ? "أيام" : "يومًا"} قبل الاختبار`;
 }
-/** The same count after «بـ»: "بيوم واحد" / "بيومين" / "بـ٣ أيام" … "بـ١٤ يومًا". */
+/** The same count after «بـ»: "بيوم واحد" / "بيومين" / "بـ3 أيام" … "بـ14 يومًا". */
 export function examDaysPhrase(n: number) {
   if (n === 1) return "بيوم واحد";
   if (n === 2) return "بيومين";
@@ -618,7 +618,7 @@ export function topicSummary(p: Preferences, topic: Topic): TopicSummary {
         "بعد نهاية اليوم",
         `بعد نهاية اليوم (${AFTER_SCHOOL_TIME.label})`,
         `كل يوم دراسي الساعة ${saudi(AFTER_SCHOOL_TIME.label)}`,
-        `${summaryNote} وقت ثابت افتراضي للنموذج التجريبي، وليس وقت انصراف رسميًا.`,
+        `${summaryNote} الوقت افتراضي للتجربة.`,
       );
     }
     const { kind, day, time } = p.attendance.custom;
@@ -642,8 +642,8 @@ export function topicSummary(p: Preferences, topic: Topic): TopicSummary {
   const t = timeLabel(p.grades.time);
   return on(
     "كل شهر — جميع المواد معًا",
-    `يوم ${toArabicDigits(p.grades.dayOfMonth)} من كل شهر (${t})`,
-    `يوم ${toArabicDigits(p.grades.dayOfMonth)} من كل شهر، الساعة ${saudi(t)}`,
-    "يشمل الدرجات الجديدة المنشورة في الشهر السابق كاملًا، ولا يصلك شيء إذا لم توجد درجات جديدة.",
+    `يوم ${p.grades.dayOfMonth} من كل شهر (${t})`,
+    `يوم ${p.grades.dayOfMonth} من كل شهر، الساعة ${saudi(t)}`,
+    "درجات الشهر السابق. ما يوصلك شيء إذا ما فيه جديد.",
   );
 }
