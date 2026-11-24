@@ -450,7 +450,7 @@ function Editor({
           )}
           {validationMessage && <p role="alert" className="mt-4 font-semibold text-danger">{validationMessage}</p>}
           {/* While there is something to save, the save button stays in view on phones. */}
-          <div className={`mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between ${!savedExists || dirty ? "sticky bottom-0 z-10 -mx-5 bg-surface px-5 pb-4 sm:static sm:mx-0 sm:px-0 sm:pb-0" : ""}`}>
+          <div className={`mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between ${!savedExists || dirty ? "sticky-save sticky bottom-0 z-10 -mx-5 bg-surface px-5 pb-4 sm:static sm:mx-0 sm:px-0 sm:pb-0" : ""}`}>
             <p role="status" className="text-[0.9375rem] leading-6 text-ink-soft">
               {dirty ? "راجع التغييرات قبل حفظها." : savedExists ? "تقدر تعدّل كل موضوع على حدة." : "هذا اقتراحنا. عدّل اللي تبي، ثم احفظ."}
             </p>
@@ -515,6 +515,7 @@ function Editor({
                   checked={prefs[current.topic].timing === "off"}
                   onChange={() => setTopicEnabled(current.topic, false)}
                   title="لا"
+                  hint={topics.every((t) => t === current.topic || prefs[t].timing === "off") ? "لازم يبقى نوع واحد على الأقل." : undefined}
                 />
               </fieldset>
             )}

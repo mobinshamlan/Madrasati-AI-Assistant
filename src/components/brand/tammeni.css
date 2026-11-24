@@ -94,6 +94,11 @@ dialog::backdrop {
   font-variant-numeric: tabular-nums;
 }
 
+/* Keyboard focus never lands under a sticky save bar. */
+html:has(.sticky-save) {
+  scroll-padding-bottom: 7rem;
+}
+
 .skip-link {
   position: absolute;
   inset-inline-start: 1rem;

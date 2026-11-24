@@ -65,7 +65,7 @@ function DashboardBody() {
           </div>
           <ChildSwitcher students={list} selectedId={current.id} onSelect={setStudentId} />
         </div>
-        {record.status !== "error" && <Finding student={current} record={record.status === "ready" ? record.data : null} prefs={prefs} />}
+        <Finding student={current} record={record.status === "ready" ? record.data : null} recordFailed={record.status === "error"} prefs={prefs} />
       </section>
 
       {/* Two columns that each stack on their own, so no panel is stretched to its neighbour's height. On phones
@@ -105,9 +105,12 @@ function DashboardBody() {
 type PrefsState = ReturnType<typeof useStudentPreferences>;
 
 /** The one fact that matters most now, in a sentence: the next exam and when Tammeni would remind. */
-function Finding({ student, record, prefs }: { student: LinkedStudent; record: DashboardStudent | null; prefs: PrefsState }) {
+function Finding({ student, record, recordFailed, prefs }: { student: LinkedStudent; record: DashboardStudent | null; recordFailed: boolean; prefs: PrefsState }) {
   const href = `/assistant?student=${student.id}`;
-  if (prefs.status === "loading" || !record) {
+  // The setup action needs only the preferences, so it shows even if school records fail.
+  const needsSetup = prefs.status === "ready" && !prefs.data.exists;
+  if (!needsSetup && recordFailed) return null;
+  if (prefs.status === "loading" || (!record && !needsSetup)) {
     return (
       <div className="mt-4 max-w-[62ch] space-y-2" aria-hidden="true">
         <Placeholder className="h-6 w-full" />
@@ -128,6 +131,7 @@ function Finding({ student, record, prefs }: { student: LinkedStudent; record: D
       </div>
     );
   }
+  if (!record) return null;
   const next = nextExam(record, prefs.data.preferences);
   // With no upcoming exam, the exams panel already says so.
   if (!next) return null;

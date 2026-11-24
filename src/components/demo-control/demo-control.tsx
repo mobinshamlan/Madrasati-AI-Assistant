@@ -63,7 +63,7 @@ export function DemoControl() {
         <p role="note" className="border-b border-line bg-panel">
           <span className={`${container} flex items-start gap-2.5 py-2.5 text-[0.9375rem] leading-6 text-ink-soft`}>
             <InfoIcon size={18} className="mt-0.5 shrink-0" />
-            وضع تجريبي: ما يصل شيء لأي جوال.
+            وضع تجريبي: الإرسال من هنا ما يصل لأي جوال.
           </span>
         </p>
       ))}
