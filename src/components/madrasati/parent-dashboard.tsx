@@ -6,7 +6,8 @@ import { Suspense } from "react";
 import { topicSummary, topics } from "@/components/assistant/preferences";
 import { useDashboardStudent, useLinkedStudents, useStudentPreferences, type DashboardStudent, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import { useComingSoon } from "./coming-soon";
-import { parent, today, type AttendanceStatus, type Student } from "@/components/dashboard/data";
+import { parent, type AttendanceStatus, type Student } from "@/components/dashboard/data";
+import { riyadhDay } from "@/lib/tammeni/evaluate";
 import {
   AttendanceIcon,
   CheckIcon,
@@ -129,7 +130,7 @@ function WelcomeBanner({
                 مرحبًا بك في طمّني، <span className="text-brand-700">{parent.name}</span>
               </h1>
               <p className="mt-1 text-base text-ink">
-                {parent.role} · {today.gregorian} · {today.hijri}
+                {parent.role} · {todayText()}
               </p>
             </div>
           </div>
@@ -145,15 +146,14 @@ function WelcomeBanner({
           />
         </div>
 
-        <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-white/60 pt-6 md:grid-cols-3">
-          <InfoRing Icon={UserIcon} label="الطالب" value={student.name} />
+        <dl className="mt-6 grid grid-cols-1 gap-4 border-t border-white/60 pt-6 md:grid-cols-2">
           <InfoRing Icon={ClassIcon} label="الصف" value={`${student.grade} — ${student.classroom}`} />
           <InfoRing Icon={SchoolIcon} label="المدرسة" value={student.school} />
         </dl>
 
         <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4" aria-label="ملخص سريع">
           <Tile href="#attendance" Icon={AttendanceIcon} color="bg-tile-navy" label="نسبة الحضور" value={`${rate}%`} />
-          <Tile href="#exams" Icon={ExamIcon} color="bg-tile-orange" label="اختبارات قادمة" value={`${student.exams.length}`} />
+          <Tile href="#exams" Icon={ExamIcon} color="bg-tile-orange" label="اختبارات قادمة" value={`${upcomingExams(student).length}`} />
           <Tile href="#grades" Icon={GradesIcon} color="bg-tile-green" label="متوسط آخر الدرجات" value={`${average}%`} />
           <Tile href="#announcements" Icon={MegaphoneIcon} color="bg-tile-olive" label="إعلانات المدرسة" value={`${student.announcements.length}`} />
         </ul>
@@ -164,14 +164,14 @@ function WelcomeBanner({
 
 function InfoRing({ Icon, label, value }: { Icon: typeof UserIcon; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="grid size-14 shrink-0 place-items-center rounded-full border-2 border-brand-400 bg-white/50 text-brand-600">
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0">
-        <dt className="text-base text-ink">{label}</dt>
-        <dd className="font-bold text-ink">{value}</dd>
-      </div>
+    <div className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-x-3">
+      <dt className="contents">
+        <span className="row-span-2 grid size-14 place-items-center rounded-full border-2 border-brand-400 bg-white/50 text-brand-600">
+          <Icon size={26} />
+        </span>
+        <span className="text-base text-ink">{label}</span>
+      </dt>
+      <dd className="col-start-2 font-bold text-ink">{value}</dd>
     </div>
   );
 }
@@ -297,20 +297,40 @@ function AttendanceSection({ student }: { student: Student }) {
   );
 }
 
-function ExamsSection({ student }: { student: Student }) {
+/** Exams from today on (Riyadh), not cancelled. `exams` and `examDates` come from the same rows, in order. */
+function upcomingExams(student: DashboardStudent) {
+  const today = riyadhDay(new Date());
+  return student.exams.filter((_, i) => {
+    const d = student.examDates[i];
+    return d && !d.cancelled && d.examDate >= today;
+  });
+}
+
+function todayText() {
+  const now = new Date();
+  const opts = { timeZone: "Asia/Riyadh", weekday: "long", day: "numeric", month: "long", year: "numeric" } as const;
+  const gregorian = new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", opts).format(now);
+  const hijri = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", { ...opts, weekday: undefined }).format(now);
+  return `${gregorian} · ${hijri}`;
+}
+
+function ExamsSection({ student }: { student: DashboardStudent }) {
+  const exams = upcomingExams(student);
   return (
     <section id="exams" aria-labelledby="exams-title" className="scroll-mt-6">
-      <SectionTab id="exams-title" title={`الاختبارات القادمة (${student.exams.length})`} />
+      <SectionTab id="exams-title" title={`الاختبارات القادمة (${exams.length})`} />
       <div className="rounded-b-xl border border-t-0 border-line bg-white p-5">
         <ul className="space-y-4">
-          {student.exams.map((e) => (
-            <li key={`${e.subject}-${e.hijri}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
+          {exams.length === 0 && <li className="text-base text-ink-soft">ما فيه اختبارات قادمة.</li>}
+          {exams.map((e, i) => (
+            <li key={`${e.subject}-${e.hijri}-${i}`} className="flex gap-4 border-b border-mint-200 pb-4 last:border-0 last:pb-0">
               <span className="grid size-14 shrink-0 place-items-center rounded-lg bg-mint-100 text-brand-600">
                 <ExamIcon size={28} />
               </span>
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2">
                   <span className="text-lg font-bold text-brand-700">{e.subject}</span>
+                  <span className="text-base text-ink-soft">{e.kind}</span>
                 </p>
                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-base text-ink">
                   <span>
