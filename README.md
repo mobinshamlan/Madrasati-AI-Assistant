@@ -1,65 +1,58 @@
-# Madrasati-AI-Assistant
-## 📄 Project Documentation
+# Tammeni (طمّني)
 
-Explore the full project report and final presentation for more details about the project, its features, implementation, and results.
+School news for parents, by phone call or text, on their own schedule.
 
-- 📑 [View Final Project Report](<طمني_Report_Final22222 (1).pdf>)
-- 📊 [View Final Presentation](<(1) طمني عرض النهائي.pptx>)
-- عقم
-- - 📑 [URL طمني](https://tammeni-demo.vercel.app/)
+**Live demo: https://tammeni-demo.vercel.app/welcome**
 
-- URL : https://tammeni-demo.vercel.app/
+<p align="center">
+  <img src="docs/screenshots/welcome.png" alt="Tammeni welcome page" width="49%">
+  <img src="docs/screenshots/dashboard.png" alt="Parent dashboard with a child's exams, attendance and grades" width="49%">
+</p>
 
+A student prototype inspired by Saudi Arabia's Madrasati school platform. Arabic, right-to-left, fictional data only. Not affiliated with Madrasati or the Ministry of Education.
 
-Educational Arabic RTL prototype inspired by Madrasati (منصة مدرستي). Fictional student records only. Not affiliated with the official Madrasati platform.
+## Try it (1 minute)
 
-## Local development (website)
+1. Open the [live demo](https://tammeni-demo.vercel.app/welcome) and press **ابدأ التجربة** (start). No account needed.
+2. See each child's exams, attendance and grades. Switch between **ريم** and **نواف**.
+3. Press **عدّل التنبيهات** (edit alerts) to choose what reaches you, when, and how: a call or a text.
+4. Save, then check the summary of what you'll get.
 
-Requires Node.js 20.9 or newer.
+Everyone shares one fictional parent account, so you may see someone else's last choices.
 
-1. `npm install`
-2. Copy `.env.example` → `.env.local` and fill the empty variables (see below). Never commit `.env.local`.
-3. `npm run dev` → http://localhost:3000
-4. Optional production check: `npm run build` && `npm start`
+## What it does
 
-Checks: `npm run lint`, `npm test`, `npm run build`. Typecheck: `npx tsc --noEmit`.
+- **Parent dashboard**: each child's upcoming exams, attendance and grades, read from Supabase. Row-level security limits the parent to their own children.
+- **Alert choices**: per child and per topic (attendance, exams, grades): right away, a daily or weekly summary, or a custom schedule, by call or text.
+- **Voice call agent**: a call from "Lulwa" gives the update, then answers questions about the child from their record. Uses OpenAI's live voice API and Twilio.
+- **Demo studio** (operator only): add a school event, see which parents it reaches, preview the call or text, and send it.
 
-## Environment (teammate setup)
+In the public demo, nothing is sent automatically. Updates go out only when an operator sends them from the demo studio.
 
-Website (`.env.local` from `.env.example`):
+| Settings | Confirmation |
+|---|---|
+| <img src="docs/screenshots/settings.png" alt="Alert settings for one child, by topic" width="100%"> | <img src="docs/screenshots/confirmation.png" alt="Saved alert summary" width="100%"> |
 
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — project **Connect** dialog; publishable key only
-- `TAMMENI_BACKEND_URL` — defaults to `http://127.0.0.1:8000`
-- `TAMMENI_DEMO_PARENT_*` / `TAMMENI_DEMO_OPERATOR_*` — fictional demo Auth accounts (server-only; ask the team lead for values, never put them in docs or git)
-- `TAMMENI_LOCAL_OPERATOR` — leave empty unless you want local auto-open of `/demo-control` under `npm run dev` on this machine only
-- `TAMMENI_SHARED_DEMO` — set to `1` so teammates open `/demo-control` without a password on the shared URL too. Those automatic sends stay mock-only. Leave empty for the password form and the separate real-dispatch path
-- `TAMMENI_DISPATCH_SECRET` — shared with the Python backend; long and random
+## Stack
 
-Python backend (`Test_AI_Agent_Upload/.env` from that folder’s `.env.example`):
+Next.js 16, React 19, Tailwind CSS 4, Supabase (Postgres, Auth, RLS), FastAPI, OpenAI, Twilio. Hosted on Vercel and Railway.
 
-- `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `TAMMENI_DISPATCH_SECRET` (same secret as the website)
-- `TAMMENI_PROVIDER` defaults to **`mock`** (nothing is sent). Do not set `twilio` unless a person has approved a real test.
+## Run locally
 
-Never use a Supabase secret/service-role key in these files.
+Requires Node.js 20.9+ and Python 3.12+.
 
-## Database migrations (without repeating)
+```bash
+npm install
+cp .env.example .env.local   # fill in the empty values
+npm run dev                  # http://localhost:3000/welcome
+```
 
-Migration files live in `supabase/migrations/` with versioned names. On a shared Supabase project, apply **only versions that are not already recorded** in the project’s migration history (Dashboard → Database → Migrations, or `supabase db push` / linked CLI). Re-applying an already-recorded version is unnecessary and should be skipped.
+Backend (optional, needed for calls and texts): see [`Test_AI_Agent_Upload/README.md`](Test_AI_Agent_Upload/README.md). Its provider defaults to `mock`, which sends nothing.
 
-Demo school data import is separate and repeatable: see `docs/demo-control.md` (`scripts/build-demo-import.mjs` → `supabase/seed/demo-dataset-import.sql`). Stable keys mean a re-run does not wipe the project; it does not replace migration application.
+Checks: `npm run lint`, `npm test`, `npm run build`.
 
-Structure and RLS notes: `docs/database.md`. Demo roles, control panel, and limits: `docs/demo-control.md`. Preference preview: `docs/backend-preview.md`.
+More: [deployment](docs/deployment.md) · [database](docs/database.md) · [demo studio](docs/demo-control.md) · [project report (PDF, Arabic)](docs/tammeni-report.pdf) · [presentation (Arabic)](docs/tammeni-presentation.pptx)
 
-## Opening the demo
+## Team
 
-1. Start the Python backend from `Test_AI_Agent_Upload` (venv + `uvicorn` on port 8000) — see `docs/demo-control.md`.
-2. Start the website (`npm run dev`).
-3. Parent path: open `/welcome` (localhost or the shared URL), then «ابدأ مع طمّني». No password.
-4. Operator / demo control: open `/demo-control`. It opens directly when `TAMMENI_SHARED_DEMO=1` or local operator mode is on; otherwise sign in with the operator password.
-
-Automatic background scheduling and unanswered-call retry workers are **not** implemented. Manual «تشغيل التحديث الآن — للديمو» with the **mock** provider records a log entry and does not send SMS or place calls.
-
-## Safety
-
-- Use fictional data only. Never commit secrets, real student records, or real phone numbers.
-- `.env*` is gitignored except empty `.env.example` templates.
+Built by [@mobinshamlan](https://github.com/mobinshamlan), [@shaimasaud](https://github.com/shaimasaud) and [@CODERrazan](https://github.com/CODERrazan).
