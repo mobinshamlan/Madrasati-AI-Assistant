@@ -33,7 +33,7 @@ In the public demo, nothing is sent automatically. Updates go out only when an o
 
 | Settings | Confirmation |
 |---|---|
-| <img src="docs/screenshots/settings.png" alt="Alert settings for one child, by topic" width="100%"> | <img src="docs/screenshots/confirmation.png" alt="Saved alert summary" width="100%"> |
+| <img src="docs/screenshots/settings.png" alt="Alert settings, one question at a time" width="100%"> | <img src="docs/screenshots/confirmation.png" alt="Saved alert summary" width="100%"> |
 
 ## Stack
 
