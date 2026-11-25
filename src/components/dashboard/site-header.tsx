@@ -18,10 +18,10 @@ const items: { page: PageKey; label: string; path: string; Icon: typeof HomeIcon
 /** The logo bar alone, for the pages before entry. */
 export function BrandHeader({ end }: { end?: React.ReactNode }) {
   return (
-    <header className="border-b border-line bg-surface">
+    <header className="on-board">
       <div className="mx-auto flex min-h-16 max-w-[1100px] items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/welcome" aria-label="طمّني — الصفحة التعريفية" className="rounded-lg">
-          <Wordmark />
+          <Wordmark onBoard />
         </Link>
         {end}
       </div>
@@ -35,7 +35,7 @@ export function BrandHeader({ end }: { end?: React.ReactNode }) {
  */
 export function SiteHeader({ current }: { current: PageKey }) {
   return (
-    <header className="border-b border-line bg-surface">
+    <header className="on-board">
       <div className="mx-auto flex min-h-16 max-w-[1100px] flex-wrap items-center gap-x-6 px-4 sm:px-6">
         <Suspense fallback={<HomeLink student={null} />}>
           <HomeLinkWithStudent />
@@ -45,8 +45,8 @@ export function SiteHeader({ current }: { current: PageKey }) {
         </Suspense>
         <div className="ms-auto flex items-center gap-3 py-2">
           <span className="hidden text-end leading-tight md:block">
-            <span className="block text-[0.9375rem] font-semibold text-ink">{parent.shortName}</span>
-            <span className="block text-[0.8125rem] text-faint">ولي أمر — حساب تجريبي</span>
+            <span className="block text-[0.9375rem] font-semibold text-chalk">{parent.shortName}</span>
+            <span className="block text-[0.8125rem] text-chalk-soft">ولي أمر — حساب تجريبي</span>
           </span>
           <SignOut />
         </div>
@@ -62,7 +62,7 @@ function HomeLinkWithStudent() {
 function HomeLink({ student }: { student: string | null }) {
   return (
     <Link href={student ? `/tammeni?student=${encodeURIComponent(student)}` : "/tammeni"} aria-label="طمّني — الرئيسية" className="rounded-lg py-3">
-      <Wordmark />
+      <Wordmark onBoard />
     </Link>
   );
 }
@@ -74,7 +74,7 @@ function NavWithStudent({ current }: { current: PageKey }) {
 function Nav({ current, student }: { current: PageKey; student: string | null }) {
   const query = student ? `?student=${encodeURIComponent(student)}` : "";
   return (
-    <nav aria-label="القائمة الرئيسة" className="order-last -mx-4 w-[calc(100%+2rem)] border-t border-rule sm:order-none sm:mx-0 sm:w-auto sm:border-0">
+    <nav aria-label="القائمة الرئيسة" className="order-last -mx-4 w-[calc(100%+2rem)] border-t border-board-raised sm:order-none sm:mx-0 sm:w-auto sm:border-0">
       <ul className="grid grid-cols-2 sm:flex sm:gap-1">
         {items.map(({ page, label, path, Icon }) => {
           const active = page === current;
@@ -84,12 +84,12 @@ function Nav({ current, student }: { current: PageKey; student: string | null })
                 href={`${path}${query}`}
                 aria-current={active ? "page" : undefined}
                 className={`relative flex min-h-12 w-full items-center justify-center gap-2 px-4 text-[0.9375rem] font-semibold transition-colors sm:min-h-16 sm:justify-start ${
-                  active ? "text-ink" : "text-ink-soft hover:text-ink"
+                  active ? "text-chalk" : "text-chalk-soft hover:text-chalk"
                 }`}
               >
-                <Icon size={18} className={active ? "text-brand" : "text-faint"} />
+                <Icon size={18} className={active ? "text-bell-light" : "text-chalk-soft"} />
                 {label}
-                {active && <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-[3px] rounded-full bg-brand" />}
+                {active && <span aria-hidden="true" className="absolute inset-x-3 bottom-0 h-[3px] rounded-full bg-bell-light" />}
               </Link>
             </li>
           );

@@ -71,7 +71,7 @@ function DemoSessionGate({ children }: { children: React.ReactNode }) {
 /** Always visible: this is a prototype with fictional data, not the official platform. */
 export function DemoNotice() {
   return (
-    <p role="note" className="flex items-center justify-center gap-2 bg-ink px-4 py-1.5 text-center text-[0.8125rem] leading-6 text-white">
+    <p role="note" className="flex items-center justify-center gap-2 bg-board-hover px-4 py-1.5 text-center text-[0.8125rem] leading-6 text-chalk-soft">
       <InfoIcon size={16} className="shrink-0" />
       نسخة تجريبية ببيانات خيالية — غير تابعة لمنصة مدرستي الرسمية
     </p>
@@ -80,13 +80,17 @@ export function DemoNotice() {
 
 export function Footer() {
   return (
-    <footer className="mt-auto border-t border-line">
-      <div className="mx-auto flex max-w-[1100px] flex-col gap-3 px-4 py-6 text-[0.875rem] leading-6 text-faint sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <span className="inline-flex items-center gap-2 font-semibold text-ink">
-          <TammeniMark size={22} />
-          طمّني
-        </span>
-        <p>نموذج تعليمي تجريبي ببيانات خيالية. غير تابع لمنصة مدرستي، ولا يمثل خدمة صادرة عن وزارة التعليم.</p>
+    <footer className="on-board mt-auto">
+      <div className="mx-auto max-w-[1100px] px-4 pt-10 pb-8 sm:px-6">
+        <p className="flex items-center gap-2.5 font-display text-[1.375rem] font-semibold">
+          <TammeniMark size={30} onBoard />
+          <span translate="no">طمّني</span>
+        </p>
+        <p className="mt-3 font-display text-[1.25rem] leading-snug font-medium text-chalk">أخبار عيالك من المدرسة، توصلك.</p>
+        <div className="perforation mt-7 text-chalk" aria-hidden="true" />
+        <p className="mt-5 text-[0.875rem] leading-7 text-chalk-soft">
+          نموذج تعليمي تجريبي ببيانات خيالية. غير تابع لمنصة مدرستي، ولا يمثل خدمة صادرة عن وزارة التعليم.
+        </p>
       </div>
     </footer>
   );

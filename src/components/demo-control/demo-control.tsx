@@ -41,9 +41,9 @@ export function DemoControl() {
 
   return (
     <>
-      <header className="border-b border-line bg-surface">
+      <header className="on-board">
         <div className={`${container} flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-2 py-2`}>
-          <Wordmark sub="استوديو العرض — للمشغّل فقط" />
+          <Wordmark sub="استوديو العرض — للمشغّل فقط" onBoard />
           <a href="/welcome" target="_blank" rel="noopener" className="btn-secondary btn-sm">
             فتح صفحة ولي الأمر
             <span aria-hidden="true">↗</span>
@@ -71,7 +71,7 @@ export function DemoControl() {
       <main id="main" className={`${container} flex-1 py-6 sm:py-8`}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-[1.5rem] leading-tight font-bold tracking-tight sm:text-[1.75rem]">جرّب طمّني مع أحداث المدرسة</h1>
+            <h1 className="text-[1.75rem] leading-tight sm:text-[2.25rem]">جرّب طمّني مع أحداث المدرسة</h1>
             <p className="mt-1.5 max-w-[70ch] leading-7 text-ink-soft">سجّل حدثًا، وشوف قرار طمّني، ثم أرسله.</p>
           </div>
           {overview && selected && (

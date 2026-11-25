@@ -16,44 +16,76 @@
   --color-child-b-ink: #6e4207;
   --color-neutral: #46524c;
   --color-neutral-bg: #e9ede6;
+  --color-board: #123a34;
+  --color-board-hover: #0c2c27;
+  --color-board-raised: #1b4a42;
+  --color-board-line: #2f6458;
+  --color-chalk: #f4eee1;
+  --color-chalk-soft: #c7d2c9;
+  --color-bell: #c9973f;
+  --color-bell-ink: #7a561a;
+  --color-bell-soft: #f4e7cb;
+  --color-bell-light: #e2be76;
+  --color-margin: #c2553f;
+  --font-display: "Alexandria", sans-serif;
 }
 
 .tammeni-experience {
+  /*
+   * «The school day reaching home»: a chalkboard-green field, exercise-book paper, and one school-bell
+   * brass accent for the single thing that matters on a screen. A sibling of NAQAH, Amanah and Seet:
+   * two grounds, one warm metal, muted hue-matched status pairs, never pure white or black.
+   */
+  --color-board: #123a34;
+  --color-board-hover: #0c2c27;
+  --color-board-raised: #1b4a42;
+  --color-board-line: #2f6458;
+  --color-chalk: #f4eee1;
+  --color-chalk-soft: #c7d2c9;
 
-  --color-ground: #f4f6f2;
-  --color-surface: #ffffff;
-  --color-panel: #edf1ea;
-  --color-panel-strong: #e2e8de;
-  --color-line: #dce3d8;
-  --color-rule: #e8ede5;
-  --color-control: #a9b5a5;
+  --color-ground: #f7f2e8;
+  --color-surface: #fcf9f2;
+  --color-panel: #efe8da;
+  --color-panel-strong: #e5ddcc;
+  --color-line: #e3dac8;
+  --color-rule: #ebe4d5;
+  --color-control: #b5ab96;
 
-  --color-ink: #15211c;
-  --color-ink-soft: #3f4c46;
-  --color-faint: #56635c;
+  --color-ink: #16261f;
+  --color-ink-soft: #45524b;
+  --color-faint: #5c6761;
 
-  --color-brand: #0d5c4f;
-  --color-brand-hover: #094a3f;
-  --color-brand-soft: #dcebe4;
-  --color-brand-ink: #0a4a40;
+  --color-brand: #123a34;
+  --color-brand-hover: #0c2c27;
+  --color-brand-soft: #e0e8dc;
+  --color-brand-ink: #123a34;
 
-  /* Each child keeps one pale tint for their initial, so the selected child is recognised at a glance. */
-  --color-child-a: #dde9f6;
-  --color-child-a-ink: #1c4877;
-  --color-child-b: #f4e6cf;
-  --color-child-b-ink: #6e4207;
+  --color-bell: #c9973f;
+  --color-bell-ink: #7a561a;
+  --color-bell-soft: #f4e7cb;
+  --color-bell-light: #e2be76;
+  /* Exercise-book margin red: decoration only, never text or status. */
+  --color-margin: #c2553f;
 
-  --color-ok: #1b6a43;
-  --color-ok-bg: #e1f1e7;
-  --color-warn: #7f4505;
-  --color-warn-bg: #fbeed6;
-  --color-danger: #b0261e;
-  --color-danger-bg: #fbe8e5;
-  --color-info: #1c4c8c;
-  --color-info-bg: #e4ecf8;
-  --color-neutral: #46524c;
-  --color-neutral-bg: #e9ede6;
+  /* Each child keeps one tint for their initial, so the selected child is recognised at a glance. */
+  --color-child-a: #dde6f0;
+  --color-child-a-ink: #1f4a74;
+  --color-child-b: #f2e3cb;
+  --color-child-b-ink: #6b4410;
 
+  --color-ok: #2f6b45;
+  --color-ok-bg: #e0ede2;
+  --color-warn: #7e4f12;
+  --color-warn-bg: #f5e8d2;
+  --color-danger: #9a2f25;
+  --color-danger-bg: #f7e2dc;
+  --color-info: #2d5577;
+  --color-info-bg: #e1e9f0;
+  --color-neutral: #48534d;
+  --color-neutral-bg: #ebe5d8;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --font-display: var(--font-alexandria), "Alexandria", var(--font-plex), Tahoma, sans-serif;
   --font-sans: var(--font-plex), "IBM Plex Sans Arabic", Tahoma, sans-serif;
   display: flex;
   flex: 1;
@@ -75,19 +107,48 @@
   line-height: 1.7;
 }
 
+:is(h1, h2, h3) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
 :focus-visible {
-  outline: 3px solid var(--color-info);
+  outline: 2.5px solid var(--color-board-line);
   outline-offset: 2px;
   border-radius: 6px;
 }
+.on-board :focus-visible {
+  outline-color: var(--color-bell-light);
+}
 
 ::selection {
-  background: var(--color-brand-soft);
+  background: var(--color-bell-soft);
   color: var(--color-ink);
+}
+.on-board ::selection {
+  background: var(--color-bell-light);
+  color: var(--color-board);
 }
 
 dialog::backdrop {
-  background: rgb(15 23 20 / 0.5);
+  background: rgb(12 44 39 / 0.55);
+}
+
+/* A deep chalkboard field: the header, the welcome hero, the footer and the page bands. */
+.on-board {
+  background: var(--color-board);
+  color: var(--color-chalk);
+}
+
+/* The perforated rule of a note torn from an exercise book: one seam between parts of a screen. */
+.perforation {
+  height: 2px;
+  background-image: radial-gradient(circle, currentColor 1px, transparent 1.4px);
+  background-size: 10px 2px;
+  background-repeat: repeat-x;
+  opacity: 0.35;
 }
 
 .num {
@@ -106,8 +167,8 @@ html:has(.sticky-save) {
   z-index: 80;
   transform: translateY(calc(-100% - 1rem));
   border-radius: 999px;
-  background: var(--color-ink);
-  color: #fff;
+  background: var(--color-chalk);
+  color: var(--color-board);
   font-weight: 600;
   padding: 0.7rem 1.25rem;
 }
@@ -137,7 +198,7 @@ html:has(.sticky-save) {
   text-align: center;
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 120ms ease;
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 120ms var(--ease-out);
 }
 .btn-sm {
   min-height: 2.75rem;
@@ -145,8 +206,25 @@ html:has(.sticky-save) {
   font-size: 0.9375rem;
 }
 .btn-primary {
-  background: var(--color-brand);
-  color: #fff;
+  background: var(--color-board);
+  color: var(--color-chalk);
+}
+/* On the board the primary action is chalk, so it stays the brightest thing in view. */
+.on-board .btn-primary {
+  background: var(--color-chalk);
+  color: var(--color-board);
+}
+.on-board .btn-primary:hover {
+  background: #fffaf0;
+}
+.on-board .btn-secondary {
+  border-color: rgb(244 238 225 / 0.35);
+  background: transparent;
+  color: var(--color-chalk);
+}
+.on-board .btn-secondary:hover {
+  border-color: var(--color-chalk);
+  background: rgb(244 238 225 / 0.08);
 }
 .btn-primary:hover {
   background: var(--color-brand-hover);
@@ -173,7 +251,7 @@ html:has(.sticky-save) {
   text-decoration: none;
 }
 .btn-danger {
-  border-color: #e3aaa4;
+  border-color: #dfb0a6;
   background: var(--color-surface);
   color: var(--color-danger);
 }
@@ -193,27 +271,93 @@ html:has(.sticky-save) {
   opacity: 0.8;
 }
 
-.link {
+.link,
+.text-link {
   color: var(--color-brand-ink);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 4px;
   text-decoration-thickness: 1px;
 }
-.link:hover {
+.link:hover,
+.text-link:hover {
   text-decoration-thickness: 2px;
+}
+/* The second action: an underlined verb with an arrow that points the reading direction. */
+.text-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+.on-board :is(.link, .text-link) {
+  color: var(--color-chalk);
 }
 
 /* ---------- surfaces ---------- */
 
 .sheet {
   border: 1px solid var(--color-line);
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   background: var(--color-surface);
 }
 .tone {
-  border-radius: 1rem;
+  border-radius: 1.25rem;
   background: var(--color-panel);
+}
+/*
+ * The note home: a slip of exercise-book paper with its thin red margin line. It carries the one piece
+ * of news that matters on a screen. The margin is a 1px rule, never a coloured edge.
+ */
+.note {
+  position: relative;
+  border-radius: 1.25rem;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  padding: 1.25rem 1.25rem 1.25rem 1.25rem;
+  padding-inline-start: 3.25rem;
+  box-shadow: 0 18px 40px -22px rgb(12 44 39 / 0.55);
+}
+.note::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 2.25rem;
+  width: 1px;
+  background: var(--color-margin);
+  opacity: 0.7;
+}
+.note-bell {
+  position: absolute;
+  top: 1.35rem;
+  inset-inline-start: 0.7rem;
+  color: var(--color-bell);
+}
+
+/* The child switcher on the board: chalk for the selected child. */
+.on-board .seg {
+  background: var(--color-board-raised);
+}
+.on-board .seg > label {
+  color: var(--color-chalk-soft);
+}
+.on-board .seg > label:hover {
+  color: var(--color-chalk);
+}
+.on-board .seg > label:has(input:checked) {
+  background: var(--color-chalk);
+  color: var(--color-board);
+  box-shadow: none;
+}
+.on-board .seg > label:has(input:focus-visible) {
+  outline-color: var(--color-bell-light);
+}
+
+/* The one thing that matters on a screen: a brass-lit note. */
+.lit {
+  border-radius: 1.25rem;
+  background: var(--color-bell-soft);
+  color: var(--color-ink);
 }
 
 /* ---------- status chips: pale tint, dark text of the same hue, always a word ---------- */
@@ -313,7 +457,7 @@ select.field {
   border-color: var(--color-ink-soft);
 }
 .field:focus-visible {
-  border-color: var(--color-info);
+  border-color: var(--color-board-line);
   outline-offset: 1px;
 }
 .field[aria-invalid="true"] {
@@ -345,7 +489,7 @@ select.field {
   background: var(--color-brand-soft);
 }
 .choice:has(input:focus-visible) {
-  outline: 3px solid var(--color-info);
+  outline: 2.5px solid var(--color-board-line);
   outline-offset: 2px;
 }
 .choice:has(input[aria-invalid="true"]) {
@@ -368,7 +512,7 @@ select.field {
 .choice:has(input:checked) .choice-mark {
   border-color: var(--color-brand);
   background: var(--color-brand);
-  color: #fff;
+  color: var(--color-chalk);
 }
 
 /* A segmented control: the same hidden inputs, laid out as one track. */
@@ -407,7 +551,7 @@ select.field {
   box-shadow: 0 0 0 1.5px var(--color-brand);
 }
 .seg > label:has(input:focus-visible) {
-  outline: 3px solid var(--color-info);
+  outline: 2.5px solid var(--color-board-line);
   outline-offset: 2px;
 }
 
@@ -430,8 +574,8 @@ select.field {
   width: 1.375rem;
   height: 1.375rem;
   border-radius: 999px;
-  background: #fff;
-  transition: transform 160ms ease;
+  background: var(--color-surface);
+  transition: transform 160ms var(--ease-out);
 }
 input:checked + .switch {
   background: var(--color-brand);
@@ -440,7 +584,7 @@ input:checked + .switch::after {
   transform: translateX(-1.25rem);
 }
 input:focus-visible + .switch {
-  outline: 3px solid var(--color-info);
+  outline: 2.5px solid var(--color-board-line);
   outline-offset: 2px;
 }
 
@@ -480,7 +624,7 @@ input:focus-visible + .switch {
 /* ---------- motion: feedback only ---------- */
 
 .arrive {
-  animation: tammeni-arrive 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: tammeni-arrive 260ms var(--ease-out) both;
 }
 
 

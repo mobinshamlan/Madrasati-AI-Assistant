@@ -141,7 +141,7 @@
   transform: rotate(-135deg);
 }
 .studio-disclosure > summary:focus-visible {
-  outline: 3px solid var(--color-info);
+  outline: 2.5px solid var(--color-board-line);
   outline-offset: 2px;
   border-radius: 8px;
 }

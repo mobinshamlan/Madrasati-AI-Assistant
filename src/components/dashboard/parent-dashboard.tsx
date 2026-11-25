@@ -14,7 +14,7 @@ import {
   type LinkedStudent,
 } from "@/lib/tammeni/parent-data";
 import type { AttendanceStatus } from "./data";
-import { ClockIcon } from "./icons";
+import { BellIcon, ClockIcon } from "./icons";
 import { PageShell } from "./page-shell";
 import { ChildSwitcher, LoadProblem, Placeholder } from "./ui";
 
@@ -51,21 +51,23 @@ function DashboardBody() {
       <p className="sr-only" aria-live="polite">
         يتم الآن عرض أخبار {current.name}
       </p>
-      <section aria-labelledby="home-title" className={`${container} pt-8 sm:pt-10`}>
-        <div className="flex flex-col-reverse gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[0.9375rem] text-faint">
-              {current.grade}
-              <span aria-hidden="true"> · </span>
-              {current.school}
-            </p>
-            <h1 id="home-title" className="mt-1 text-[1.75rem] leading-tight font-bold tracking-tight sm:text-[2rem]">
-              أخبار {current.firstName}
-            </h1>
+      <section aria-labelledby="home-title" className="on-board">
+        <div className={`${container} pt-8 pb-10 sm:pt-12 sm:pb-12`}>
+          <div className="flex flex-col-reverse gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[0.9375rem] text-chalk-soft">
+                {current.grade}
+                <span aria-hidden="true"> · </span>
+                {current.school}
+              </p>
+              <h1 id="home-title" className="mt-2 text-[2.25rem] leading-[1.25] text-chalk sm:text-[3rem]">
+                أخبار {current.firstName}
+              </h1>
+            </div>
+            <ChildSwitcher students={list} selectedId={current.id} onSelect={setStudentId} />
           </div>
-          <ChildSwitcher students={list} selectedId={current.id} onSelect={setStudentId} />
+          <Finding student={current} record={record.status === "ready" ? record.data : null} recordFailed={record.status === "error"} prefs={prefs} />
         </div>
-        <Finding student={current} record={record.status === "ready" ? record.data : null} recordFailed={record.status === "error"} prefs={prefs} />
       </section>
 
       {/* Two columns that each stack on their own, so no panel is stretched to its neighbour's height. On phones
@@ -112,7 +114,7 @@ function Finding({ student, record, recordFailed, prefs }: { student: LinkedStud
   if (!needsSetup && recordFailed) return null;
   if (prefs.status === "loading" || (!record && !needsSetup)) {
     return (
-      <div className="mt-4 max-w-[62ch] space-y-2" aria-hidden="true">
+      <div className="note mt-7 max-w-[44rem] space-y-2" aria-hidden="true">
         <Placeholder className="h-6 w-full" />
         <Placeholder className="h-6 w-2/3" />
       </div>
@@ -121,8 +123,9 @@ function Finding({ student, record, recordFailed, prefs }: { student: LinkedStud
   if (prefs.status === "error") return null;
   if (!prefs.data.exists) {
     return (
-      <div className="mt-5 flex flex-col gap-4 rounded-2xl bg-brand-soft p-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[1.0625rem] leading-8 text-brand-ink">
+      <div className="note mt-7 flex max-w-[44rem] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <BellIcon size={22} className="note-bell" />
+        <p className="text-[1.0625rem] leading-8">
           <strong className="font-semibold">ما ضبطت تنبيهات {student.firstName} بعد.</strong> اختر وش يوصلك عنها، ومتى، وكيف.
         </p>
         <Link href={href} className="btn-primary shrink-0">
@@ -136,7 +139,8 @@ function Finding({ student, record, recordFailed, prefs }: { student: LinkedStud
   // With no upcoming exam, the exams panel already says so.
   if (!next) return null;
   return (
-    <p className="mt-4 max-w-[62ch] text-[1.0625rem] leading-8 text-ink">
+    <p className="note mt-7 max-w-[44rem] text-[1.0625rem] leading-8">
+      <BellIcon size={22} className="note-bell" />
       أقرب اختبار: <strong className="font-semibold">{next.subject}</strong> يوم {arabicDay(next.examDate)}.{" "}
       {next.reminder.status === "suppressed"
         ? "تذكير الاختبارات متوقف."
@@ -365,7 +369,7 @@ function GradesPanel({ student }: { student: DashboardStudent }) {
                 <tr key={`${g.subject}-${g.assessment}-${i}`}>
                   <th scope="row" className="py-2.5 text-start font-normal">
                     <span className="block font-medium">{g.subject}</span>
-                    <span dir="auto" className="block text-[0.8125rem] text-faint">{g.assessment}</span>
+                    <span className="block text-[0.8125rem] text-faint"><bdi>{g.assessment}</bdi></span>
                   </th>
                   <td className="num py-2.5 text-end align-top whitespace-nowrap">
                     <bdi dir="ltr" className={`font-semibold ${low ? "text-warn" : ""}`}>

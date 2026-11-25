@@ -102,17 +102,17 @@ function Setup() {
 
   return (
     <>
-      <section aria-labelledby="page-title" className={`${container} pt-8 sm:pt-10`}>
-        <div className="flex flex-col-reverse gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h1 id="page-title" className="text-[1.75rem] leading-tight font-bold tracking-tight sm:text-[2rem]">
-              {student ? `تنبيهات ${student.firstName}` : "تفضيلات التنبيه"}
-            </h1>
-          </div>
+      {/* The page title sits on the board; the working sheet overlaps its lower edge. */}
+      <section aria-labelledby="page-title" className="on-board">
+        <div className={`${container} pt-8 pb-20 sm:pt-12 sm:pb-24`}>
+          <h1 id="page-title" className="text-[2.25rem] leading-[1.25] text-chalk sm:text-[3rem]">
+            {student ? `تنبيهات ${student.firstName}` : "تفضيلات التنبيه"}
+          </h1>
+          <p className="mt-2 text-[1.0625rem] text-chalk-soft">وش يوصلك، ومتى، وكيف.</p>
         </div>
       </section>
 
-      <div className={`${container} mt-6 pb-10`}>
+      <div className={`${container} relative -mt-12 pb-12 sm:-mt-14`}>
         {linked.status === "error" ? (
           <LoadProblem title="تعذّر تحميل قائمة الأبناء" message={linked.message} onRetry={linked.reload} />
         ) : linked.status === "loading" ? (

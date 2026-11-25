@@ -37,7 +37,7 @@ export function PreferencesPreview({ studentId, preferences }: { studentId: stri
   }
 
   return (
-    <section aria-labelledby="preview-title" className="space-y-4 rounded-xl border border-line bg-white p-5">
+    <section aria-labelledby="preview-title" className="space-y-4 rounded-xl border border-line bg-surface p-5">
       <h2 id="preview-title" className="text-2xl font-extrabold text-ink">معاينة المحتوى — دون إرسال</h2>
       <p className="text-lg leading-8 text-ink">
         تعرض نص التحديث كما سيبدو حسب اختياراتك المحفوظة. هذه معاينة فقط: لا تُحفظ من جديد، ولا تُرسل رسالة، ولا تُجرى مكالمة.

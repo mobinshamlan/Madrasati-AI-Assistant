@@ -94,23 +94,25 @@ function Success({
   useEffect(() => headingRef.current?.focus(), []);
 
   return (
-    <div className={`${container} py-10 sm:py-14`}>
-      <div className="flex items-start gap-4">
-        <span className="arrive mt-1 grid size-11 shrink-0 place-items-center rounded-full bg-ok text-white" aria-hidden="true">
-          <CheckIcon size={22} strokeWidth={2.6} />
+    <>
+    <section className="on-board">
+      <div className={`${container} flex items-start gap-4 pt-8 pb-20 sm:pt-12 sm:pb-24`}>
+        <span className="arrive mt-2 grid size-12 shrink-0 place-items-center rounded-full bg-bell-light text-board" aria-hidden="true">
+          <CheckIcon size={24} strokeWidth={2.6} />
         </span>
         <div className="min-w-0">
-          <h1 ref={headingRef} tabIndex={-1} className="text-[1.75rem] leading-tight font-bold tracking-tight focus:outline-none sm:text-[2rem]">
+          <h1 ref={headingRef} tabIndex={-1} className="text-[2.25rem] leading-[1.25] text-chalk focus:outline-none sm:text-[3rem]">
             حفظنا تنبيهات {student.firstName}
           </h1>
-          <p className="mt-2 text-[1.0625rem] leading-8 text-ink-soft">
-            هذي المواعيد المحفوظة لـ{student.firstName}. تقدر تعدّلها أي وقت.
-            {updatedAt && <span className="block text-[0.9375rem] text-faint">آخر حفظ: {formatSavedAt(updatedAt)}</span>}
+          <p className="mt-2 text-[1.0625rem] leading-8 text-chalk-soft">
+            تقدر تعدّلها أي وقت.
+            {updatedAt && <span className="block text-[0.9375rem]">آخر حفظ: {formatSavedAt(updatedAt)}</span>}
           </p>
         </div>
       </div>
-
-      <section aria-labelledby="summary-title" className="sheet mt-8 p-5 sm:p-6">
+    </section>
+    <div className={`${container} relative -mt-12 pb-12 sm:-mt-14`}>
+      <section aria-labelledby="summary-title" className="sheet p-5 sm:p-7">
         <h2 id="summary-title" className="sr-only">
           ملخص تنبيهات {student.firstName}
         </h2>
@@ -145,6 +147,7 @@ function Success({
 
       <p className="mt-8 text-[1rem] leading-7 text-ink-soft">{NO_AUTOMATIC_SENDING}</p>
     </div>
+    </>
   );
 }
 

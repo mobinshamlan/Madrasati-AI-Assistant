@@ -8,7 +8,7 @@
 
 /* Headings stay readable from the first frame; motion only shifts them slightly. */
 .welcome-rise {
-  animation: rise 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .welcome-after1 {
   animation-delay: 180ms;
@@ -21,7 +21,7 @@
 }
 
 .welcome-enter {
-  animation: enter 650ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: enter 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* A greeting lean of the whole picture, pivoting near its base. */
@@ -70,12 +70,56 @@
   }
 }
 .welcome-character:focus-visible {
-  outline: 3px solid var(--color-info);
+  outline: 2.5px solid var(--color-bell-light);
   outline-offset: 6px;
   transform: translateY(-6px);
 }
 .welcome-character:active {
   transform: translateY(-2px) scale(0.98);
+}
+
+/*
+ * The school day as a line of stops (like a timetable read across): a rule joins the stops, the first is
+ * hollow (the school acts), the rest are filled (Tammeni reaches the parent). Vertical on phones.
+ */
+.welcome-day {
+  position: relative;
+}
+.welcome-day::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.6rem 0.6rem;
+  inset-inline-start: 0.45rem;
+  width: 1px;
+  background: var(--color-control);
+}
+.welcome-day-dot {
+  position: absolute;
+  top: 0.45rem;
+  inset-inline-start: 0;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 1.5px solid var(--color-board);
+  border-radius: 999px;
+  background: var(--color-ground);
+}
+.welcome-day-dot[data-lit] {
+  background: var(--color-board);
+}
+.welcome-day > li:last-child .welcome-day-dot {
+  border-color: var(--color-bell);
+  background: var(--color-bell);
+}
+@media (min-width: 48rem) {
+  .welcome-day::before {
+    inset-block: 0.45rem auto;
+    inset-inline: 0.45rem 0;
+    width: auto;
+    height: 1px;
+  }
+  .welcome-day-dot {
+    top: 0;
+  }
 }
 
 @keyframes rise {
