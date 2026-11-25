@@ -255,8 +255,8 @@ function Editor({
   onReset: () => void;
 }) {
   const [prefs, setPrefs] = useState<Preferences>(initial);
-  // A new parent starts from the suggested choices, ready to save; each topic can still be changed step by step.
-  const [mode, setMode] = useState<"summary" | "wizard">("summary");
+  // A parent with no saved choices (first visit, or after «ابدأ من جديد») is asked step by step.
+  const [mode, setMode] = useState<"summary" | "wizard">(savedExists ? "summary" : "wizard");
   const [editTopic, setEditTopic] = useState<Topic | null>(null);
   const [stepId, setStepId] = useState("student");
   const [studentSelection, setStudentSelection] = useState({ id: student.id, cancelCount: switchCancelCount });
@@ -497,6 +497,12 @@ function Editor({
               <span>الخطوة {stepIndex + 1} من {steps.length}</span>
               <span className="truncate text-brand-ink">{progressTopic}</span>
             </div>
+            {/* A shortcut for anyone who'd rather keep the suggested choices and save them as they are. */}
+            {!savedExists && editTopic === null && stepIndex === 0 && (
+              <button type="button" onClick={() => setStepId("review")} className="mt-2 text-[0.9375rem] font-semibold text-brand underline underline-offset-4">
+                استخدم الاقتراح واحفظ مباشرة
+              </button>
+            )}
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel-strong" aria-hidden="true">
               <div className="h-full rounded-full bg-brand transition-[width] duration-200" style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} />
             </div>
