@@ -13,14 +13,21 @@ import "@/components/welcome/welcome.css";
 export const metadata: Metadata = {
   title: "طمّني | نسخة تجريبية",
   description: "أخبار أبنائك في المدرسة توصلك باتصال أو رسالة، بالطريقة والوقت اللي يناسبك. نموذج تعليمي ببيانات خيالية.",
-  // Link previews also reach English readers, so they carry a short English line.
+  // Link previews also reach English readers, so they carry a short English line. Setting them here
+  // replaces the layout's preview fields, so the image and card type are repeated.
   openGraph: {
     title: "طمّني Tammeni — school news by call or text",
     description: "Parents choose what school news reaches them, when, and how. Arabic demo with fictional data.",
+    siteName: "طمّني",
+    locale: "ar_SA",
+    type: "website",
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: "Tammeni (طمّني): school news reaches parents by call or text" }],
   },
   twitter: {
+    card: "summary_large_image",
     title: "طمّني Tammeni — school news by call or text",
     description: "Parents choose what school news reaches them, when, and how. Arabic demo with fictional data.",
+    images: ["/twitter-image.png"],
   },
 };
 
