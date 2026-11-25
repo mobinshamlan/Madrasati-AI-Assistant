@@ -121,15 +121,16 @@ export function StudentPanel({
             <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">سجّل حدثًا من النموذج، وبتظهر بطاقته هنا مع قرار طمّني.</p>
           </div>
         ) : (
-          <ul className="mt-3 space-y-3">
+          <ul className="studio-event-ledger mt-3">
             {p.events.map((e) => (
-              <li key={e.id} id={`event-${e.id}`} className={`scroll-mt-4 rounded-2xl ${e.id === freshId ? "studio-fresh" : ""}`}>
+              <li key={e.id} id={`event-${e.id}`} className={`scroll-mt-4 ${e.id === freshId ? "studio-fresh" : ""}`}>
                 <NotificationCard
                   studentId={studentId}
                   studentName={name}
                   event={e}
                   attempts={e.notification ? attemptsFor(e.notification.id) : []}
                   realDispatch={realDispatch}
+                  isFresh={e.id === freshId}
                   onChanged={() => load(true)}
                 />
               </li>

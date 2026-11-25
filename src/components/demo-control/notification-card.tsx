@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AttendanceIcon, CheckIcon, ExamIcon, GradesIcon, InfoIcon } from "@/components/dashboard/icons";
 import { arabicMoment } from "@/lib/tammeni/evaluate";
 import {
@@ -69,6 +69,7 @@ export function NotificationCard({
   event,
   attempts,
   realDispatch,
+  isFresh,
   onChanged,
 }: {
   studentId: string;
@@ -76,6 +77,7 @@ export function NotificationCard({
   event: { id: string; kind: string; event_date: string; summary: string; notification: NotificationRow | null };
   attempts: AttemptRow[];
   realDispatch: boolean;
+  isFresh: boolean;
   onChanged: () => void;
 }) {
   const n = event.notification;
@@ -87,10 +89,13 @@ export function NotificationCard({
   const [runKey, setRunKey] = useState(newKey);
   const [outcome, setOutcome] = useState<{ tone: "ok" | "info" | "danger"; text: string } | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
+  const rowActionRef = useRef<HTMLButtonElement>(null);
 
   // «معاينة»: the server re-evaluates with the latest saved preferences and returns the exact text. Nothing is sent.
   const loadPreview = async () => {
     if (!n || busy) return;
+    setExpandedOverride(true);
     setBusy("preview");
     setError("");
     const r = await api<Preview>(`/api/demo-control/notifications/${n.id}/preview`, { method: "POST" });
@@ -156,11 +161,18 @@ export function NotificationCard({
   const lastAttempt = attempts[0];
   const method = preview?.method ?? n?.method ?? null;
   const isCall = method === "call";
-  // The heading chip is enough for a closed row; show the full path while this event is being previewed.
-  const showSteps = preview !== null || busy === "preview";
+  const dueLabel = preview ? preview.dueLabel : n?.due_at ? arabicMoment(n.due_at) : null;
+  const hasDetail = isFresh || preview !== null || busy === "preview" || outcome !== null || attempts.length > 0;
+  const expanded = expandedOverride ?? hasDetail;
   const sendLabel = realDispatch ? (isCall ? "اتصل الآن" : "أرسل الرسالة") : isCall ? "اتصال تجريبي" : "إرسال تجريبي";
   const Icon = kindIcons[event.kind] ?? InfoIcon;
   const visibleAttempts = showAll ? attempts : attempts.slice(0, 1);
+  const detailId = `event-detail-${event.id}`;
+  const toggleDetails = () => setExpandedOverride((open) => !(open ?? hasDetail));
+  const hideDetails = () => {
+    setExpandedOverride(false);
+    requestAnimationFrame(() => rowActionRef.current?.focus());
+  };
   const deleteButton = (
     <button type="button" disabled={busy !== null} onClick={() => { setError(""); setDeleteOpen(true); }} className="btn-quiet btn-sm shrink-0 !text-danger">
       حذف الحدث
@@ -168,136 +180,166 @@ export function NotificationCard({
   );
 
   return (
-    <article aria-labelledby={`ev-${event.id}`} className="sheet p-4 sm:p-5">
-      <header className="flex items-start gap-3">
-        <Icon size={22} className="mt-0.5 shrink-0 text-faint" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-            <h3 id={`ev-${event.id}`} className="font-semibold">
-              {event.summary}
-            </h3>
-            {n ? (
-              lastAttempt ? <StatusChip {...attemptLook(lastAttempt)} /> : <DecisionChip status={n.status} />
-            ) : (
-              <span className="chip">بدون إشعار</span>
-            )}
-          </div>
-          {n && (
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.875rem] text-ink-soft">
-              <MethodLabel method={n.method} />
-              {n.status === "waiting" && n.due_at && <span>الموعد: {arabicMoment(n.due_at)}</span>}
-              {n.status === "suppressed" && <span>{n.reason}</span>}
+    <article aria-labelledby={`ev-${event.id}`} className={`studio-event${expanded ? " is-expanded" : ""}`}>
+      <header className="studio-event-header">
+        <div className="studio-event-leading">
+          <Icon size={20} className="studio-event-icon" />
+          <div className="min-w-0 flex-1">
+            <div className="studio-event-title-line">
+              <h3 id={`ev-${event.id}`}>{event.summary}</h3>
+              {n ? <DecisionChip status={preview?.status ?? n.status} /> : <span className="chip">بدون إشعار</span>}
+            </div>
+            <p className="studio-event-meta">
+              {n ? (
+                <>
+                  <MethodLabel method={method} />
+                  {dueLabel && <span>الموعد: {dueLabel}</span>}
+                </>
+              ) : (
+                <span>قبول العذر ما ينتج إشعارًا مستقلًا</span>
+              )}
             </p>
-          )}
+          </div>
         </div>
+        {n && n.status !== "cancelled" ? (
+          <button
+            ref={rowActionRef}
+            type="button"
+            onClick={loadPreview}
+            aria-label={`${preview ? "تحديث المعاينة" : "معاينة"} ${isCall ? "المكالمة" : "الرسالة"}: ${event.summary}`}
+            aria-controls={detailId}
+            aria-expanded={expanded}
+            aria-busy={busy === "preview" || undefined}
+            disabled={busy !== null && busy !== "preview"}
+            className="studio-event-preview btn-secondary btn-sm shrink-0"
+          >
+            {busy === "preview" && <span className="spinner" aria-hidden="true" />}
+            {busy === "preview" ? "جارٍ التحضير…" : preview ? "تحديث المعاينة" : "معاينة"}
+          </button>
+        ) : (
+          <button
+            ref={rowActionRef}
+            type="button"
+            className="btn-quiet btn-sm shrink-0"
+            aria-controls={detailId}
+            aria-expanded={expanded}
+            onClick={toggleDetails}
+          >
+            {expanded ? "إخفاء التفاصيل" : "تفاصيل الحدث"}
+          </button>
+        )}
       </header>
 
-      {!n ? (
-        <p className="mt-3 text-[0.9375rem] leading-7 text-ink-soft">قبول العذر يغيّر سجل الغياب فقط، وما ينتج إشعارًا مستقلًا.</p>
-      ) : (
-        <>
-          {showSteps && <Steps n={n} previewed={preview !== null} last={lastAttempt} />}
+      <section id={detailId} aria-label={`تفاصيل ${event.summary}`} className="studio-event-detail" hidden={!expanded}>
+          {!n ? (
+            <>
+              <p className="text-[0.9375rem] leading-7 text-ink-soft">قبول العذر يغيّر سجل الغياب فقط، وما ينتج إشعارًا مستقلًا.</p>
+              <div className="studio-event-detail-actions">{deleteButton}</div>
+            </>
+          ) : (
+            <>
+              <Steps n={n} previewed={preview !== null} last={lastAttempt} />
 
-          {preview && <PreviewBox preview={preview} />}
-          {outcome && (
-            <p role="status" className={`notice notice-${outcome.tone} arrive mt-3`}>
-              <InfoIcon size={18} />
-              <span>{outcome.text}</span>
-            </p>
-          )}
-          {error && (
-            <div className="mt-3">
-              <ErrorNote>{error}</ErrorNote>
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {n.status !== "cancelled" && (
-              <button type="button" onClick={loadPreview} aria-busy={busy === "preview" || undefined} disabled={busy !== null && busy !== "preview"} className="btn-secondary btn-sm">
-                {busy === "preview" && <span className="spinner" aria-hidden="true" />}
-                {busy === "preview" ? "جارٍ التحضير…" : preview ? "تحديث المعاينة" : isCall ? "معاينة المكالمة" : "معاينة الرسالة"}
-              </button>
-            )}
-            {canRun && (
-              <button type="button" onClick={() => setConfirm({ resendOf: null })} disabled={busy !== null} className="btn-primary btn-sm">
-                {sendLabel}
-              </button>
-            )}
-            {!preview && n.status !== "suppressed" && n.status !== "cancelled" && !SENT.has(n.status) && n.status !== "failed" && (
-              <span className="text-[0.875rem] text-faint">اعرض المعاينة أولًا، بعدها يظهر زر الإرسال.</span>
-            )}
-          </div>
-
-          {attempts.length > 0 && (
-            <section aria-label={`محاولات الإرسال: ${event.summary}`} className="mt-4 border-t border-rule pt-3">
-              <h4 className="text-[0.875rem] font-semibold text-ink-soft">محاولات الإرسال ({attempts.length})</h4>
-              <ul className="mt-1 divide-y divide-rule">
-                {visibleAttempts.map((a) => (
-                  <li key={a.id} className="py-2.5">
-                    <p className="flex flex-wrap items-center gap-2 text-[0.875rem]">
-                      <ModeChip provider={a.provider} />
-                      <StatusChip {...attemptLook(a)} />
-                      <MethodLabel method={a.method} />
-                      {a.kind === "resend" && <span className="text-faint">إعادة</span>}
-                    </p>
-                    <p className="mt-1 text-[0.8125rem] leading-6 text-faint">
-                      {arabicMoment(a.created_at)}
-                      {a.destination_masked && (
-                        <>
-                          {" — إلى "}
-                          <bdi dir="ltr" className="num">
-                            {a.destination_masked}
-                          </bdi>
-                        </>
-                      )}
-                      {!isMock(a) && a.provider_status && <> — المزوّد: {providerWord(a.provider_status)}</>}
-                      {a.triggered_by === "scheduler" && <> — أُرسل تلقائيًا في موعده</>}
-                      {a.ran_early && a.original_due_at && <> — أُرسل قبل موعده ({arabicMoment(a.original_due_at)})</>}
-                    </p>
-                    {a.error_message && <p className="mt-1 text-[0.875rem] font-medium text-danger">{a.error_message}</p>}
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {!isMock(a) && (a.status === "accepted" || a.status === "sending") && (
-                        <button type="button" onClick={() => refresh(a.id)} disabled={busy !== null} aria-busy={busy === "refresh" || undefined} className="btn-quiet btn-sm">
-                          {busy === "refresh" ? "جارٍ السؤال…" : "تحديث حالة التسليم"}
-                        </button>
-                      )}
-                      {a.id === lastAttempt?.id && preview && preview.status !== "suppressed" && (
-                        <button type="button" onClick={() => setConfirm({ resendOf: a.id })} disabled={busy !== null} className="btn-quiet btn-sm">
-                          {a.status === "failed" ? "حاول مرة ثانية" : isCall ? "اتصل مرة ثانية" : "أرسل مرة ثانية"}
-                        </button>
-                      )}
-                      {a.id === lastAttempt?.id && !preview && n.status !== "suppressed" && (
-                        <span className="py-2 text-[0.8125rem] text-faint">لإعادة الإرسال اعرض المعاينة أولًا.</span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              {attempts.length > 1 && (
-                <button type="button" className="btn-quiet btn-sm" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)}>
-                  {showAll ? "إخفاء المحاولات الأقدم" : `عرض كل المحاولات (${attempts.length})`}
-                </button>
+              {preview && <PreviewBox preview={preview} />}
+              {outcome && (
+                <p role="status" className={`notice notice-${outcome.tone} arrive mt-3`}>
+                  <InfoIcon size={18} />
+                  <span>{outcome.text}</span>
+                </p>
               )}
-            </section>
-          )}
+              {error && (
+                <div className="mt-3">
+                  <ErrorNote>{error}</ErrorNote>
+                </div>
+              )}
 
-          <div className="mt-2 flex items-start gap-3">
-            <details className="studio-disclosure min-w-0 flex-1 text-[0.875rem]">
-              <summary className="text-ink-soft">ليش هذا القرار؟</summary>
-              <div className="space-y-1 pb-2 leading-6 text-ink-soft">
-                <p>{n.reason}</p>
-                {n.due_at && <p>الموعد حسب التفضيلات: {arabicMoment(n.due_at)} بتوقيت الرياض.</p>}
+              <div className="studio-event-controls mt-4">
+                {canRun && (
+                  <button type="button" onClick={() => setConfirm({ resendOf: null })} disabled={busy !== null} className="btn-primary btn-sm">
+                    {sendLabel}
+                  </button>
+                )}
+                {!preview && n.status !== "suppressed" && n.status !== "cancelled" && !SENT.has(n.status) && n.status !== "failed" && (
+                  <span className="text-[0.875rem] text-faint">اعرض المعاينة أولًا، بعدها يظهر زر الإرسال.</span>
+                )}
               </div>
-            </details>
-            {deleteButton}
-          </div>
-        </>
-      )}
-      {!n && (
-        <div className="mt-2 flex justify-end">
-          {deleteButton}
-        </div>
-      )}
+
+              {attempts.length > 0 && (
+                <section aria-label={`محاولات الإرسال: ${event.summary}`} className="mt-4 border-t border-rule pt-3">
+                  <h4 className="text-[0.875rem] font-semibold text-ink-soft">محاولات الإرسال ({attempts.length})</h4>
+                  <ul className="mt-1 divide-y divide-rule">
+                    {visibleAttempts.map((a) => (
+                      <li key={a.id} className="py-2.5">
+                        <p className="flex flex-wrap items-center gap-2 text-[0.875rem]">
+                          <ModeChip provider={a.provider} />
+                          <StatusChip {...attemptLook(a)} />
+                          <MethodLabel method={a.method} />
+                          {a.kind === "resend" && <span className="text-faint">إعادة</span>}
+                        </p>
+                        <p className="mt-1 text-[0.8125rem] leading-6 text-faint">
+                          {arabicMoment(a.created_at)}
+                          {a.destination_masked && (
+                            <>
+                              {" — إلى "}
+                              <bdi dir="ltr" className="num">
+                                {a.destination_masked}
+                              </bdi>
+                            </>
+                          )}
+                          {!isMock(a) && a.provider_status && <> — المزوّد: {providerWord(a.provider_status)}</>}
+                          {a.triggered_by === "scheduler" && <> — أُرسل تلقائيًا في موعده</>}
+                          {a.ran_early && a.original_due_at && <> — أُرسل قبل موعده ({arabicMoment(a.original_due_at)})</>}
+                        </p>
+                        {a.error_message && <p className="mt-1 text-[0.875rem] font-medium text-danger">{a.error_message}</p>}
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {!isMock(a) && (a.status === "accepted" || a.status === "sending") && (
+                            <button type="button" onClick={() => refresh(a.id)} disabled={busy !== null} aria-busy={busy === "refresh" || undefined} className="btn-quiet btn-sm">
+                              {busy === "refresh" ? "جارٍ السؤال…" : "تحديث حالة التسليم"}
+                            </button>
+                          )}
+                          {a.id === lastAttempt?.id && preview && preview.status !== "suppressed" && (
+                            <button type="button" onClick={() => setConfirm({ resendOf: a.id })} disabled={busy !== null} className="btn-quiet btn-sm">
+                              {a.status === "failed" ? "حاول مرة ثانية" : isCall ? "اتصل مرة ثانية" : "أرسل مرة ثانية"}
+                            </button>
+                          )}
+                          {a.id === lastAttempt?.id && !preview && n.status !== "suppressed" && (
+                            <span className="py-2 text-[0.8125rem] text-faint">لإعادة الإرسال اعرض المعاينة أولًا.</span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {attempts.length > 1 && (
+                    <button type="button" className="btn-quiet btn-sm" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)}>
+                      {showAll ? "إخفاء المحاولات الأقدم" : `عرض كل المحاولات (${attempts.length})`}
+                    </button>
+                  )}
+                </section>
+              )}
+
+              <div className="studio-event-detail-footer mt-2">
+                <details className="studio-disclosure min-w-0 flex-1 text-[0.875rem]">
+                  <summary className="text-ink-soft">ليش هذا القرار؟</summary>
+                  <div className="space-y-1 pb-2 leading-6 text-ink-soft">
+                    <p>{n.reason}</p>
+                    {n.due_at && <p>الموعد حسب التفضيلات: {arabicMoment(n.due_at)} بتوقيت الرياض.</p>}
+                  </div>
+                </details>
+                <button
+                  type="button"
+                  className="btn-quiet btn-sm shrink-0"
+                  aria-controls={detailId}
+                  aria-expanded="true"
+                  disabled={busy === "run" || busy === "refresh" || busy === "delete"}
+                  onClick={hideDetails}
+                >
+                  إخفاء التفاصيل
+                </button>
+                {deleteButton}
+              </div>
+            </>
+          )}
+      </section>
 
       <ConfirmDialog
         open={confirm !== null}
