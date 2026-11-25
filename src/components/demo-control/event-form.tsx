@@ -295,7 +295,7 @@ function EvaluationResult({ result, name }: { result: Result; name: string }) {
           </p>
           <button
             type="button"
-            onClick={() => document.querySelector("[id^='event-']")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            onClick={() => document.querySelector("li[id^='event-']")?.scrollIntoView({ behavior: "smooth", block: "start" })}
             className="mt-2 font-semibold text-brand underline underline-offset-4"
           >
             اعرض البطاقة وأرسلها
