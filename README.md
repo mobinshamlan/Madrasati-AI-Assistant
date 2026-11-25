@@ -14,7 +14,7 @@ A student prototype inspired by Saudi Arabia's Madrasati school platform. Arabic
 ## Try it (1 minute)
 
 1. Open the [live demo](https://tammeni-demo.vercel.app/welcome) and press **ابدأ التجربة** (Start). No account needed.
-2. See each child's exams, attendance and grades. Switch between **ريم** (Reem) and **نواف** (Nawaf).
+2. See each child's attendance, grades and any upcoming exams. Switch between **ريم** (Reem) and **نواف** (Nawaf).
 3. Press **عدّل التنبيهات** (Edit alerts), then **تعديل** (Edit) on any topic. Change an option, and press **التالي** (Next) to the end.
 4. Press **حفظ التفضيلات** (Save) to see the summary of what you'll get.
 
@@ -24,7 +24,7 @@ Everyone shares one fictional parent account, so you may see someone else's last
 
 ## What it does
 
-- **Parent dashboard**: each child's upcoming exams, attendance and grades, read from Supabase. Row-level security limits the parent to their own children.
+- **Parent dashboard**: each child's attendance, grades and any upcoming exams, read from Supabase. Row-level security limits the parent to their own children.
 - **Alert choices**: per child and per topic (attendance, exams, grades): right away, a daily or weekly summary, or a custom schedule, by call or text.
 - **Voice call agent**: a call from "Lulwa" gives the update, then answers questions about the child from their record. Uses OpenAI's live voice API and Twilio.
 - **Demo studio** (operator only): add a school event, see which parents it reaches, preview the call or text, and send it.
