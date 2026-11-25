@@ -572,7 +572,7 @@ function Editor({
             )}
           </section>
 
-          <div className="sticky bottom-0 z-10 mt-5 border-t border-line bg-ground/95 py-3 backdrop-blur-sm">
+          <div className="sticky-save sticky bottom-0 z-10 mt-5 border-t border-line bg-ground/95 py-3 backdrop-blur-sm">
             <div className="flex gap-3">
               {stepIndex === 0 && editTopic === null ? (
                 <Link href={`/tammeni?student=${student.id}`} className="btn-secondary flex-1">

@@ -33,7 +33,7 @@ function schoolDay(day: string, step: 1 | -1) {
 
 type Result = {
   duplicate: boolean;
-  event: { summary: string };
+  event: { id: string; summary: string };
   notification: { status: string; method: string | null; reason: string; dueLabel: string | null } | null;
   excuse?: { outcome: "cancelled" | "already-sent" | "none"; status?: string };
 };
@@ -295,7 +295,7 @@ function EvaluationResult({ result, name }: { result: Result; name: string }) {
           </p>
           <button
             type="button"
-            onClick={() => document.querySelector("li[id^='event-']")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            onClick={() => document.getElementById(`event-${result.event.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
             className="mt-2 font-semibold text-brand underline underline-offset-4"
           >
             اعرض البطاقة وأرسلها
