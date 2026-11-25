@@ -675,9 +675,9 @@ function TopicReviewList({ prefs, onEdit }: { prefs: Preferences; onEdit: (topic
         const summary = topicSummary(prefs, topic);
         const Icon = topicIcons[topic];
         return (
-          <article key={topic} className="grid gap-3 py-5 sm:grid-cols-[1fr_auto] sm:items-center">
+          <article key={topic} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 py-5 sm:gap-x-3">
             <div className="min-w-0">
-              <h3 className="flex items-center gap-2 text-[1.125rem] font-bold">
+              <h3 className="flex flex-wrap items-center gap-2 text-[1.125rem] font-bold">
                 <Icon size={20} className="text-brand" />
                 {guidedLabels[topic]}
                 <span className="chip" data-tone={summary.status === "on" ? "ok" : summary.status === "off" ? "neutral" : "warn"}>
@@ -693,7 +693,7 @@ function TopicReviewList({ prefs, onEdit }: { prefs: Preferences; onEdit: (topic
               </p>
               {summary.note && <p className="mt-1 text-[0.9375rem] leading-6 text-ink-soft">{summary.note}</p>}
             </div>
-            <button type="button" className="btn-secondary btn-sm min-w-24" aria-label={`تعديل ${guidedLabels[topic]}`} onClick={() => onEdit(topic)}>
+            <button type="button" className="btn-secondary btn-sm min-h-11 min-w-11 !px-2.5" aria-label={`تعديل ${guidedLabels[topic]}`} onClick={() => onEdit(topic)}>
               تعديل
             </button>
           </article>

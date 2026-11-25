@@ -67,6 +67,14 @@ function DashboardBody() {
             <ChildSwitcher students={list} selectedId={current.id} onSelect={setStudentId} />
           </div>
           <Finding student={current} record={record.status === "ready" ? record.data : null} recordFailed={record.status === "error"} prefs={prefs} />
+          {prefs.status === "ready" && prefs.data.exists && (
+            <Link href={`/assistant?student=${current.id}`} className="text-link mt-2 w-fit lg:!hidden">
+              عدّل التنبيهات
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M19 12H5M11 6l-6 6 6 6" />
+              </svg>
+            </Link>
+          )}
         </div>
       </section>
 
@@ -74,17 +82,17 @@ function DashboardBody() {
           the wrappers dissolve (display: contents) and the panels follow the reading order below. */}
       <div className={`${container} mt-8 flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start`}>
         <div className="contents lg:col-span-7 lg:flex lg:flex-col lg:gap-4">
-          <div className="order-1">
+          <div className="order-3 lg:order-1">
             <PreferencesPanel student={current} prefs={prefs} />
           </div>
           {record.status === "ready" && (
-            <div className="order-4">
+            <div className="order-4 lg:order-2">
               <GradesPanel student={record.data} />
             </div>
           )}
         </div>
         <div className="contents lg:col-span-5 lg:flex lg:flex-col lg:gap-4">
-          <div className="order-2">
+          <div className="order-1 lg:order-1">
             {record.status === "error" ? (
               <LoadProblem title="تعذّر تحميل سجلات المدرسة" message={record.message} onRetry={record.reload} />
             ) : record.status === "loading" ? (
@@ -94,7 +102,7 @@ function DashboardBody() {
             )}
           </div>
           {record.status === "ready" && (
-            <div className="order-3">
+            <div className="order-2 lg:order-2">
               <AttendancePanel student={record.data} />
             </div>
           )}
@@ -196,7 +204,7 @@ function PreferencesPanel({ student, prefs }: { student: LinkedStudent; prefs: P
         title={`كيف يوصلك الخبر عن ${student.firstName}`}
         aside={
           prefs.status === "ready" && prefs.data.exists ? (
-            <Link href={href} className="btn-secondary btn-sm">
+            <Link href={href} className="btn-secondary btn-sm !hidden lg:!inline-flex">
               عدّل التنبيهات
             </Link>
           ) : null

@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { parent } from "@/components/dashboard/data";
 import { InfoIcon, UserIcon } from "@/components/dashboard/icons";
-import { SectionTab } from "@/components/madrasati/ui";
 import { safeReturnPath, startDemoSession, useDemoSession } from "@/lib/demo-session";
 
 export function DemoLogin() {
@@ -34,28 +33,26 @@ export function DemoLogin() {
 
   return (
     <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-      <section aria-labelledby="login-title" className="bg-mint-200">
-        <div className="mx-auto max-w-xl px-4 pt-8 pb-10">
-          <h1 id="login-title" className="text-3xl leading-tight font-extrabold text-ink">
+      <section aria-labelledby="login-title" className="on-board">
+        <div className="mx-auto max-w-[760px] px-4 pt-8 pb-20 sm:px-6 sm:pt-12 sm:pb-24">
+          <h1 id="login-title" className="text-[2.25rem] leading-[1.25] text-chalk sm:text-[3rem]">
             دخول تجريبي
           </h1>
-          <p className="mt-3 text-lg leading-8 text-ink">
+          <p className="mt-4 max-w-[42rem] text-[1.0625rem] leading-8 text-chalk-soft">
             ادخل إلى النموذج باسم ولي أمر خيالي. لا نطلب كلمة مرور ولا أي بيانات شخصية.
           </p>
         </div>
       </section>
 
-      <div className="mx-auto max-w-xl space-y-6 px-4 py-8 text-lg">
-        <section aria-labelledby="login-as">
-          <SectionTab id="login-as" title="ستدخل باسم" size="lg" />
-          <div className="space-y-6 rounded-b-xl border border-t-0 border-line bg-white p-5 sm:p-6">
-            <div className="flex items-center gap-4">
-              <span className="grid size-16 shrink-0 place-items-center rounded-full bg-mint-200 text-brand-700">
-                <UserIcon size={30} />
-              </span>
-              <div>
-                <p className="text-xl font-bold text-ink">{parent.name}</p>
-                <p className="text-ink">
+      <div className="mx-auto -mt-12 w-full max-w-[760px] px-4 pb-12 sm:-mt-14 sm:px-6">
+        <section aria-labelledby="login-as" className="sheet p-5 sm:p-7">
+          <h2 id="login-as" className="sr-only">ستدخل باسم</h2>
+          <div className="space-y-5">
+            <div className="flex items-start gap-3">
+              <UserIcon size={22} className="mt-1 shrink-0 text-ink-soft" />
+              <div className="min-w-0">
+                <p className="font-display text-[1.25rem] leading-snug font-semibold text-ink">{parent.name}</p>
+                <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">
                   {parent.role} لريم ونواف — بيانات خيالية
                 </p>
               </div>
@@ -64,25 +61,25 @@ export function DemoLogin() {
               type="button"
               onClick={enter}
               aria-disabled={entering || undefined}
-              className="btn-primary w-full text-xl aria-disabled:cursor-wait"
+              className="btn-primary w-full text-[1.0625rem] aria-disabled:cursor-wait"
             >
               {entering ? "جارٍ الدخول…" : "دخول"}
             </button>
             {failed && (
-              <p role="alert" className="rounded-xl border-2 border-[#fecdca] bg-[#fef3f2] p-4 font-bold text-[#b42318]">
+              <p role="alert" className="notice notice-danger">
                 تعذّر بدء الدخول التجريبي. تأكد من اتصالك بالإنترنت، ثم حاول مرة أخرى.
               </p>
             )}
           </div>
         </section>
 
-        <ul className="space-y-3 text-base leading-7 text-ink">
+        <ul className="mt-5 space-y-2 text-[0.875rem] leading-6 text-ink-soft">
           {[
             "هذا ليس تسجيل دخول حقيقيًا، ولا يمنح وصولًا إلى أي بيانات حقيقية.",
             "تبقى تفضيلات طمّني محفوظة في الحساب التجريبي حتى بعد الخروج من هذه الجلسة.",
           ].map((note) => (
             <li key={note} className="flex gap-3">
-              <InfoIcon size={22} className="mt-0.5 shrink-0 text-brand-700" />
+              <InfoIcon size={18} className="mt-1 shrink-0 text-faint" />
               {note}
             </li>
           ))}

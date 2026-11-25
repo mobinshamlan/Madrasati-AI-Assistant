@@ -23,14 +23,7 @@ export function AssistantConfirmation() {
   }
   const student = linked.data.find((s) => s.id === studentId);
   if (!student) {
-    return (
-      <Problem
-        title="ما تعرّفنا على الابن أو الابنة"
-        body="افتح تفضيلات التنبيه واختر الابن أو الابنة، ثم احفظ."
-        action={{ href: "/assistant", label: "فتح تفضيلات التنبيه" }}
-        home="/tammeni"
-      />
-    );
+    return <MissingStudentProblem />;
   }
   const siblings = linked.data.filter((s) => s.id !== student.id);
   // Keyed by student so focus and the saved record are read afresh for each one.
@@ -168,6 +161,32 @@ function Problem({ title, body, action, home }: { title: string; body: string; a
         </Link>
         <Link href={home} className="btn-secondary">
           الرجوع للرئيسية
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function MissingStudentProblem() {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => headingRef.current?.focus(), []);
+  return (
+    <div className={`${container} py-12`}>
+      <h1 ref={headingRef} tabIndex={-1} className="text-[1.75rem] leading-tight font-bold focus:outline-none">
+        ما تعرّفنا على الابن أو الابنة
+      </h1>
+      <p className="mt-3 text-[1.0625rem] leading-8 text-ink-soft">
+        افتح تفضيلات التنبيه واختر الابن أو الابنة، ثم احفظ.
+      </p>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Link href="/assistant" className="btn-primary">
+          فتح تفضيلات التنبيه
+        </Link>
+        <Link href="/tammeni" className="text-link">
+          الرجوع للرئيسية
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M19 12H5M11 6l-6 6 6 6" />
+          </svg>
         </Link>
       </div>
     </div>

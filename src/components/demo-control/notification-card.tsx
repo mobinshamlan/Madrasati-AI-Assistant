@@ -156,6 +156,8 @@ export function NotificationCard({
   const lastAttempt = attempts[0];
   const method = preview?.method ?? n?.method ?? null;
   const isCall = method === "call";
+  // The heading chip is enough for a closed row; show the full path while this event is being previewed.
+  const showSteps = preview !== null || busy === "preview";
   const sendLabel = realDispatch ? (isCall ? "اتصل الآن" : "أرسل الرسالة") : isCall ? "اتصال تجريبي" : "إرسال تجريبي";
   const Icon = kindIcons[event.kind] ?? InfoIcon;
   const visibleAttempts = showAll ? attempts : attempts.slice(0, 1);
@@ -194,7 +196,7 @@ export function NotificationCard({
         <p className="mt-3 text-[0.9375rem] leading-7 text-ink-soft">قبول العذر يغيّر سجل الغياب فقط، وما ينتج إشعارًا مستقلًا.</p>
       ) : (
         <>
-          <Steps n={n} previewed={preview !== null} last={lastAttempt} />
+          {showSteps && <Steps n={n} previewed={preview !== null} last={lastAttempt} />}
 
           {preview && <PreviewBox preview={preview} />}
           {outcome && (

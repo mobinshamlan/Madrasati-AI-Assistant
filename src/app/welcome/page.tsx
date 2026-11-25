@@ -77,8 +77,11 @@ export default function WelcomePage() {
                 <WelcomeActions />
               </Suspense>
             </div>
-            <div className="lg:col-span-5">
+            <div className="grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] items-center gap-3 sm:gap-5 lg:col-span-5">
               <WelcomeCharacter />
+              <blockquote aria-label="مثال من مكالمة لولوة" className="rounded-2xl border border-board-line bg-board-raised p-3 text-[0.875rem] leading-6 text-chalk sm:p-4">
+                {callExample}
+              </blockquote>
             </div>
           </div>
         </section>
@@ -106,7 +109,7 @@ export default function WelcomePage() {
             </ol>
 
             <div id="examples" className="mt-14 grid scroll-mt-6 gap-5 lg:grid-cols-2">
-              <figure className="tone flex flex-col p-6 sm:p-7">
+              <figure className="min-w-0 py-2 lg:px-5">
                 <figcaption className="flex items-center gap-3">
                   <Image src="/characters/combined.png" alt="" width={52} height={52} className="size-13 rounded-full bg-surface object-contain" />
                   <span>
@@ -117,7 +120,7 @@ export default function WelcomePage() {
                     </span>
                   </span>
                 </figcaption>
-                <blockquote className="mt-5 rounded-2xl rounded-ss-md bg-surface px-5 py-4 text-[1.0625rem] leading-8">{callExample}</blockquote>
+                <blockquote className="mt-5 border-s-2 border-board-line ps-4 text-[1.0625rem] leading-8">{callExample}</blockquote>
                 <p className="mt-4 text-[0.9375rem] leading-7 text-ink-soft">وتقدر تسألها عن حضور ريم أو درجاتها، وترد عليك من سجلها.</p>
               </figure>
 
