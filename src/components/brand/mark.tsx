@@ -22,7 +22,7 @@ export function Wordmark({ sub, size = "md" }: { sub?: string; size?: "md" | "lg
     <span className="inline-flex items-center gap-2.5">
       <TammeniMark size={size === "lg" ? 40 : 32} />
       <span className="flex flex-col leading-none">
-        <span className={`font-bold tracking-tight text-ink ${size === "lg" ? "text-[1.75rem]" : "text-[1.375rem]"}`}>طمّني</span>
+        <span translate="no" className={`font-bold tracking-tight text-ink ${size === "lg" ? "text-[1.75rem]" : "text-[1.375rem]"}`}>طمّني</span>
         {sub && <span className="mt-1 text-[0.8125rem] font-medium text-faint">{sub}</span>}
       </span>
     </span>

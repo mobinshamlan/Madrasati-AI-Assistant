@@ -13,6 +13,15 @@ import "@/components/welcome/welcome.css";
 export const metadata: Metadata = {
   title: "طمّني | نسخة تجريبية",
   description: "أخبار أبنائك في المدرسة توصلك باتصال أو رسالة، بالطريقة والوقت اللي يناسبك. نموذج تعليمي ببيانات خيالية.",
+  // Link previews also reach English readers, so they carry a short English line.
+  openGraph: {
+    title: "طمّني Tammeni — school news by call or text",
+    description: "Parents choose what school news reaches them, when, and how. Arabic demo with fictional data.",
+  },
+  twitter: {
+    title: "طمّني Tammeni — school news by call or text",
+    description: "Parents choose what school news reaches them, when, and how. Arabic demo with fictional data.",
+  },
 };
 
 // The examples are built from ريم's fictional record (this page is shown before sign-in, so it uses the

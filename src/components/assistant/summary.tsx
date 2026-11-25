@@ -79,7 +79,7 @@ export function PreferenceSummary({ preferences, firstName }: { preferences: Pre
 export function formatSavedAt(iso: string) {
   try {
     return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {
-      dateStyle: "medium",
+      dateStyle: "long",
       timeStyle: "short",
       timeZone: "Asia/Riyadh",
     }).format(new Date(iso));

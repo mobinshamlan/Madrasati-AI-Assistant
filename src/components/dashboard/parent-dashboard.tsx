@@ -365,7 +365,7 @@ function GradesPanel({ student }: { student: DashboardStudent }) {
                 <tr key={`${g.subject}-${g.assessment}-${i}`}>
                   <th scope="row" className="py-2.5 text-start font-normal">
                     <span className="block font-medium">{g.subject}</span>
-                    <span className="block text-[0.8125rem] text-faint">{g.assessment}</span>
+                    <span dir="auto" className="block text-[0.8125rem] text-faint">{g.assessment}</span>
                   </th>
                   <td className="num py-2.5 text-end align-top whitespace-nowrap">
                     <bdi dir="ltr" className={`font-semibold ${low ? "text-warn" : ""}`}>

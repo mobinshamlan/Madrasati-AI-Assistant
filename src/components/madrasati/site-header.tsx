@@ -55,7 +55,7 @@ const utilityActions = [
 function BrandMark() {
   return (
     <div className="flex items-center gap-3">
-      <p className="tammeni-mark text-[1.75rem] sm:text-[2rem]">طمّني</p>
+      <p translate="no" className="tammeni-mark text-[1.75rem] sm:text-[2rem]">طمّني</p>
       <span className="hidden h-10 w-px bg-brand-400 sm:block" aria-hidden="true" />
       <Image
         src="/brand/madrasati-logo.svg"
