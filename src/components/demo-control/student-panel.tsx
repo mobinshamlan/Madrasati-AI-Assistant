@@ -88,7 +88,10 @@ export function StudentPanel({
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-12">
-      <div className="space-y-4 lg:sticky lg:top-4 lg:col-span-5">
+      {/* On phones the wrapper dissolves (display: contents) so the log follows the form directly: the
+          operator sees Tammeni's decision without scrolling past the reference panels. */}
+      <div className="contents lg:sticky lg:top-4 lg:col-span-5 lg:block lg:space-y-4">
+        <div className="order-1 lg:order-none">
         <EventForm
           panel={p}
           today={today}
@@ -98,12 +101,15 @@ export function StudentPanel({
             if (data?.events[0]) setFreshId(data.events[0].id);
           }}
         />
-        <PreferencesCard panel={p} />
-        <StudentFacts studentId={studentId} name={name} />
-        <ResetTools panel={p} onDone={(msg) => { setNotice(msg); void load(true); }} />
+        </div>
+        <div className="order-3 space-y-4 lg:order-none">
+          <PreferencesCard panel={p} />
+          <StudentFacts studentId={studentId} name={name} />
+          <ResetTools panel={p} onDone={(msg) => { setNotice(msg); void load(true); }} />
+        </div>
       </div>
 
-      <section aria-labelledby="log-title" className="min-w-0 lg:col-span-7">
+      <section aria-labelledby="log-title" className="order-2 min-w-0 lg:order-none lg:col-span-7">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="log-title" className="text-[1.25rem] font-semibold">
             سجل الإشعارات — {name}
