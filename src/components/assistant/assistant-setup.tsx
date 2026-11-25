@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { savePreferencesToDb, useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
+import { resetPreferencesInDb, savePreferencesToDb, useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import { CheckIcon, ClockIcon, InfoIcon } from "@/components/dashboard/icons";
 import { ChildSwitcher, Choice, LoadProblem, Placeholder, childTone } from "@/components/dashboard/ui";
 import {
@@ -157,6 +157,7 @@ function Setup() {
                     dirty.current = d;
                   }}
                   onSaved={onSaved}
+                  onReset={dbPrefs.reload}
                 />
               </>
             );
@@ -238,6 +239,7 @@ function Editor({
   onDirtyChange,
   onSelectStudent,
   onSaved,
+  onReset,
 }: {
   student: LinkedStudent;
   students: LinkedStudent[];
@@ -250,6 +252,7 @@ function Editor({
   onDirtyChange: (dirty: boolean) => void;
   onSelectStudent: (id: string) => void;
   onSaved: () => void;
+  onReset: () => void;
 }) {
   const [prefs, setPrefs] = useState<Preferences>(initial);
   // A new parent starts from the suggested choices, ready to save; each topic can still be changed step by step.
@@ -266,6 +269,13 @@ function Editor({
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  // Start over: clears the saved choices so the first-time setup shows again (handy for trying the demo).
+  const [resetStep, setResetStep] = useState<"idle" | "confirm" | "busy" | "failed">("idle");
+  const reset = async () => {
+    setResetStep("busy");
+    if (await resetPreferencesInDb(student.dbId)) onReset();
+    else setResetStep("failed");
+  };
   const dirty = JSON.stringify(prefs) !== JSON.stringify(initial);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
@@ -454,6 +464,25 @@ function Editor({
             <p role="status" className="text-[0.9375rem] leading-6 text-ink-soft">
               {dirty ? "راجع التغييرات قبل حفظها." : savedExists ? "تقدر تعدّل كل موضوع على حدة." : "هذا اقتراحنا. عدّل اللي تبي، ثم احفظ."}
             </p>
+            {savedExists && !dirty && (
+              <div className="flex flex-wrap items-center gap-2">
+                {resetStep === "idle" || resetStep === "failed" ? (
+                  <button type="button" className="btn-secondary btn-sm" onClick={() => setResetStep("confirm")}>
+                    ابدأ من جديد
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" className="btn-danger btn-sm" onClick={reset} disabled={resetStep === "busy"} aria-busy={resetStep === "busy" || undefined}>
+                      {resetStep === "busy" ? "جارٍ المسح…" : `نعم، امسح اختيارات ${student.firstName}`}
+                    </button>
+                    <button type="button" className="btn-quiet btn-sm" onClick={() => setResetStep("idle")} disabled={resetStep === "busy"}>
+                      إلغاء
+                    </button>
+                  </>
+                )}
+                {resetStep === "failed" && <p role="alert" className="w-full text-[0.9375rem] font-semibold text-danger">ما قدرنا نمسح. جرّب مرة ثانية.</p>}
+              </div>
+            )}
             {(!savedExists || dirty) && (
               <button type="button" className="btn-primary w-full sm:w-auto" onClick={save} disabled={saving} aria-busy={saving || undefined}>
                 {saving ? <><span className="spinner" aria-hidden="true" /> جارٍ الحفظ…</> : saveFailed ? "إعادة المحاولة" : "حفظ التفضيلات"}

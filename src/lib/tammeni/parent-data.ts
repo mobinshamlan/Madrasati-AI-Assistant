@@ -84,6 +84,12 @@ export function useStudentPreferences(dbId: string | null) {
   });
 }
 
+/** Deletes this child's saved choices (RLS: the parent's own row only), so setup starts over. */
+export async function resetPreferencesInDb(dbId: string): Promise<boolean> {
+  const { error } = await getParentClient().from("assistant_preferences").delete().eq("student_id", dbId);
+  return !error;
+}
+
 /** Saves to Supabase. Resolves only after the database confirmed the write. */
 export async function savePreferencesToDb(dbId: string, preferences: Preferences, exists: boolean): Promise<{ ok: true } | { ok: false }> {
   const supabase = getParentClient();
