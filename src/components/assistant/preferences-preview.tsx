@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DEVICE_DEMO } from "@/lib/tammeni/device-demo";
 import type { Preferences } from "./preferences";
 
 type Preview = {
@@ -18,6 +19,11 @@ export function PreferencesPreview({ studentId, preferences }: { studentId: stri
     setBusy(true);
     setError("");
     setPreview(null);
+    if (DEVICE_DEMO) {
+      setError("المعاينة التفصيلية غير متاحة في هذه النسخة، لأنها تحتاج خادم طمّنـــي (Python).");
+      setBusy(false);
+      return;
+    }
     try {
       const response = await fetch("/api/assistant/preview", {
         method: "POST",

@@ -61,10 +61,10 @@ const dbFail = (what: string): never => {
 export async function overview(supabase: SupabaseClient) {
   const [parents, links] = await Promise.all([
     supabase.from("parent_profiles").select("id, full_name"),
-    supabase.from("parent_students").select("parent_id, students!inner (id, demo_key, full_name, first_name, grade_label, stage_label, school_name)").in("students.demo_key", ["reem", "nawaf"]),
+    supabase.from("parent_students").select("parent_id, students!inner (id, demo_key, full_name, first_name, grade_label, stage_label, school_name)").in("students.demo_key", ["sama", "ahmad"]),
   ]);
   if (parents.error || links.error) dbFail("تحميل ولي الأمر والأبناء");
-  // The demo has one parent. Students are the ones linked to that parent (ريم and نواف).
+  // The demo has one parent. Students are the ones linked to that parent (سما and أحمد).
   const parent = parents.data?.find((p) => links.data?.some((l) => l.parent_id === p.id)) ?? null;
   type S = { id: string; demo_key: string; full_name: string; first_name: string; grade_label: string; stage_label: string | null; school_name: string };
   const students = (links.data ?? [])
@@ -77,7 +77,7 @@ export async function overview(supabase: SupabaseClient) {
 
 async function loadStudent(supabase: SupabaseClient, studentId: string) {
   if (!/^[0-9a-f-]{36}$/.test(studentId)) throw new OperatorError(400, "طالب غير معروف.");
-  const { data, error } = await supabase.from("students").select("id, demo_key, full_name, first_name").eq("id", studentId).in("demo_key", ["reem", "nawaf"]).maybeSingle();
+  const { data, error } = await supabase.from("students").select("id, demo_key, full_name, first_name").eq("id", studentId).in("demo_key", ["sama", "ahmad"]).maybeSingle();
   if (error) dbFail("تحميل الطالب");
   if (!data) throw new OperatorError(404, "هذا الطالب غير موجود في بيانات الديمو.");
   return data;

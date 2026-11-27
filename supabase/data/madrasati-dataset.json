@@ -14,9 +14,9 @@
   },
   "students": [
     {
-      "id": "reem",
-      "name": "ريم عبدالرحمن الشهري",
-      "firstName": "ريم",
+      "id": "sama",
+      "name": "سما عبدالرحمن الشهري",
+      "firstName": "سما",
       "grade": "الصف الخامس الابتدائي",
       "stage": "المرحلة الابتدائية",
       "classroom": "خامس / 2",
@@ -138,8 +138,8 @@
       ],
       "onlineLessons": [
         {
-          "id": "reem-lesson-1",
-          "studentId": "reem",
+          "id": "sama-lesson-1",
+          "studentId": "sama",
           "subject": "الرياضيات",
           "date": "2026-10-26",
           "lesson": 1,
@@ -152,8 +152,8 @@
           "source": "synthetic_demo"
         },
         {
-          "id": "reem-lesson-2",
-          "studentId": "reem",
+          "id": "sama-lesson-2",
+          "studentId": "sama",
           "subject": "العلوم",
           "date": "2026-10-27",
           "lesson": 2,
@@ -166,8 +166,8 @@
           "source": "synthetic_demo"
         },
         {
-          "id": "reem-lesson-3",
-          "studentId": "reem",
+          "id": "sama-lesson-3",
+          "studentId": "sama",
           "subject": "لغتي",
           "date": "2026-10-28",
           "lesson": 3,
@@ -182,8 +182,8 @@
       ],
       "assignments": [
         {
-          "id": "reem-assignment-1",
-          "studentId": "reem",
+          "id": "sama-assignment-1",
+          "studentId": "sama",
           "subject": "الرياضيات",
           "title": "تدريب الكسور",
           "assignedDate": "2026-10-24",
@@ -193,8 +193,8 @@
           "source": "synthetic_demo"
         },
         {
-          "id": "reem-assignment-2",
-          "studentId": "reem",
+          "id": "sama-assignment-2",
+          "studentId": "sama",
           "subject": "العلوم",
           "title": "ملخص دورة الماء",
           "assignedDate": "2026-10-20",
@@ -578,13 +578,13 @@
       ]
     },
     {
-      "id": "nawaf",
-      "name": "نواف عبدالرحمن الشهري",
-      "firstName": "نواف",
+      "id": "ahmad",
+      "name": "أحمد عبدالرحمن الشهري",
+      "firstName": "أحمد",
       "grade": "الصف الثاني الابتدائي",
       "stage": "المرحلة الابتدائية",
       "classroom": "ثاني / 3",
-      "school": "مدرسة الواحة الابتدائية للبنين",
+      "school": "مدرسة ابن خلدون الابتدائية للبنين",
       "attendance": {
         "termLabel": "الفصل الدراسي الأول 1448 هـ",
         "schoolDays": 48,
@@ -693,8 +693,8 @@
       ],
       "onlineLessons": [
         {
-          "id": "nawaf-lesson-1",
-          "studentId": "nawaf",
+          "id": "ahmad-lesson-1",
+          "studentId": "ahmad",
           "subject": "العلوم",
           "date": "2026-10-27",
           "lesson": 1,
@@ -707,8 +707,8 @@
           "source": "synthetic_demo"
         },
         {
-          "id": "nawaf-lesson-2",
-          "studentId": "nawaf",
+          "id": "ahmad-lesson-2",
+          "studentId": "ahmad",
           "subject": "لغتي",
           "date": "2026-10-28",
           "lesson": 2,
@@ -723,8 +723,8 @@
       ],
       "assignments": [
         {
-          "id": "nawaf-assignment-1",
-          "studentId": "nawaf",
+          "id": "ahmad-assignment-1",
+          "studentId": "ahmad",
           "subject": "الرياضيات",
           "title": "تدريب القياس",
           "assignedDate": "2026-10-22",
@@ -734,8 +734,8 @@
           "source": "synthetic_demo"
         },
         {
-          "id": "nawaf-assignment-2",
-          "studentId": "nawaf",
+          "id": "ahmad-assignment-2",
+          "studentId": "ahmad",
           "subject": "العلوم",
           "title": "أسئلة المراجعة",
           "assignedDate": "2026-10-25",

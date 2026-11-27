@@ -9,7 +9,7 @@ class ParentPreviewTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
         self.body = {
-            "student": {"id": "reem", "name": "ريم", "attendance": {"present": 46, "schoolDays": 48},
+            "student": {"id": "sama", "name": "سما", "attendance": {"present": 46, "schoolDays": 48},
                         "exams": [{"subject": "الرياضيات", "day": "الأحد"}],
                         "grades": [{"subject": "العلوم", "score": 18, "outOf": 20}]},
             "preferences": {
@@ -39,7 +39,7 @@ class ParentPreviewTests(unittest.TestCase):
         response = self.client.post("/api/parent/preview", json=body)
         self.assertEqual(response.json()["studentId"], "faisal")
         self.assertIn("43 من 48", response.text)
-        self.assertNotIn("ريم", response.text)
+        self.assertNotIn("سما", response.text)
         self.assertNotIn("46 من 48", response.text)
 
     def test_invalid_preferences_are_rejected(self):

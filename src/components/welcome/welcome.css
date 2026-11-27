@@ -1,8 +1,7 @@
 /*
  * Motion for the welcome page (a plain stylesheet: this project's Turbopack setup treats every
  * .css file as global, so the class names carry a welcome- prefix instead of using CSS modules). transform and opacity only.
- * The artwork is one flat picture, so it moves as a whole: it rises in, leans in a short greeting,
- * then floats gently three times and rests. Nothing loops forever.
+ * The artwork is one flat picture, so it moves as a whole: it rises in, Nothing loops forever.
  * With reduced motion every animation is off and everything is shown at once.
  */
 
@@ -24,104 +23,211 @@
   animation: enter 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* A greeting lean of the whole picture, pivoting near its base. */
-.welcome-wave,
-.welcome-wave-first {
-  display: block;
-  transform-origin: 50% 92%;
-  animation: wave 1.1s ease-in-out both;
-}
-.welcome-wave-first {
-  animation-delay: 650ms;
-}
+/* ---------- the walk-through's line down the side of the three steps ---------- */
 
-.welcome-bubble {
-  animation: pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.15) 750ms both;
-}
-/* A new line after a press. */
-.welcome-swap {
-  display: inline-block;
-  animation: rise 320ms ease-out both;
-}
-
-/* The bubble's tail points down at the character. */
-.welcome-bubble::after {
-  content: "";
+.welcome-flow-rail {
   position: absolute;
-  width: 18px;
-  height: 18px;
-  background: inherit;
-  transform: rotate(45deg);
-  left: calc(50% - 9px);
-  bottom: -8px;
+  inset-inline-start: 1.7rem;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--color-line);
 }
-
-/* The character is a button: it answers hover, focus, press and touch with a small lift. */
-.welcome-character {
-  cursor: pointer;
-  border-radius: 9999px;
-  transition: transform 200ms ease-out;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-@media (hover: hover) {
-  .welcome-character:hover {
-    transform: translateY(-6px);
-  }
-}
-.welcome-character:focus-visible {
-  outline: 2.5px solid var(--color-bell-light);
-  outline-offset: 6px;
-  transform: translateY(-6px);
-}
-.welcome-character:active {
-  transform: translateY(-2px) scale(0.98);
-}
-
-/*
- * The school day as a line of stops (like a timetable read across): a rule joins the stops, the first is
- * hollow (the school acts), the rest are filled (Tammeni reaches the parent). Vertical on phones.
- */
-.welcome-day {
-  position: relative;
-}
-.welcome-day::before {
-  content: "";
+.welcome-flow-rail > span {
   position: absolute;
-  inset-block: 0.6rem 0.6rem;
-  inset-inline-start: 0.45rem;
-  width: 1px;
-  background: var(--color-control);
-}
-.welcome-day-dot {
-  position: absolute;
-  top: 0.45rem;
-  inset-inline-start: 0;
-  width: 0.9rem;
-  height: 0.9rem;
-  border: 1.5px solid var(--color-board);
-  border-radius: 999px;
-  background: var(--color-ground);
-}
-.welcome-day-dot[data-lit] {
+  inset: 0 0 auto;
+  height: 0;
+  border-radius: 3px;
   background: var(--color-board);
 }
-.welcome-day > li:last-child .welcome-day-dot {
-  border-color: var(--color-bell);
-  background: var(--color-bell);
+.welcome-flow-dot {
+  position: absolute;
+  top: 0;
+  inset-inline-start: -2.55rem;
+  display: grid;
+  place-items: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border: 2px solid var(--color-control);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-faint);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  transition: background-color 250ms ease, color 250ms ease, border-color 250ms ease;
 }
-@media (min-width: 48rem) {
-  .welcome-day::before {
-    inset-block: 0.45rem auto;
-    inset-inline: 0.45rem 0;
-    width: auto;
-    height: 1px;
+.welcome-flow-dot[data-lit] {
+  border-color: var(--color-board);
+  background: var(--color-board);
+  color: var(--color-chalk);
+}
+@media (min-width: 40rem) {
+  .welcome-flow-rail {
+    inset-inline-start: 2.45rem;
   }
-  .welcome-day-dot {
-    top: 0;
+  .welcome-flow-dot {
+    inset-inline-start: -3.6rem;
   }
 }
 
+/* ---------- the school day's own line, in gold ---------- */
+
+.welcome-day-rail {
+  position: absolute;
+  inset-inline-start: calc(1.0625rem - 2px);
+  width: 4px;
+  border-radius: 4px;
+  background: var(--color-bell-soft);
+}
+.welcome-day-rail > span {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 0;
+  border-radius: 4px;
+  background: var(--color-bell);
+}
+.welcome-time {
+  position: relative;
+  padding-inline-start: 2.75rem;
+}
+/* A time's point: pale until reached, then dark with a gold ring, a little larger. */
+.welcome-node {
+  position: absolute;
+  inset-inline-start: 0;
+  display: grid;
+  place-items: center;
+  width: 2.125rem;
+  height: 2.125rem;
+  border: 2.5px solid var(--color-bell-soft);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-control);
+  transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, transform 300ms ease;
+}
+.welcome-node[data-lit] {
+  border-color: var(--color-bell);
+  background: var(--color-board);
+  color: var(--color-bell-light);
+  transform: scale(1.06);
+}
+.welcome-node[data-now]::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 2px solid var(--color-bell);
+  border-radius: 999px;
+  animation: welcome-halo 1.8s ease-out infinite;
+}
+@keyframes welcome-halo {
+  from {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+/* ---------- the text message arriving ---------- */
+
+.welcome-message-in {
+  animation: welcome-message-in 450ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes welcome-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(-34px) scale(0.94);
+  }
+}
+/* The parent's locked phone: a clock, and the message dropping in as a notification. */
+/* The call screen: soft colour glows as behind a real incoming call, filling a real phone and framed like one on wider screens. */
+.welcome-call {
+  border: 0;
+  background:
+    radial-gradient(90% 55% at 15% 8%, #3d7a6c, transparent 70%),
+    radial-gradient(80% 60% at 95% 45%, #7d6a3c, transparent 70%),
+    linear-gradient(#17453d, #08201c);
+  color: #fff;
+}
+@media (min-width: 40rem) {
+  .welcome-call {
+    border: 8px solid #17201d;
+    border-radius: 2.625rem;
+  }
+}
+.welcome-phone {
+  position: relative;
+  width: 100%;
+  max-width: 16rem;
+  height: 27.5rem;
+  margin-inline: auto;
+  overflow: hidden;
+  border: 8px solid #17201d;
+  border-radius: 2.625rem;
+  background: radial-gradient(120% 80% at 80% 0%, #1d5a4f, #123a34 55%, #0b2521);
+  box-shadow: 0 14px 30px rgb(18 58 52 / 0.22);
+  color: var(--color-chalk);
+}
+.welcome-phone-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1.125rem 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.welcome-phone-battery {
+  box-sizing: border-box;
+  width: 20px;
+  height: 10px;
+  padding: 1.5px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+}
+.welcome-phone-battery i {
+  display: block;
+  width: 70%;
+  height: 100%;
+  background: currentColor;
+}
+.welcome-phone-island {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 72px;
+  height: 21px;
+  border-radius: 999px;
+  background: #050807;
+  transform: translateX(-50%);
+}
+.welcome-phone-home {
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  width: 90px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.55;
+  transform: translateX(-50%);
+}
+.welcome-phone-clock {
+  margin-top: 2.125rem;
+  text-align: center;
+  font-size: 4.25rem;
+  font-weight: 300;
+  line-height: 1.1;
+}
+.welcome-notification {
+  display: flex;
+  gap: 0.5625rem;
+  padding: 0.6875rem;
+  border-radius: 1.25rem;
+  background: rgb(252 249 242 / 0.96);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.25);
+  color: var(--color-ink);
+  font-size: 0.84375rem;
+  line-height: 1.65;
+}
 @keyframes rise {
   from {
     transform: translateY(10px);
@@ -132,56 +238,261 @@
 }
 @keyframes enter {
   from {
-    opacity: 0;
-    transform: translateY(28px) scale(0.94);
+    transform: translateY(16px) scale(0.96);
   }
   to {
-    opacity: 1;
     transform: none;
   }
 }
-@keyframes wave {
+/* An incoming call in the school day: its answer button sends out two soft rings, then rests. */
+.welcome-ring {
+  cursor: pointer;
+}
+.welcome-ring-button {
+  animation: welcome-ring 2.8s ease-out infinite;
+}
+@keyframes welcome-ring {
   0% {
-    transform: rotate(0deg);
+    box-shadow: 0 0 0 0 rgb(34 197 94 / 0.55);
   }
-  22% {
-    transform: rotate(-6deg);
+  35%,
+  100% {
+    box-shadow: 0 0 0 12px rgb(34 197 94 / 0);
   }
-  48% {
-    transform: rotate(5deg);
+}
+
+@media (min-width: 64rem) {
+  .welcome-day,
+  .welcome-day-intro {
+    max-width: 50rem;
+    margin-inline: auto;
   }
-  72% {
-    transform: rotate(-2.5deg);
+  .welcome-node-outline {
+    display: block;
   }
+  .welcome-node-solid {
+    display: none;
+  }
+
+  .welcome-node[data-now]::after {
+    inset: -4px;
+    border-width: 1px;
+  }
+  .welcome-event-card {
+    display: grid;
+    grid-template-columns: minmax(0, 18rem) minmax(0, 16rem);
+    align-items: center;
+    justify-content: center;
+    column-gap: 1.5rem;
+  }
+  .welcome-event-phone {
+    margin: 0;
+    padding: 0;
+  }
+  .welcome-day-intro,
+  .welcome-event-label {
+    font-size: 1rem;
+  }
+  .welcome-event-title {
+    font-size: clamp(1.25rem, 1.6vw, 1.5rem);
+    line-height: 1.55;
+    text-wrap: balance;
+  }
+  .welcome-event-card .welcome-phone-clock {
+    font-size: 3.25rem;
+    font-weight: 500;
+    line-height: 1.15;
+  }
+  .welcome-event-card .welcome-phone-period {
+    margin-block-start: 0.25rem;
+  }
+  .welcome-event-card .welcome-notification {
+    font-size: 0.9375rem;
+  }
+  .welcome-event-method {
+    font-size: 0.875rem;
+  }
+  .welcome-message-text {
+    margin-block-start: 0.25rem;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.6;
+  }
+  .welcome-ring:focus-visible {
+    outline: 3px solid var(--color-bell-light);
+    outline-offset: 3px;
+  }
+  .welcome-footer > div {
+    max-width: 50rem;
+    padding-block: 2rem;
+    text-align: center;
+  }
+  .welcome-footer > div > p:first-child {
+    justify-content: center;
+  }
+  .welcome-footer .perforation {
+    max-width: 26rem;
+    margin-block-start: 1.25rem;
+    margin-inline: auto;
+  }
+  .welcome-footer .perforation + p {
+    max-width: 64ch;
+    margin-block-start: 1rem;
+    margin-inline: auto;
+  }
+}
+
+/* ---------- the greeting robot ---------- */
+
+.welcome-greet {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.25rem;
+  direction: ltr;
+}
+.welcome-bot {
+  position: relative;
+  width: min(52vw, 210px);
+  aspect-ratio: 1;
+}
+.welcome-bot-disc {
+  position: absolute;
+  inset-inline: 17%;
+  bottom: 0;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: var(--color-chalk);
+}
+.welcome-sway {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 100%;
+  animation: welcome-sway 3.2s ease-in-out infinite;
+}
+/* The waving arm is flipped upward at its shoulder, then swings: three waves and a short rest, hand still up. */
+.welcome-arm-left {
+  transform-origin: 20.1% 64.2%;
+  animation: welcome-wave-left 2.8s ease-in-out infinite;
+}
+/* The eyes only close and open: one blink, then a quick double blink. */
+.welcome-eyes {
+  transform-origin: 50% 35.2%;
+  animation: welcome-blink 5.6s ease-in-out infinite;
+}
+
+.welcome-bubble {
+  position: relative;
+  direction: rtl;
+  margin-bottom: 2.5rem;
+  border-radius: 1.125rem;
+  background: var(--color-bell-soft);
+  padding: 0.75rem 0.875rem;
+  color: var(--color-ink);
+  font-size: clamp(0.875rem, 4.1vw, 1.0625rem);
+  font-weight: 600;
+  line-height: 1.8;
+}
+.welcome-bubble::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -7px;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+.welcome-typed {
+  position: absolute;
+  inset: 0.75rem 0.875rem;
+}
+
+@media (min-width: 40rem) {
+  .welcome-greet {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 1rem;
+  }
+  .welcome-bot {
+    width: 240px;
+  }
+  .welcome-bubble {
+    margin-bottom: 0;
+    text-align: center;
+  }
+  .welcome-bubble::after {
+    top: auto;
+    bottom: -7px;
+    left: calc(50% - 8px);
+  }
+}
+@media (min-width: 64rem) {
+  .welcome-bot {
+    width: 380px;
+  }
+}
+
+@keyframes welcome-sway {
+  0%,
+  72%,
   100% {
     transform: rotate(0deg);
   }
-}
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.92);
+  24% {
+    transform: rotate(-2deg);
   }
-  to {
-    opacity: 1;
-    transform: none;
+  44% {
+    transform: rotate(1.5deg);
+  }
+}
+@keyframes welcome-wave-left {
+  0%,
+  72%,
+  100% {
+    transform: rotate(-22deg) scaleY(-1);
+  }
+  12%,
+  36%,
+  60% {
+    transform: rotate(-40deg) scaleY(-1);
+  }
+  24%,
+  48% {
+    transform: rotate(-8deg) scaleY(-1);
+  }
+}
+@keyframes welcome-blink {
+  0%,
+  30%,
+  35%,
+  74%,
+  79%,
+  84%,
+  100% {
+    transform: scaleY(1);
+  }
+  32.5%,
+  76.5%,
+  81.5% {
+    transform: scaleY(0.08);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .welcome-rise,
   .welcome-enter,
-  .welcome-wave,
-  .welcome-wave-first,
-  .welcome-bubble,
-  .welcome-swap {
+  .welcome-sway,
+  .welcome-eyes,
+  .welcome-ring-button,
+  .welcome-message-in,
+  .welcome-node[data-now]::after {
     animation: none;
   }
-  .welcome-character,
-  .welcome-character:hover,
-  .welcome-character:focus-visible,
-  .welcome-character:active {
-    transition: none;
-    transform: none;
+  /* The hand stays raised in greeting, without moving. */
+  .welcome-arm-left {
+    animation: none;
+    transform: rotate(-22deg) scaleY(-1);
   }
 }

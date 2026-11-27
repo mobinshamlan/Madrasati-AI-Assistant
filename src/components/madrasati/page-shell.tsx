@@ -74,7 +74,7 @@ export function DemoNotice() {
       className="flex items-center justify-center gap-2 border-b-2 border-warn-line bg-warn-bg px-4 py-3 text-center text-base font-bold text-warn"
     >
       <InfoIcon size={20} className="shrink-0" />
-      نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية
+      نموذج تجريبي ببيانات وهمية — غير تابع لمنصة مدرستي الرسمية
     </p>
   );
 }
@@ -82,8 +82,8 @@ export function DemoNotice() {
 export function Footer() {
   return (
     <footer className="mt-auto border-t border-mint-300 bg-mint-100 px-4 py-5 text-center text-base text-ink">
-      <p className="tammeni-mark mb-1 text-xl">طمّني</p>
-      نموذج تعليمي تجريبي ببيانات خيالية — غير تابع لمنصة مدرستي الرسمية ولا يمثل خدمة صادرة عن وزارة التعليم.
+      <p className="tammeni-mark mb-1 text-xl">طمّنـــي</p>
+      نموذج تجريبي ببيانات وهمية. غير تابع لمنصة مدرستي، ولا يمثل خدمة صادرة عن وزارة التعليم.
     </footer>
   );
 }

@@ -5,7 +5,7 @@ import { directDemoAllowed } from "@/lib/tammeni/direct-demo";
  * Demo entry: signs in the one fictional parent account and hands its session to the browser.
  * The password never leaves the server. This works from localhost and from the shared demo URL;
  * it is not limited to loopback. Anyone using the demo becomes that same fictional parent, who can
- * read and change only ريم and نواف (enforced by RLS). It grants no operator rights and uses the
+ * read and change only سما and أحمد (enforced by RLS). It grants no operator rights and uses the
  * parent cookie, never the operator's.
  */
 export async function POST(request: Request) {
@@ -18,10 +18,10 @@ export async function POST(request: Request) {
   // No password reset, account creation or email delivery. Parent RLS still applies to the session.
   if (url && key && serverKey && directDemoAllowed(process.env, request.headers)) {
     const admin = createClient(url, serverKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    const links = await admin.from("parent_students").select("parent_id, students!inner(demo_key)").in("students.demo_key", ["reem", "nawaf"]);
+    const links = await admin.from("parent_students").select("parent_id, students!inner(demo_key)").in("students.demo_key", ["sama", "ahmad"]);
     const ids = [...new Set((links.data ?? []).map(x => x.parent_id))];
     if (links.error || ids.length !== 1 || links.data?.length !== 2) {
-      return Response.json({ error: "تعذّر تحديد ولي الأمر المرتبط بريم ونواف." }, { status: 503 });
+      return Response.json({ error: "تعذّر تحديد ولي الأمر المرتبط بسما وأحمد." }, { status: 503 });
     }
     const account = await admin.auth.admin.getUserById(ids[0]);
     if (account.error || !account.data.user?.email || account.data.user.app_metadata?.tammeni_role) {

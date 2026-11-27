@@ -1,5 +1,6 @@
 "use client";
 
+import { TimeIcon, TimeText } from "@/components/dashboard/time-icons";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -10,7 +11,6 @@ import {
   DAYS_OF_MONTH,
   EXAM_DAYS,
   adaptToStudent,
-  allProblems,
   attendanceCustomOptions,
   attendanceTimingOptions,
   dayOptions,
@@ -38,6 +38,7 @@ import {
   type Preferences,
   type Topic,
 } from "./preferences";
+import { asAnswered, chosenInSaved, firstMissing, key, missingMessage, type Field } from "./chosen";
 import { topicIcons } from "./summary";
 
 export const confirmationHref = (studentId: string) => `/assistant/confirmation?student=${studentId}`;
@@ -104,11 +105,11 @@ function Setup() {
     <>
       {/* The page title sits on the board; the working sheet overlaps its lower edge. */}
       <section aria-labelledby="page-title" className="on-board">
-        <div className={`${container} pt-8 pb-20 sm:pt-12 sm:pb-24`}>
-          <h1 id="page-title" className="text-[2.25rem] leading-[1.25] text-chalk sm:text-[3rem]">
+        <div className={`${container} pt-4 pb-16 sm:pt-12 sm:pb-24`}>
+          <h1 id="page-title" className="text-[1.75rem] leading-[1.3] text-chalk sm:text-[3rem]">
             {student ? `تنبيهات ${student.firstName}` : "تفضيلات التنبيه"}
           </h1>
-          <p className="mt-2 text-[1.0625rem] text-chalk-soft">وش يوصلك، ومتى، وكيف.</p>
+          <p className="mt-1 text-[0.9375rem] text-chalk-soft sm:mt-2 sm:text-[1.0625rem]">وش يوصلك، ومتى، وكيف.</p>
         </div>
       </section>
 
@@ -255,11 +256,17 @@ function Editor({
   onReset: () => void;
 }) {
   const [prefs, setPrefs] = useState<Preferences>(initial);
+  // Only what the parent pressed (or saved before) shows as selected.
+  const [initialChosen] = useState(() => (savedExists || legacy ? chosenInSaved(initial) : new Set<string>()));
+  const [chosen, setChosen] = useState(initialChosen);
+  const markChosen = (topic: Topic, fields: Field[]) =>
+    setChosen((previous) => (fields.every((f) => previous.has(key(topic, f))) ? previous : new Set([...previous, ...fields.map((f) => key(topic, f))])));
+  const has = (topic: Topic, field: Field) => chosen.has(key(topic, field));
   // A parent with no saved choices (first visit, or after «ابدأ من جديد») is asked step by step.
   const [mode, setMode] = useState<"summary" | "wizard">(savedExists ? "summary" : "wizard");
   const [editTopic, setEditTopic] = useState<Topic | null>(null);
   const [stepId, setStepId] = useState("student");
-  const [studentSelection, setStudentSelection] = useState({ id: student.id, cancelCount: switchCancelCount });
+  const [studentSelection, setStudentSelection] = useState({ id: "", cancelCount: switchCancelCount });
   const [lastTiming, setLastTiming] = useState<Record<Topic, Preferences[Topic]["timing"]>>({
     attendance: initial.attendance.timing === "off" ? firstTiming.attendance : initial.attendance.timing,
     exams: initial.exams.timing === "off" ? firstTiming.exams : initial.exams.timing,
@@ -276,7 +283,7 @@ function Editor({
     if (await resetPreferencesInDb(student.dbId)) onReset();
     else setResetStep("failed");
   };
-  const dirty = JSON.stringify(prefs) !== JSON.stringify(initial);
+  const dirty = JSON.stringify(prefs) !== JSON.stringify(initial) || chosen.size !== initialChosen.size;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -301,9 +308,15 @@ function Editor({
   const steps = guidedSteps(prefs, editTopic, !savedExists && !studentChosen && editTopic === null);
   const stepIndex = Math.max(0, steps.findIndex((step) => step.id === stepId));
   const current = steps[stepIndex];
-  const selectedStudentId = studentSelection.cancelCount === switchCancelCount ? studentSelection.id : student.id;
+  const selectedStudentId = studentSelection.cancelCount === switchCancelCount ? studentSelection.id : "";
   const topic = current.kind === "student" || current.kind === "review" ? null : current.topic;
-  const topicProblem = topic && current.kind === "timing" && attemptedTopic === topic ? problemsFor(prefs, topic)[0] : undefined;
+  // The draft as filled so far: what the summaries show.
+  const shown = asAnswered(prefs, chosen);
+  const missing = topic ? firstMissing(prefs, chosen, topic) : null;
+  const topicProblem =
+    topic && current.kind === "timing" && attemptedTopic === topic && (missing === "timing" || missing === "time")
+      ? ({ topic, kind: missing === "time" ? "time" : "choose" } as const)
+      : undefined;
 
   const updatePrefs = (update: (previous: Preferences) => Preferences) => {
     setPrefs(update);
@@ -312,6 +325,8 @@ function Editor({
   };
 
   const setTopicEnabled = (targetTopic: Topic, enabled: boolean) => {
+    markChosen(targetTopic, ["enabled"]);
+    setValidationMessage(null);
     const timing = prefs[targetTopic].timing;
     if (!enabled) {
       if (timing !== "off" && timing !== null) setLastTiming((previous) => ({ ...previous, [targetTopic]: timing }));
@@ -327,10 +342,17 @@ function Editor({
     }
   };
 
-  const patchTopic = (targetTopic: Topic, change: Record<string, unknown>) =>
+  const fieldOf: Record<string, Field> = { method: "method", timing: "timing", time: "time", customDays: "days", dayOfMonth: "dayOfMonth", kind: "kind", day: "day" };
+  const patchTopic = (targetTopic: Topic, change: Record<string, unknown>) => {
+    markChosen(targetTopic, Object.keys(change).map((name) => fieldOf[name]));
     updatePrefs((previous) => ({ ...previous, [targetTopic]: { ...previous[targetTopic], ...change } }) as Preferences);
-  const patchAttendanceCustom = (change: Partial<Preferences["attendance"]["custom"]>) =>
+  };
+  const patchAttendanceCustom = (change: Partial<Preferences["attendance"]["custom"]>) => {
+    markChosen("attendance", Object.keys(change).map((name) => fieldOf[name]));
     updatePrefs((previous) => ({ ...previous, attendance: { ...previous.attendance, custom: { ...previous.attendance.custom, ...change } } }));
+  };
+  // The step that answers a field.
+  const stepFor = (targetTopic: Topic, field: Field) => `${targetTopic}:${field === "enabled" || field === "method" ? field : "timing"}`;
 
   const focusTopicProblem = (targetTopic: Topic, kind: "choose" | "time") => {
     const selector = kind === "time"
@@ -342,21 +364,17 @@ function Editor({
   };
 
   const save = async () => {
-    if (saving || (savedExists && !dirty)) return;
-    const problems = allProblems(prefs);
-    if (problems.length > 0 || enabledTopics(prefs).length === 0) {
-      const firstProblem = problems[0];
-      const targetTopic = firstProblem?.topic ?? editTopic ?? "attendance";
-      setValidationMessage(
-        firstProblem
-          ? `أكمل اختيار ${guidedLabels[firstProblem.topic]} قبل الحفظ.`
-          : "اختر نوعًا واحدًا على الأقل من التنبيهات.",
-      );
+    if (saving) return;
+    const unanswered = topics.map((t) => ({ topic: t, field: firstMissing(prefs, chosen, t) })).find((x) => x.field !== null);
+    if (unanswered || enabledTopics(prefs).length === 0) {
+      const targetTopic = unanswered?.topic ?? editTopic ?? "attendance";
+      const field = unanswered?.field ?? "enabled";
+      setValidationMessage(unanswered ? `أكمل اختيارات ${guidedLabels[targetTopic]} قبل الحفظ.` : "اختر نوعًا واحدًا على الأقل من التنبيهات.");
       setAttemptedTopic(targetTopic);
       if (editTopic !== null) setEditTopic(targetTopic);
       setMode("wizard");
-      setStepId(firstProblem ? `${targetTopic}:timing` : `${targetTopic}:enabled`);
-      if (firstProblem) focusTopicProblem(targetTopic, firstProblem.kind);
+      setStepId(stepFor(targetTopic, field));
+      if (field === "timing" || field === "time") focusTopicProblem(targetTopic, field === "time" ? "time" : "choose");
       return;
     }
     setSaving(true);
@@ -380,15 +398,22 @@ function Editor({
 
   const goNext = () => {
     if (saving) return;
-    if (current.kind === "student" && selectedStudentId !== student.id) {
-      onSelectStudent(selectedStudentId);
-      return;
+    if (current.kind === "student") {
+      if (!selectedStudentId) {
+        setValidationMessage("اختر الابن أو الابنة للمتابعة.");
+        return;
+      }
+      if (selectedStudentId !== student.id) {
+        onSelectStudent(selectedStudentId);
+        return;
+      }
     }
-    if (current.kind === "timing") {
-      const problem = problemsFor(prefs, current.topic)[0];
-      if (problem) {
+    if (current.kind === "enabled" || current.kind === "method" || current.kind === "timing") {
+      const field = firstMissing(prefs, chosen, current.topic);
+      if (field && stepFor(current.topic, field) === current.id) {
         setAttemptedTopic(current.topic);
-        focusTopicProblem(current.topic, problem.kind);
+        setValidationMessage(missingMessage[field]);
+        if (field === "timing" || field === "time") focusTopicProblem(current.topic, field === "time" ? "time" : "choose");
         return;
       }
     }
@@ -451,7 +476,7 @@ function Editor({
             </span>
           </div>
 
-          <TopicReviewList prefs={prefs} onEdit={goToTopic} />
+          <TopicReviewList prefs={shown} onEdit={goToTopic} />
           <CallRetryOption prefs={prefs} onChange={(retryUnansweredCall) => updatePrefs((previous) => ({ ...previous, retryUnansweredCall }))} />
           {saveFailed && (
             <p role="alert" className="notice notice-danger mt-5">
@@ -459,10 +484,10 @@ function Editor({
             </p>
           )}
           {validationMessage && <p role="alert" className="mt-4 font-semibold text-danger">{validationMessage}</p>}
-          {/* While there is something to save, the save button stays in view on phones. */}
-          <div className={`mt-6 flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between ${!savedExists || dirty ? "sticky-save sticky bottom-0 z-10 -mx-5 bg-surface px-5 pb-4 sm:static sm:mx-0 sm:px-0 sm:pb-0" : ""}`}>
-            <p role="status" className="text-[0.9375rem] leading-6 text-ink-soft">
-              {dirty ? "راجع التغييرات قبل حفظها." : savedExists ? "تقدر تعدّل كل موضوع على حدة." : "هذا اقتراحنا. عدّل اللي تبي، ثم احفظ."}
+          {/* The save button stays in view on phones. */}
+          <div className="sticky-save sticky bottom-0 z-10 -mx-5 mt-6 flex flex-wrap items-center gap-2 border-t border-line bg-surface px-5 pt-3 pb-3 sm:static sm:mx-0 sm:justify-between sm:gap-3 sm:px-0 sm:pt-5 sm:pb-0">
+            <p role="status" className="w-full text-[0.9375rem] leading-6 text-ink-soft max-sm:sr-only sm:w-auto">
+              {dirty ? "راجع التغييرات قبل حفظها." : savedExists ? "تقدر تعدّل كل موضوع على حدة." : "أكمل اختياراتك، ثم احفظ."}
             </p>
             {savedExists && !dirty && (
               <div className="flex flex-wrap items-center gap-2">
@@ -483,34 +508,26 @@ function Editor({
                 {resetStep === "failed" && <p role="alert" className="w-full text-[0.9375rem] font-semibold text-danger">ما قدرنا نمسح. جرّب مرة ثانية.</p>}
               </div>
             )}
-            {(!savedExists || dirty) && (
-              <button type="button" className="btn-primary w-full sm:w-auto" onClick={save} disabled={saving} aria-busy={saving || undefined}>
-                {saving ? <><span className="spinner" aria-hidden="true" /> جارٍ الحفظ…</> : saveFailed ? "إعادة المحاولة" : "حفظ التفضيلات"}
-              </button>
-            )}
+            <button type="button" className="btn-primary min-w-[10rem] flex-1 sm:flex-none" onClick={save} disabled={saving} aria-busy={saving || undefined}>
+              {saving ? <><span className="spinner" aria-hidden="true" /> جارٍ الحفظ…</> : saveFailed ? "إعادة المحاولة" : "حفظ التفضيلات"}
+            </button>
           </div>
         </section>
       ) : (
         <>
-          <div className="mb-4 rounded-2xl border border-line bg-surface px-5 py-4" aria-live="polite">
+          <div className="mb-3 rounded-2xl border border-line bg-surface px-4 py-2.5 sm:mb-4 sm:px-5 sm:py-4" aria-live="polite">
             <div className="flex items-center justify-between gap-4 text-[0.9375rem] font-semibold text-ink-soft">
               <span>الخطوة {stepIndex + 1} من {steps.length}</span>
               <span className="truncate text-brand-ink">{progressTopic}</span>
             </div>
-            {/* A shortcut for anyone who'd rather keep the suggested choices and save them as they are. */}
-            {!savedExists && editTopic === null && stepIndex === 0 && (
-              <button type="button" onClick={() => setStepId("review")} className="mt-2 text-[0.9375rem] font-semibold text-brand underline underline-offset-4">
-                استخدم الاقتراح واحفظ مباشرة
-              </button>
-            )}
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-panel-strong" aria-hidden="true">
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-panel-strong sm:mt-3 sm:h-2" aria-hidden="true">
               <div className="h-full rounded-full bg-brand transition-[width] duration-200" style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }} />
             </div>
           </div>
 
           <section aria-labelledby="wizard-question" className="sheet p-5 sm:p-8">
-            <div className="mb-6 border-b border-line pb-5">
-              <h2 ref={headingRef} id="wizard-question" tabIndex={-1} className="text-[1.5rem] leading-tight font-bold focus:outline-none sm:text-[1.875rem]">
+            <div className="mb-4 border-b border-line pb-3 sm:mb-6 sm:pb-5">
+              <h2 ref={headingRef} id="wizard-question" tabIndex={-1} className="text-[1.3125rem] leading-snug font-bold focus:outline-none sm:text-[1.875rem]">
                 {heading}
               </h2>
               {current.kind === "enabled" && <p className="mt-2 text-[1.0625rem] leading-8 text-ink-soft">{guidedAbout[current.topic]}</p>}
@@ -525,7 +542,10 @@ function Editor({
                     name="assistant-student-choice"
                     value={child.id}
                     checked={selectedStudentId === child.id}
-                    onChange={() => setStudentSelection({ id: child.id, cancelCount: switchCancelCount })}
+                    onChange={() => {
+                      setStudentSelection({ id: child.id, cancelCount: switchCancelCount });
+                      setValidationMessage(null);
+                    }}
                     title={child.firstName}
                     hint={child.grade}
                     leading={<span className="avatar !size-11" data-tone={childTone(index)} aria-hidden="true">{child.firstName.slice(0, 1)}</span>}
@@ -540,17 +560,17 @@ function Editor({
                 <LargeChoice
                   name={`${current.topic}-enabled`}
                   value="yes"
-                  checked={prefs[current.topic].timing !== "off"}
+                  checked={has(current.topic, "enabled") && prefs[current.topic].timing !== "off"}
                   onChange={() => setTopicEnabled(current.topic, true)}
                   title="نعم"
                 />
                 <LargeChoice
                   name={`${current.topic}-enabled`}
                   value="no"
-                  checked={prefs[current.topic].timing === "off"}
+                  checked={has(current.topic, "enabled") && prefs[current.topic].timing === "off"}
                   onChange={() => setTopicEnabled(current.topic, false)}
                   title="لا"
-                  hint={topics.every((t) => t === current.topic || prefs[t].timing === "off") ? "لازم يبقى نوع واحد على الأقل." : undefined}
+                  hint={topics.every((t) => t === current.topic || (has(t, "enabled") && prefs[t].timing === "off")) ? "لازم يبقى نوع واحد على الأقل." : undefined}
                 />
               </fieldset>
             )}
@@ -561,7 +581,7 @@ function Editor({
                 <LargeChoice
                   name={`${current.topic}-method`}
                   value="message"
-                  checked={prefs[current.topic].method === "message"}
+                  checked={has(current.topic, "method") && prefs[current.topic].method === "message"}
                   onChange={() => patchTopic(current.topic, { method: "message" })}
                   title="رسالة نصية"
                   hint="رسالة قصيرة على جوالك."
@@ -569,10 +589,10 @@ function Editor({
                 <LargeChoice
                   name={`${current.topic}-method`}
                   value="call"
-                  checked={prefs[current.topic].method === "call"}
+                  checked={has(current.topic, "method") && prefs[current.topic].method === "call"}
                   onChange={() => patchTopic(current.topic, { method: "call" })}
                   title="اتصال"
-                  hint="لولوة تتصل عليك وتقول لك الخبر."
+                  hint={student.id === "ahmad" ? "تركي يتصل عليك ويقول لك الخبر." : "لولوة تتصل عليك وتقول لك الخبر."}
                 />
               </fieldset>
             )}
@@ -581,6 +601,7 @@ function Editor({
               <TimingQuestion
                 topic={current.topic}
                 prefs={prefs}
+                chosen={chosen}
                 patchTopic={patchTopic}
                 patchAttendanceCustom={patchAttendanceCustom}
                 problem={topicProblem}
@@ -592,7 +613,7 @@ function Editor({
             {current.kind === "review" && (
               <div>
                 {legacy && <LegacyNotice legacy={legacy} />}
-                <TopicReviewList prefs={prefs} onEdit={goToTopic} />
+                <TopicReviewList prefs={shown} onEdit={goToTopic} />
                 <CallRetryOption prefs={prefs} onChange={(retryUnansweredCall) => updatePrefs((previous) => ({ ...previous, retryUnansweredCall }))} />
                 {enabledTopics(prefs).length === 0 && (
                   <p className="notice notice-warn mt-5" role="status">اختر نوعًا واحدًا على الأقل من التنبيهات قبل الحفظ.</p>
@@ -608,7 +629,11 @@ function Editor({
           </section>
 
           <div className="sticky-save sticky bottom-0 z-10 mt-5 border-t border-line bg-ground/95 py-3 backdrop-blur-sm">
-            <div className="flex gap-3">
+            {validationMessage && current.kind !== "review" && <p role="alert" className="mb-2 text-[0.9375rem] font-semibold text-danger">{validationMessage}</p>}
+            {saveFailed && current.kind !== "review" && (
+              <p role="alert" className="mb-2 text-[0.9375rem] font-semibold text-danger">ما قدرنا نحفظ. اختياراتك باقية، جرّب مرة ثانية.</p>
+            )}
+            <div className="flex gap-2 sm:gap-3">
               {stepIndex === 0 && editTopic === null ? (
                 <Link href={`/tammeni?student=${student.id}`} className="btn-secondary flex-1">
                   رجوع
@@ -619,13 +644,21 @@ function Editor({
                 </button>
               )}
               {current.kind === "review" ? (
-                <button type="button" className="btn-primary flex-1" onClick={save} disabled={saving || (savedExists && !dirty)} aria-busy={saving || undefined}>
-                  {saving ? <><span className="spinner" aria-hidden="true" /> جارٍ الحفظ…</> : saveFailed ? "إعادة المحاولة" : savedExists && !dirty ? "لا توجد تغييرات للحفظ" : "حفظ التفضيلات"}
+                <button type="button" className="btn-primary flex-1" onClick={save} disabled={saving} aria-busy={saving || undefined}>
+                  {saving ? <><span className="spinner" aria-hidden="true" /> جارٍ الحفظ…</> : saveFailed ? "إعادة المحاولة" : "حفظ التفضيلات"}
                 </button>
               ) : (
-                <button type="button" className="btn-primary flex-1" onClick={goNext} disabled={saving}>
-                  التالي
-                </button>
+                <>
+                  {/* Every step can save as it stands; the step that picks the child has nothing to save yet. */}
+                  {current.kind !== "student" && (
+                    <button type="button" className="btn-secondary flex-1 !border-brand !bg-brand-soft !text-brand-ink" onClick={save} disabled={saving} aria-busy={saving || undefined}>
+                      {saving ? <><span className="spinner" aria-hidden="true" /> جارٍ الحفظ…</> : saveFailed ? "إعادة المحاولة" : "حفظ"}
+                    </button>
+                  )}
+                  <button type="button" className="btn-primary flex-1" onClick={goNext} disabled={saving}>
+                    التالي
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -660,8 +693,8 @@ function LargeChoice({
       </span>
       {leading}
       <span className="min-w-0 flex-1">
-        <span className="block text-[1.2rem] leading-snug font-bold text-ink">{title}</span>
-        {hint && <span className="mt-1 block text-[1rem] leading-7 text-ink-soft">{hint}</span>}
+        <span className="block text-[1.2rem] leading-snug font-bold text-ink">{typeof title === "string" ? <TimeText>{title}</TimeText> : title}</span>
+        {hint && <span className="mt-1 block text-[1rem] leading-7 text-ink-soft">{typeof hint === "string" ? <TimeText>{hint}</TimeText> : hint}</span>}
       </span>
       {checked && <span className="text-[0.9375rem] font-semibold text-brand-ink">محدد</span>}
     </label>
@@ -685,11 +718,13 @@ function TopicReviewList({ prefs, onEdit }: { prefs: Preferences; onEdit: (topic
                 </span>
               </h3>
               <p className="mt-1 text-[1rem] leading-7 font-semibold text-ink">
-                {summary.status === "on"
-                  ? `${prefs[topic].method === "message" ? "رسالة" : "اتصال"} · ${summary.when}`
-                  : summary.status === "off"
-                    ? "ما يوصلك شيء عنه."
-                    : "اختر وقتًا لهذا التنبيه."}
+                <TimeText>
+                  {summary.status === "on"
+                    ? `${prefs[topic].method === "message" ? "رسالة" : "اتصال"} · ${summary.when}`
+                    : summary.status === "off"
+                      ? "ما يوصلك شيء عنه."
+                      : "اختر وقتًا لهذا التنبيه."}
+                </TimeText>
               </p>
               {summary.note && <p className="mt-1 text-[0.9375rem] leading-6 text-ink-soft">{summary.note}</p>}
             </div>
@@ -726,6 +761,7 @@ function CallRetryOption({ prefs, onChange }: { prefs: Preferences; onChange: (v
 function TimingQuestion({
   topic,
   prefs,
+  chosen,
   patchTopic,
   patchAttendanceCustom,
   problem,
@@ -734,15 +770,19 @@ function TimingQuestion({
 }: {
   topic: Topic;
   prefs: Preferences;
+  chosen: ReadonlySet<string>;
   patchTopic: (topic: Topic, change: Record<string, unknown>) => void;
   patchAttendanceCustom: (change: Partial<Preferences["attendance"]["custom"]>) => void;
   problem?: ReturnType<typeof problemsFor>[number];
   previous?: LegacyInfo["needsReview"][number];
   clearedWas?: string;
 }) {
-  const timing = prefs[topic].timing;
+  const has = (field: Field) => chosen.has(key(topic, field));
+  const timing = has("timing") ? prefs[topic].timing : null;
+  const timeValue = has("time") ? getTime(prefs, topic) : "";
   const setTiming = (value: string) => patchTopic(topic, { timing: value });
   const showProblem = problem?.kind === "choose";
+  const complete = firstMissing(prefs, chosen, topic) === null;
   const summary = topicSummary(prefs, topic);
   // Choosing an option can open its controls below the fold, behind the sticky buttons: bring them up.
   const details = useRef<HTMLDivElement>(null);
@@ -755,7 +795,7 @@ function TimingQuestion({
   }, [timing]);
   return (
     <div className="space-y-5">
-      {(previous || clearedWas) && timing === null && (
+      {(previous || clearedWas) && prefs[topic].timing === null && (
         <p className="notice notice-warn">
           <InfoIcon size={18} />
           <span>
@@ -793,17 +833,17 @@ function TimingQuestion({
                   key={option.value}
                   name="attendance-custom-kind"
                   value={option.value}
-                  checked={prefs.attendance.custom.kind === option.value}
+                  checked={has("kind") && prefs.attendance.custom.kind === option.value}
                   onChange={() => patchAttendanceCustom({ kind: option.value })}
                   title={option.label}
                   hint={option.hint}
                 />
               ))}
             </fieldset>
-            {prefs.attendance.custom.kind === "weekly" && <DayPicker value={prefs.attendance.custom.day} onChange={(day) => patchAttendanceCustom({ day })} />}
+            {has("kind") && prefs.attendance.custom.kind === "weekly" && <DayPicker value={has("day") ? prefs.attendance.custom.day : null} onChange={(day) => patchAttendanceCustom({ day })} />}
             <TimePicker
               topic="attendance"
-              value={getTime(prefs, "attendance")}
+              value={timeValue}
               onChange={(time) => patchAttendanceCustom({ time })}
               showError={problem?.kind === "time"}
             />
@@ -816,7 +856,7 @@ function TimingQuestion({
               <SelectRow
                 id="exams-days"
                 label="قبل الاختبار بكم يوم؟"
-                value={prefs.exams.customDays}
+                value={has("days") ? prefs.exams.customDays : 0}
                 options={EXAM_DAYS.map((day) => ({ value: day, label: examDaysOptionLabel(day) }))}
                 onChange={(customDays) => patchTopic("exams", { customDays })}
                 hint="من يوم إلى 30 يومًا."
@@ -824,7 +864,7 @@ function TimingQuestion({
             )}
             <TimePicker
               topic="exams"
-              value={getTime(prefs, "exams")}
+              value={timeValue}
               onChange={(time) => patchTopic("exams", { time })}
               showError={problem?.kind === "time"}
             />
@@ -836,23 +876,25 @@ function TimingQuestion({
             <SelectRow
               id="grades-day-of-month"
               label="في أي يوم من الشهر؟"
-              value={prefs.grades.dayOfMonth}
+              value={has("dayOfMonth") ? prefs.grades.dayOfMonth : 0}
               options={DAYS_OF_MONTH.map((day) => ({ value: day, label: `يوم ${day}` }))}
               onChange={(dayOfMonth) => patchTopic("grades", { dayOfMonth })}
               hint="يشمل الدرجات المنشورة في الشهر السابق."
             />
             <TimePicker
               topic="grades"
-              value={getTime(prefs, "grades")}
+              value={timeValue}
               onChange={(time) => patchTopic("grades", { time })}
               showError={problem?.kind === "time"}
             />
           </div>
         )}
 
-        {summary.status === "on" && timing !== "immediate" && (
+        {complete && summary.status === "on" && timing !== "immediate" && (
           <div role="status" className="rounded-xl bg-panel px-4 py-3 text-[1.0625rem] leading-8">
-            <p><span className="text-ink-soft">الموعد المختار: </span><strong className="font-bold">{summary.when}</strong></p>
+            <p><span className="text-ink-soft">الموعد المختار: </span><strong className="font-bold">
+              <TimeText>{summary.when ?? ""}</TimeText>
+            </strong></p>
             {timing === "end-of-day" && <p className="text-[1rem] leading-7 text-ink-soft">هذا وقت مقترح. لتغييره اختر «اختيار وقت آخر».</p>}
           </div>
         )}
@@ -876,7 +918,7 @@ function TimePicker({
   showError: boolean;
 }) {
   // «وقت آخر» opens straight away for any saved time that is not one of the quick choices.
-  const [other, setOther] = useState(!isPresetTime(value));
+  const [other, setOther] = useState(value !== "" && !isPresetTime(value));
   const { hour, minute, period } = splitTime(value);
   const describedBy = showError ? `${topic}-time-error` : undefined;
 
@@ -901,7 +943,10 @@ function TimePicker({
               aria-describedby={describedBy}
               className="sr-only"
             />
-            {o.label}
+            <span className="flex items-center gap-1.5">
+              {o.label}
+              <TimeIcon time={o.label} size={17} />
+            </span>
           </label>
         ))}
         <label className={bigOption}>
@@ -1014,6 +1059,11 @@ function SelectRow({
         {label}
       </label>
       <select id={id} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-describedby={`${id}-hint`} className="field field-lg max-w-xs">
+        {value === 0 && (
+          <option value={0} disabled>
+            اختر
+          </option>
+        )}
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -1027,7 +1077,7 @@ function SelectRow({
   );
 }
 
-function DayPicker({ value, onChange }: { value: Day; onChange: (day: Day) => void }) {
+function DayPicker({ value, onChange }: { value: Day | null; onChange: (day: Day) => void }) {
   return (
     <fieldset className="min-w-0">
       <legend className="mb-2.5 text-[1.0625rem] font-semibold">يوم الملخص الأسبوعي</legend>
@@ -1049,7 +1099,7 @@ function LegacyNotice({ legacy }: { legacy: LegacyInfo }) {
       <InfoIcon size={20} />
       <div className="space-y-1.5">
         <h2 id="legacy-title" className="font-semibold">
-          تغيّرت خيارات طمّني
+          تغيّرت خيارات طمّنـــي
         </h2>
         <p>صار لكل نوع من التنبيهات وقته الخاص بدل وقت واحد للجميع. نقلنا اللي يطابق اختياراتك السابقة كما هو، واخترنا «اتصال» إذا ما كنت محدد طريقة.</p>
         {legacy.notes.length > 0 && (

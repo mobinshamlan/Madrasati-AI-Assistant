@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { NO_AUTOMATIC_SENDING } from "./config";
 import { CheckIcon } from "@/components/dashboard/icons";
 import { LoadProblem, Placeholder } from "@/components/dashboard/ui";
 import { useLinkedStudents, useStudentPreferences, type LinkedStudent } from "@/lib/tammeni/parent-data";
 import type { Preferences } from "./preferences";
 import { Character, PreferenceSummary, formatSavedAt } from "./summary";
+import { TryCalls } from "@/components/welcome/try-calls";
 
 const setupHref = (studentId: string) => `/assistant?student=${studentId}`;
 const homeHref = (studentId: string) => `/tammeni?student=${studentId}`;
@@ -89,12 +89,12 @@ function Success({
   return (
     <>
     <section className="on-board">
-      <div className={`${container} flex items-start gap-4 pt-8 pb-20 sm:pt-12 sm:pb-24`}>
-        <span className="arrive mt-2 grid size-12 shrink-0 place-items-center rounded-full bg-bell-light text-board" aria-hidden="true">
+      <div className={`${container} flex items-start gap-3 pt-5 pb-16 sm:gap-4 sm:pt-12 sm:pb-24`}>
+        <span className="arrive mt-1 grid size-10 shrink-0 sm:mt-2 sm:size-12 place-items-center rounded-full bg-bell-light text-board" aria-hidden="true">
           <CheckIcon size={24} strokeWidth={2.6} />
         </span>
         <div className="min-w-0">
-          <h1 ref={headingRef} tabIndex={-1} className="text-[2.25rem] leading-[1.25] text-chalk focus:outline-none sm:text-[3rem]">
+          <h1 ref={headingRef} tabIndex={-1} className="text-[1.75rem] leading-[1.3] text-chalk focus:outline-none sm:text-[3rem]">
             حفظنا تنبيهات {student.firstName}
           </h1>
           <p className="mt-2 text-[1.0625rem] leading-8 text-chalk-soft">
@@ -111,6 +111,10 @@ function Success({
         </h2>
         <PreferenceSummary preferences={preferences} firstName={student.firstName} />
       </section>
+
+      <div className="mt-6">
+        <TryCalls studentId={student.id} />
+      </div>
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <Link href={homeHref(student.id)} className="btn-primary">
@@ -137,8 +141,6 @@ function Success({
           </p>
         </aside>
       )}
-
-      <p className="mt-8 text-[1rem] leading-7 text-ink-soft">{NO_AUTOMATIC_SENDING}</p>
     </div>
     </>
   );

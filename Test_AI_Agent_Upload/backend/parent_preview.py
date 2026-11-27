@@ -49,7 +49,7 @@ class Preferences(BaseModel):
 
 class DemoStudent(BaseModel):
     # The fictional students of supabase/data/madrasati-dataset.json; anything else is rejected.
-    id: Literal["reem", "faisal", "lujain", "nawaf"]
+    id: Literal["sama", "faisal", "lujain", "ahmad"]
     name: str = Field(min_length=1, max_length=150)
     attendance: dict[str, Any]
     exams: list[dict[str, Any]]

@@ -42,7 +42,7 @@ const navItems: NavItem[] = [
   { label: "الحضور والغياب", Icon: AttendanceIcon, description: "سجل الحضور والغياب التفصيلي لكل فصل دراسي غير متوفر في هذه النسخة. الملخص يظهر في الرئيسية." },
   { label: "الاختبارات", Icon: ExamIcon, description: "جدول الاختبارات الكامل غير متوفر في هذه النسخة. الاختبارات القادمة تظهر في الرئيسية." },
   { label: "الدرجات", Icon: GradesIcon, description: "كشف الدرجات التفصيلي غير متوفر في هذه النسخة. آخر الدرجات تظهر في الرئيسية." },
-  { label: "طمّني", Icon: SparkleIcon, page: "assistant", href: "/assistant" },
+  { label: "طمّنـــي", Icon: SparkleIcon, page: "assistant", href: "/assistant" },
 ];
 
 const utilityActions = [
@@ -55,7 +55,7 @@ const utilityActions = [
 function BrandMark() {
   return (
     <div className="flex items-center gap-3">
-      <p translate="no" className="tammeni-mark text-[1.75rem] sm:text-[2rem]">طمّني</p>
+      <p translate="no" className="tammeni-mark text-[1.75rem] sm:text-[2rem]">طمّنـــي</p>
       <span className="hidden h-10 w-px bg-brand-400 sm:block" aria-hidden="true" />
       <Image
         src="/brand/madrasati-logo.svg"

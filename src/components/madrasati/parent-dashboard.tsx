@@ -65,7 +65,7 @@ function DashboardBody() {
           <ExamsSection student={student} />
           <GradesSection student={student} />
         </div>
-        <aside className="space-y-6" aria-label="الإعلانات وطمّني والملف الشخصي">
+        <aside className="space-y-6" aria-label="الإعلانات وطمّنـــي والملف الشخصي">
           <AssistantCard student={current} />
           <AnnouncementsSection student={student} />
           <ProfileCard childCount={list.length} />
@@ -127,7 +127,7 @@ function WelcomeBanner({
             </span>
             <div>
               <h1 id="greeting" className="text-2xl font-extrabold text-ink">
-                مرحبًا بك في طمّني، <span className="text-brand-700">{parent.name}</span>
+                مرحبًا بك في طمّنـــي، <span className="text-brand-700">{parent.name}</span>
               </h1>
               <p className="mt-1 text-base text-ink">
                 {parent.role} · {todayText()}
@@ -413,7 +413,7 @@ function AssistantCard({ student }: { student: LinkedStudent }) {
         </span>
         <div>
           <h2 id="assistant-title" className="text-xl font-extrabold text-brand-800">
-            طمّني — تفضيلات {student.firstName}
+            طمّنـــي — تفضيلات {student.firstName}
           </h2>
           <p className="text-base text-ink">الابن المختار الآن</p>
         </div>
@@ -462,7 +462,7 @@ function AssistantCard({ student }: { student: LinkedStudent }) {
           </>
         )}
         <Link href={href} className="btn-primary mt-5 w-full">
-          {saved ? "عرض التفضيلات وتعديلها" : "إعداد طمّني"}
+          {saved ? "عرض التفضيلات وتعديلها" : "إعداد طمّنـــي"}
         </Link>
       </div>
     </section>

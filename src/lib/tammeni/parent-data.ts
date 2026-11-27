@@ -5,14 +5,17 @@ import type { AttendanceStatus, Student } from "@/components/dashboard/data";
 import type { Preferences } from "@/components/assistant/preferences";
 import { getParentClient } from "@/lib/supabase/browser";
 import { PREFERENCE_COLUMNS, preferencesToRow, rowToPreferences, type PreferencesRow } from "./preferences-row";
+import { riyadhDay } from "./evaluate";
+import { hijri, rollExam, shiftDay, shiftDays, shiftTermLabel, shiftText } from "./rolling-dates";
+import { DEVICE_DEMO, deviceDashboardStudent, deviceLinkedStudents, deviceReadPreferences, deviceResetPreferences, deviceSavePreferences } from "./device-demo";
 
-// Everything here reads as the signed-in parent; RLS decides which students and rows come back.
-// Nothing falls back to the bundled demo data: when Supabase fails, the page shows the error.
+// The public demo reads from the device (see device-demo). The rest reads from Supabase as the signed-in
+// parent: RLS decides which students and rows come back, and when it fails the page shows the error.
 
 export type LinkedStudent = {
   /** Database id (uuid). */
   dbId: string;
-  /** Stable key used in links, e.g. "reem". */
+  /** Stable key used in links, e.g. "sama". */
   id: string;
   name: string;
   firstName: string;
@@ -52,12 +55,15 @@ const fail = (what: string) => new Error(`تعذّر تحميل ${what} من ق�
 
 export function useLinkedStudents() {
   return useKeyedLoad<LinkedStudent[]>("linked-students", async () => {
+    if (DEVICE_DEMO) return deviceLinkedStudents();
     const { data, error } = await getParentClient()
       .from("students")
       .select("id, demo_key, full_name, first_name, grade_label, stage_label, classroom_label, school_name")
       .order("full_name");
     if (error) throw fail("قائمة الأبناء");
-    return (data ?? []).map((s) => ({
+    // سما first: the tour opens as her parent.
+    const rows = [...(data ?? [])].sort((a, b) => Number(b.demo_key === "sama") - Number(a.demo_key === "sama"));
+    return rows.map((s) => ({
       dbId: s.id,
       id: s.demo_key,
       name: s.full_name,
@@ -74,6 +80,7 @@ export type SavedPreferences = { exists: false } | { exists: true; preferences: 
 
 export function useStudentPreferences(dbId: string | null) {
   return useKeyedLoad<SavedPreferences>(dbId && `prefs:${dbId}`, async () => {
+    if (DEVICE_DEMO) return deviceReadPreferences(dbId!);
     const { data, error } = await getParentClient()
       .from("assistant_preferences")
       .select(PREFERENCE_COLUMNS)
@@ -86,12 +93,20 @@ export function useStudentPreferences(dbId: string | null) {
 
 /** Deletes this child's saved choices (RLS: the parent's own row only), so setup starts over. */
 export async function resetPreferencesInDb(dbId: string): Promise<boolean> {
+  if (DEVICE_DEMO) {
+    deviceResetPreferences(dbId);
+    return true;
+  }
   const { error } = await getParentClient().from("assistant_preferences").delete().eq("student_id", dbId);
   return !error;
 }
 
 /** Saves to Supabase. Resolves only after the database confirmed the write. */
 export async function savePreferencesToDb(dbId: string, preferences: Preferences, exists: boolean): Promise<{ ok: true } | { ok: false }> {
+  if (DEVICE_DEMO) {
+    deviceSavePreferences(dbId, preferences);
+    return { ok: true };
+  }
   const supabase = getParentClient();
   const row = preferencesToRow(preferences);
   if (exists) {
@@ -107,11 +122,6 @@ export async function savePreferencesToDb(dbId: string, preferences: Preferences
 
 // ---------- the dashboard's view of one student ----------
 
-const hijriFmt = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura-nu-latn", { timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric" });
-function hijri(day: string) {
-  const p = Object.fromEntries(hijriFmt.formatToParts(new Date(`${day}T00:00:00Z`)).map((x) => [x.type, x.value]));
-  return `${p.day}/${p.month}/${parseInt(p.year, 10)}`;
-}
 const weekdayAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const monthAr = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 const dayName = (day: string) => weekdayAr[new Date(`${day}T00:00:00Z`).getUTCDay()];
@@ -133,12 +143,13 @@ export type DashboardStudent = Student & {
 
 export function useDashboardStudent(student: LinkedStudent | null) {
   return useKeyedLoad<DashboardStudent>(student && `dashboard:${student.dbId}`, async () => {
+    if (DEVICE_DEMO) return deviceDashboardStudent(student!.id);
     const supabase = getParentClient();
     const id = student!.dbId;
     const [terms, attendance, exams, grades, announcements] = await Promise.all([
       supabase.from("attendance_terms").select("term_label, school_days, present, absent, late, excused").eq("student_id", id),
       supabase.from("attendance_records").select("day, status, note, display_day, hijri_text, origin").eq("student_id", id).order("day"),
-      supabase.from("exams").select("subject, kind, exam_date, start_time, period_label, hijri_text, status, origin").eq("student_id", id).order("exam_date"),
+      supabase.from("exams").select("subject, kind, exam_date, start_time, period_label, hijri_text, status, origin, source_ref").eq("student_id", id).order("exam_date"),
       supabase.from("grades").select("subject, assessment, score, out_of, published_on, hijri_text, origin").eq("student_id", id).order("published_on", { ascending: false }),
       supabase.from("announcements").select("title, body, tag, display_date, published_on").eq("student_id", id).order("published_on", { ascending: false }),
     ]);
@@ -146,11 +157,18 @@ export function useDashboardStudent(student: LinkedStudent | null) {
 
     const term = terms.data?.[0];
     if (!term) throw fail("ملخص الحضور");
+    // The imported school calendar is shown moved up to this week (see rolling-dates).
+    const moved = shiftDays(riyadhDay(new Date()));
+    // A moved record gets its Hijri date worked out again from its new day.
+    const roll = <T extends { origin: string; hijri_text: string | null }>(row: T, day: string) =>
+      row.origin === "import" ? { day: shiftDay(day, moved), hijriText: null } : { day, hijriText: row.hijri_text };
     // Simulated days take the place of an imported record for the same day; new days are added.
     // The term totals move with them, so they always add up (never a blind increment).
     const byDay = new Map<string, { day: string; status: AttendanceStatus; note?: string; origin: string; hijri: string }>();
     const counts = { schoolDays: term.school_days, present: term.present, absent: term.absent, late: term.late, excused: term.excused };
-    for (const r of attendance.data ?? []) {
+    for (const stored of attendance.data ?? []) {
+      const { day, hijriText } = roll(stored, stored.day);
+      const r = { ...stored, day, hijri_text: hijriText };
       const prev = byDay.get(r.day);
       const status = r.status as AttendanceStatus;
       if (r.origin === "demo") {
@@ -164,8 +182,13 @@ export function useDashboardStudent(student: LinkedStudent | null) {
     }
     const week = [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)).slice(-5);
 
-    const examRows = exams.data ?? [];
-    const gradeRows = grades.data ?? [];
+    const examRows = (exams.data ?? []).map((e) => rollExam(e, moved)).sort((a, b) => a.exam_date.localeCompare(b.exam_date));
+    const gradeRows = (grades.data ?? [])
+      .map((g) => {
+        const { day, hijriText } = roll(g, g.published_on);
+        return { ...g, published_on: day, hijri_text: hijriText };
+      })
+      .sort((a, b) => b.published_on.localeCompare(a.published_on));
     const s = student!;
     return {
       id: s.id,
@@ -176,7 +199,7 @@ export function useDashboardStudent(student: LinkedStudent | null) {
       classroom: s.classroom ?? "",
       school: s.school,
       attendance: {
-        termLabel: term.term_label,
+        termLabel: shiftTermLabel(term.term_label, moved),
         ...counts,
         week: week.map((w) => ({
           day: dayName(w.day),
@@ -200,7 +223,7 @@ export function useDashboardStudent(student: LinkedStudent | null) {
         outOf: Number(g.out_of),
         date: g.hijri_text ?? hijri(g.published_on),
       })),
-      announcements: (announcements.data ?? []).map((n) => ({ title: n.title, body: n.body, date: n.display_date ?? "", tag: n.tag ?? "" })),
+      announcements: (announcements.data ?? []).map((n) => ({ title: n.title, body: shiftText(n.body, moved), date: shiftText(n.display_date ?? "", moved), tag: n.tag ?? "" })),
       examDates: examRows.map((e) => ({
         subject: e.subject,
         kind: e.kind,

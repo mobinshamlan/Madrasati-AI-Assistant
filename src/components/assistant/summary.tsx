@@ -1,11 +1,12 @@
 import Image from "next/image";
+import { TimeText } from "@/components/dashboard/time-icons";
 import { AttendanceIcon, ExamIcon, GradesIcon, MessageIcon, PhoneIcon } from "@/components/dashboard/icons";
 import { topicSummary, topics, usesCalls, type Method, type Preferences, type Topic } from "./preferences";
 
 export const topicIcons: Record<Topic, typeof AttendanceIcon> = { attendance: AttendanceIcon, exams: ExamIcon, grades: GradesIcon };
 
 /**
- * طمّني's two assistants, لولوة and تركي, drawn together. They are the assistants, never a picture of
+ * طمّنـــي's two assistants, لولوة and تركي, drawn together. They are the assistants, never a picture of
  * the student, so the same illustration appears for every child. Decorative: every instruction is in
  * the text beside it, so it has empty alt text.
  */
@@ -55,7 +56,7 @@ export function PreferenceSummary({ preferences, firstName }: { preferences: Pre
                 )}
               </div>
               <p className={`mt-1 text-[0.9375rem] leading-7 ${s.status === "choose" ? "text-danger" : "text-ink-soft"}`}>
-                {s.status === "on" ? s.when : s.status === "off" ? `ما يوصلك شيء عن ${s.label} لـ${firstName}.` : "الخيار السابق ما عاد متاحًا. اختر موعدًا جديدًا."}
+                {s.status === "on" ? <TimeText>{s.when ?? ""}</TimeText> : s.status === "off" ? `ما يوصلك شيء عن ${s.label} لـ${firstName}.` : "الخيار السابق ما عاد متاحًا. اختر موعدًا جديدًا."}
               </p>
             </div>
           </li>

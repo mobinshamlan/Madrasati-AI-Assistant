@@ -353,6 +353,16 @@ html:has(.sticky-save) {
   outline-color: var(--color-bell-light);
 }
 
+/* On phones the switcher spans the screen, so each child is an easy target. */
+@media (max-width: 39.99rem) {
+  .on-board .seg {
+    display: flex;
+  }
+  .on-board .seg > label {
+    flex: 1;
+  }
+}
+
 /* The one thing that matters on a screen: a brass-lit note. */
 .lit {
   border-radius: 1.25rem;

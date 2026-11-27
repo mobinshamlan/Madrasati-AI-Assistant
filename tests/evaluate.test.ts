@@ -91,7 +91,7 @@ test("message and call words carry only this update's facts", () => {
 test("exam calls and messages name the subject without saying oral or short", () => {
   const exam: SchoolEvent = { kind: "exam_added", date: "2026-10-29", examDate: "2026-11-01", startTime: "10:00", subject: "الرياضيات", examKind: "اختبار شفهي" };
   for (const event of [exam, { ...exam, kind: "exam_cancelled" as const }]) {
-    const input = { student: { fullName: "نواف عبدالرحمن الشهري", firstName: "نواف" }, event, decision: evaluate(event, base, now) };
+    const input = { student: { fullName: "أحمد عبدالرحمن الشهري", firstName: "أحمد" }, event, decision: evaluate(event, base, now) };
     assert.match(callOpening(input), /الرياضيات/);
     assert.doesNotMatch(callOpening(input), /شفهي|قصير/);
     assert.doesNotMatch(messageText(input), /شفهي|قصير/);

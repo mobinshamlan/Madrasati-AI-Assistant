@@ -5,8 +5,8 @@ import { DemoControl } from "@/components/demo-control/demo-control";
 import "@/components/demo-control/demo-studio.css";
 
 export const metadata: Metadata = {
-  title: "استوديو العرض | طمّني",
-  description: "محاكاة أحداث المدرسة واختبار استجابة طمّني وفق تفضيلات ولي الأمر المحفوظة. بيانات تجريبية.",
+  title: "استوديو العرض | طمّنـــي",
+  description: "محاكاة أحداث المدرسة واختبار استجابة طمّنـــي وفق تفضيلات ولي الأمر المحفوظة. بيانات تجريبية.",
   robots: { index: false, follow: false },
 };
 

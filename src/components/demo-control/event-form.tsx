@@ -283,7 +283,7 @@ function EvaluationResult({ result, name }: { result: Result; name: string }) {
       ) : result.notification ? (
         <>
           <p className="mt-1.5 flex flex-wrap items-center gap-2">
-            <span className="text-faint">قرار طمّني:</span>
+            <span className="text-faint">قرار طمّنـــي:</span>
             <DecisionChip status={result.notification.status} />
             <span className="text-[0.875rem] text-ink-soft">
               <MethodLabel method={result.notification.method} />

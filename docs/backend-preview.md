@@ -12,7 +12,7 @@ python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
 
 Start the website from the repository root with `npm run dev`. The website server defaults to `http://127.0.0.1:8000`; override that with the server-only `TAMMENI_BACKEND_URL` in `.env.local` if needed. No Twilio or OpenAI keys are needed for previews.
 
-Sign into the existing fictional demo, select Reem or Nawaf, save preferences, and choose **معاينة حسب تفضيلاتي** on the confirmation page. The Python backend must be running; otherwise an Arabic connection error appears.
+Sign into the existing fictional demo, select Sama or Ahmad, save preferences, and choose **معاينة حسب تفضيلاتي** on the confirmation page. The Python backend must be running; otherwise an Arabic connection error appears.
 
 ## Data flow and limits
 

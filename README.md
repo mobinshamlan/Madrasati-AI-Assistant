@@ -14,7 +14,7 @@ A student prototype inspired by Saudi Arabia's Madrasati school platform. Arabic
 ## Try it (1 minute)
 
 1. Open the [live demo](https://tammeni-demo.vercel.app/welcome) and press **ابدأ التجربة** (Start). No account needed.
-2. See each child's attendance, grades and any upcoming exams. Switch between **ريم** (Reem) and **نواف** (Nawaf).
+2. See each child's attendance, grades and any upcoming exams. Switch between **سما** (Sama) and **أحمد** (Ahmad).
 3. Press **عدّل التنبيهات** (Edit alerts), then **تعديل** (Edit) on any topic. Change an option, and press **التالي** (Next) to the end.
 4. Press **حفظ التفضيلات** (Save) to see the summary of what you'll get.
 

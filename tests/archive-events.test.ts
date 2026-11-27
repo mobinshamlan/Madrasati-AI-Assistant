@@ -26,20 +26,20 @@ function database(tables: Record<string, Row[]>) {
 
 test("deleting one event archives only its records and keeps previous deliveries", async () => {
   const events = [
-    { id: "a", student_id: "reem", kind: "attendance", payload: {}, archived_at: null },
-    { id: "b", student_id: "reem", kind: "grade_published", payload: {}, archived_at: null },
-    { id: "c", student_id: "nawaf", kind: "attendance", payload: {}, archived_at: null },
+    { id: "a", student_id: "sama", kind: "attendance", payload: {}, archived_at: null },
+    { id: "b", student_id: "sama", kind: "grade_published", payload: {}, archived_at: null },
+    { id: "c", student_id: "ahmad", kind: "attendance", payload: {}, archived_at: null },
   ];
   const tables = { demo_events: events, attendance_records: [
-    { student_id: "reem", demo_event_id: "a", archived_at: null },
-    { student_id: "nawaf", demo_event_id: "c", archived_at: null },
-    { student_id: "reem", demo_event_id: null, origin: "import", archived_at: null },
+    { student_id: "sama", demo_event_id: "a", archived_at: null },
+    { student_id: "ahmad", demo_event_id: "c", archived_at: null },
+    { student_id: "sama", demo_event_id: null, origin: "import", archived_at: null },
   ], notifications: [
-    { id: "n1", student_id: "reem", demo_event_id: "a", status: "ready" },
-    { id: "n2", student_id: "reem", demo_event_id: "a", status: "delivered" },
-    { id: "n3", student_id: "reem", demo_event_id: "b", status: "ready" },
+    { id: "n1", student_id: "sama", demo_event_id: "a", status: "ready" },
+    { id: "n2", student_id: "sama", demo_event_id: "a", status: "delivered" },
+    { id: "n3", student_id: "sama", demo_event_id: "b", status: "ready" },
   ], dispatch_attempts: [{ id: "attempt", notification_id: "n2", status: "delivered" }] };
-  const result = await archiveDemoEvents(database(tables), "reem", "a");
+  const result = await archiveDemoEvents(database(tables), "sama", "a");
   assert.deepEqual(result, { cleared: 1, cancelled: 1, alreadySent: 1 });
   assert.ok(events[0].archived_at);
   assert.equal(events[1].archived_at, null);
@@ -51,25 +51,25 @@ test("deleting one event archives only its records and keeps previous deliveries
   assert.equal(tables.notifications[1].status, "delivered");
   assert.equal(tables.notifications[2].status, "ready");
   assert.equal(tables.dispatch_attempts.length, 1);
-  assert.equal((await archiveDemoEvents(database(tables), "reem", "a")).cleared, 0);
-  assert.equal((await archiveDemoEvents(database(tables), "reem", "c")).cleared, 0);
+  assert.equal((await archiveDemoEvents(database(tables), "sama", "a")).cleared, 0);
+  assert.equal((await archiveDemoEvents(database(tables), "sama", "c")).cleared, 0);
 });
 
 test("deleting a cancellation or excuse restores the linked record without reviving alerts", async () => {
   const tables = {
     demo_events: [
-      { id: "absent", student_id: "reem", kind: "attendance", payload: { status: "late" }, archived_at: null },
-      { id: "excuse", student_id: "reem", kind: "excuse_accepted", payload: { attendanceEventId: "absent" }, archived_at: null },
-      { id: "cancel", student_id: "reem", kind: "exam_cancelled", payload: { examId: "exam" }, archived_at: null },
+      { id: "absent", student_id: "sama", kind: "attendance", payload: { status: "late" }, archived_at: null },
+      { id: "excuse", student_id: "sama", kind: "excuse_accepted", payload: { attendanceEventId: "absent" }, archived_at: null },
+      { id: "cancel", student_id: "sama", kind: "exam_cancelled", payload: { examId: "exam" }, archived_at: null },
     ],
-    attendance_records: [{ student_id: "reem", demo_event_id: "absent", origin: "demo", status: "excused", archived_at: null }],
-    exams: [{ id: "exam", student_id: "reem", status: "cancelled", archived_at: null }],
-    notifications: [{ id: "n", student_id: "reem", demo_event_id: "absent", status: "cancelled" }],
+    attendance_records: [{ student_id: "sama", demo_event_id: "absent", origin: "demo", status: "excused", archived_at: null }],
+    exams: [{ id: "exam", student_id: "sama", status: "cancelled", archived_at: null }],
+    notifications: [{ id: "n", student_id: "sama", demo_event_id: "absent", status: "cancelled" }],
   };
   const db = database(tables);
-  await archiveDemoEvents(db, "reem", "excuse");
+  await archiveDemoEvents(db, "sama", "excuse");
   assert.equal(tables.attendance_records[0].status, "late");
   assert.equal(tables.notifications[0].status, "cancelled");
-  await archiveDemoEvents(db, "reem", "cancel");
+  await archiveDemoEvents(db, "sama", "cancel");
   assert.equal(tables.exams[0].status, "scheduled");
 });

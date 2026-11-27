@@ -53,7 +53,7 @@ export function ComingSoonProvider({ children }: { children: React.ReactNode }) 
             غير متوفر في هذه النسخة
           </p>
           <p id="coming-soon-desc" className="text-lg leading-8 text-ink">
-            {content.description ?? "هذا القسم غير جاهز في النموذج التجريبي. يمكنك متابعة الحضور والاختبارات والدرجات من الصفحة الرئيسية، وإعداد طمّني من قائمة طمّني."}
+            {content.description ?? "هذا القسم غير جاهز في النموذج التجريبي. يمكنك متابعة الحضور والاختبارات والدرجات من الصفحة الرئيسية، وإعداد طمّنـــي من قائمة طمّنـــي."}
           </p>
           <button type="button" onClick={close} className="btn-primary w-full">
             حسنًا

@@ -71,8 +71,8 @@ export function DemoControl() {
       <main id="main" className={`${container} flex-1 py-6 sm:py-8`}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-[1.75rem] leading-tight sm:text-[2.25rem]">جرّب طمّني مع أحداث المدرسة</h1>
-            <p className="mt-1.5 max-w-[70ch] leading-7 text-ink-soft">سجّل حدثًا، وشوف قرار طمّني، ثم أرسله.</p>
+            <h1 className="text-[1.75rem] leading-tight sm:text-[2.25rem]">جرّب طمّنـــي مع أحداث المدرسة</h1>
+            <p className="mt-1.5 max-w-[70ch] leading-7 text-ink-soft">سجّل حدثًا، وشوف قرار طمّنـــي، ثم أرسله.</p>
           </div>
           {overview && selected && (
             <ChildSwitcher students={overview.students} selectedId={selected} onSelect={setSelected} name="studio-student" legend="الطالب" />
@@ -117,7 +117,7 @@ function Guide() {
           <p>غياب، درجة، اختبار، إلغاء اختبار، أو قبول عذر. التسجيل يضيفه لسجل الطالب، وما يرسل شيئًا.</p>
         </div>
         <div>
-          <p className="font-semibold text-ink">طمّني يقرر</p>
+          <p className="font-semibold text-ink">طمّنـــي يقرر</p>
           <p>حسب تفضيلات ولي الأمر بتوقيت الرياض: لن يُرسل (متوقف)، أو بانتظار الموعد، أو جاهز للإرسال.</p>
         </div>
         <div>

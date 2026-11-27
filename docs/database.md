@@ -26,7 +26,7 @@ auth.users ──1:1── parent_profiles ──< parent_students >── stude
 ```
 
 - **`parent_profiles`**: one row per parent; `id` is the Supabase Auth user id.
-- **`students`**: school records. `demo_key` (`reem`, `faisal`) matches the prototype's student ids.
+- **`students`**: school records. `demo_key` (`sama`, `faisal`) matches the prototype's student ids.
 - **`parent_students`**: which parent may see which student. Primary key `(parent_id, student_id)`.
 - **`assistant_preferences`**: one flat row per parent–student pair (`unique (parent_id, student_id)`).
   Its foreign key points at the link itself, so a record can only exist for a real link and is
@@ -90,7 +90,7 @@ Students are never linked to signed-in users automatically.
 1. Dashboard → Authentication → Users → add a test user with an email you control.
 2. Copy the user's UID.
 3. Open `supabase/admin/link-test-parent.sql`, replace the placeholder UID, set the name and the
-   student key (`reem` or `faisal`), and run it in the SQL editor. It stops if the placeholder is
+   student key (`sama` or `faisal`), and run it in the SQL editor. It stops if the placeholder is
    left, the user does not exist, or the student key is unknown.
 4. Repeat for each link. The removal statement is at the bottom of the same file.
 
@@ -126,11 +126,11 @@ Against a throwaway in-memory Postgres (PGlite, Postgres 17) with a small stand-
 - RLS is enabled on all four tables.
 - `supabase/tests/rls_two_parents.sql` passes all 34 expectations, each failing for the intended
   reason (RLS violation, permission denied, or the named check constraint). Parent A is linked to
-  Reem, parent B to Faisal:
+  Sama, parent B to Faisal:
   - each parent sees only their own profile, link and student;
   - A cannot add preferences for Faisal, write as B, change `parent_id`/`student_id`/`time_zone`,
     link a student, or edit students or their own profile;
-  - B cannot see, update or delete A's preferences, or add any for Reem;
+  - B cannot see, update or delete A's preferences, or add any for Sama;
   - anonymous visitors cannot read students or preferences;
   - invalid values are rejected (exam days 0/31, day 29, `24:00`, seconds, unknown timing, method or
     day, all topics off); midnight `00:00`, 14 days and day 28 are accepted;

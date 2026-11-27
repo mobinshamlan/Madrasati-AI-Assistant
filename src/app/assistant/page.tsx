@@ -4,8 +4,8 @@ import { AssistantSetup } from "@/components/assistant/assistant-setup";
 import { PageShell } from "@/components/dashboard/page-shell";
 
 export const metadata: Metadata = {
-  title: "تفضيلات التنبيه | طمّني",
-  description: "اختر وش يوصلك عن أبنائك، ومتى، وكيف — نموذج تعليمي تجريبي ببيانات خيالية.",
+  title: "تفضيلات التنبيه | طمّنـــي",
+  description: "اختر وش يوصلك عن أبنائك، ومتى، وكيف — نموذج تجريبي ببيانات وهمية.",
 };
 
 export default function AssistantPage() {

@@ -4,7 +4,7 @@
 -- It creates two throwaway Auth users inside one transaction and ROLLS BACK everything at the end.
 -- Any failed expectation raises an error and stops the script.
 --
--- Parent A is linked to Reem only. Parent B is linked to Faisal only.
+-- Parent A is linked to Sama only. Parent B is linked to Faisal only.
 
 begin;
 
@@ -15,7 +15,7 @@ insert into public.parent_profiles (id, full_name) values
   ('00000000-0000-4000-8000-00000000000a', 'ولي أمر (أ)'),
   ('00000000-0000-4000-8000-00000000000b', 'ولي أمر (ب)');
 insert into public.parent_students (parent_id, student_id)
-  select '00000000-0000-4000-8000-00000000000a'::uuid, id from public.students where demo_key = 'reem'
+  select '00000000-0000-4000-8000-00000000000a'::uuid, id from public.students where demo_key = 'sama'
   union all
   select '00000000-0000-4000-8000-00000000000b'::uuid, id from public.students where demo_key = 'faisal';
 
@@ -41,7 +41,7 @@ begin
 end $$;
 
 -- Real student ids, captured as admin, so the tests target students the parent is NOT linked to.
-select set_config('test.reem_id', (select id::text from public.students where demo_key = 'reem'), true),
+select set_config('test.reem_id', (select id::text from public.students where demo_key = 'sama'), true),
        set_config('test.faisal_id', (select id::text from public.students where demo_key = 'faisal'), true);
 
 grant execute on function pg_temp.expect_error(text, text), pg_temp.expect(text, text, bigint) to anon, authenticated;
@@ -52,13 +52,13 @@ select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000
 
 select pg_temp.expect('A sees only own profile', 'select count(*) from public.parent_profiles', 1);
 select pg_temp.expect('A sees only own link', 'select count(*) from public.parent_students', 1);
-select pg_temp.expect('A sees only Reem', $q$select count(*) from public.students where demo_key = 'reem'$q$, 1);
+select pg_temp.expect('A sees only Sama', $q$select count(*) from public.students where demo_key = 'sama'$q$, 1);
 select pg_temp.expect('A cannot see Faisal', $q$select count(*) from public.students where demo_key = 'faisal'$q$, 0);
 
-select pg_temp.expect('A saves preferences for Reem (defaults)', $q$
+select pg_temp.expect('A saves preferences for Sama (defaults)', $q$
   with r as (
     insert into public.assistant_preferences (student_id)
-    select id from public.students where demo_key = 'reem' returning 1
+    select id from public.students where demo_key = 'sama' returning 1
   ) select count(*) from r $q$, 1);
 
 select pg_temp.expect('A updates own preferences', $q$
@@ -74,7 +74,7 @@ select pg_temp.expect_error('A cannot add preferences for Faisal (not linked)', 
   values (current_setting('test.faisal_id')::uuid) $q$);
 select pg_temp.expect_error('A cannot write as parent B', $q$
   insert into public.assistant_preferences (parent_id, student_id)
-  select '00000000-0000-4000-8000-00000000000b', id from public.students where demo_key = 'reem' $q$);
+  select '00000000-0000-4000-8000-00000000000b', id from public.students where demo_key = 'sama' $q$);
 select pg_temp.expect_error('A cannot change ownership', $q$
   update public.assistant_preferences set parent_id = '00000000-0000-4000-8000-00000000000b' $q$);
 select pg_temp.expect_error('A cannot move preferences to another student', $q$
@@ -111,7 +111,7 @@ select pg_temp.expect('B cannot update A''s preferences', $q$
   select count(*) from r $q$, 0);
 select pg_temp.expect('B cannot delete A''s preferences', $q$
   with r as (delete from public.assistant_preferences returning 1) select count(*) from r $q$, 0);
-select pg_temp.expect_error('B cannot add preferences for Reem', $q$
+select pg_temp.expect_error('B cannot add preferences for Sama', $q$
   insert into public.assistant_preferences (student_id)
   values (current_setting('test.reem_id')::uuid) $q$);
 

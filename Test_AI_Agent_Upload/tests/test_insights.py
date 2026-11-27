@@ -15,17 +15,17 @@ class InsightTests(unittest.TestCase):
         self.addCleanup(fixture.stop)
 
     def test_reem_demo_online_lesson_records_are_scoped_and_labeled(self):
-        data = backend.service.retrieve_relevant_student_data('reem', 'online lesson attendance')
-        result = enrich(backend.service, data, 'reem', 'online lesson attendance')
+        data = backend.service.retrieve_relevant_student_data('sama', 'online lesson attendance')
+        result = enrich(backend.service, data, 'sama', 'online lesson attendance')
         self.assertEqual(result['status'], 'found')
         self.assertEqual(result['category'], 'online_attendance')
         self.assertEqual(len(result['records']), 3)
-        self.assertTrue(all(x['studentId'] == 'reem' and x['demo'] for x in result['records']))
+        self.assertTrue(all(x['studentId'] == 'sama' and x['demo'] for x in result['records']))
         self.assertIn('تجريبية', result['answer_override'])
         self.assertIn('1 حضور', result['answer_override'])
 
     def test_reem_assignment_statuses_and_dates(self):
-        result = enrich(backend.service, backend.service.retrieve_relevant_student_data('reem', 'homework assignments'), 'reem', 'homework assignments')
+        result = enrich(backend.service, backend.service.retrieve_relevant_student_data('sama', 'homework assignments'), 'sama', 'homework assignments')
         self.assertEqual(result['status'], 'found')
         self.assertEqual(len(result['records']), 2)
         self.assertEqual({x['status'] for x in result['records']}, {'in_progress', 'missing'})
@@ -50,11 +50,11 @@ class InsightTests(unittest.TestCase):
         self.assertTrue(result['recommendations'])
 
     def test_overview_contains_selected_student_categories_and_insights(self):
-        data = backend.service.retrieve_relevant_student_data('reem', 'overview')
-        result = enrich(backend.service, data, 'reem', 'overview')
+        data = backend.service.retrieve_relevant_student_data('sama', 'overview')
+        result = enrich(backend.service, data, 'sama', 'overview')
         self.assertEqual(result['category'], 'overview')
         self.assertEqual(result['status'], 'found')
-        self.assertEqual(result['records']['profile']['id'], 'reem')
+        self.assertEqual(result['records']['profile']['id'], 'sama')
         self.assertEqual(result['school'], result['records']['profile']['school'])
         self.assertTrue(result['parent_context']['name'])
         self.assertEqual(len(result['records']['grades']), 5)
@@ -85,7 +85,7 @@ class InsightTests(unittest.TestCase):
             self.assertNotIn('يا أبو',result['answer_override'])
 
     def test_other_student_request_stays_blocked(self):
-        result=enrich(backend.service, backend.service.retrieve_relevant_student_data('reem','grades for faisal'),'reem','grades for faisal')
+        result=enrich(backend.service, backend.service.retrieve_relevant_student_data('sama','grades for faisal'),'sama','grades for faisal')
         self.assertEqual(result['status'],'invalid_request')
         self.assertNotIn('records',result)
 
@@ -101,7 +101,7 @@ class InsightTests(unittest.TestCase):
         fake=FakeClient()
         from unittest.mock import patch
         with patch.object(backend,'OPENAI_API_KEY','test'), patch.object(backend.httpx,'AsyncClient',return_value=fake):
-            response=TestClient(backend.app).post('/api/live/session',json={'student_id':'reem','sdp':'offer','greet':False})
+            response=TestClient(backend.app).post('/api/live/session',json={'student_id':'sama','sdp':'offer','greet':False})
         self.assertEqual(response.status_code,200)
         self.assertEqual(fake.payload['session']['model'],'gpt-live-1')
         self.assertIn('Noor access',fake.payload['session']['instructions'])

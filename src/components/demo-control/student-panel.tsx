@@ -124,7 +124,7 @@ export function StudentPanel({
         {p.events.length === 0 ? (
           <div className="mt-3 rounded-2xl border border-dashed border-control bg-surface px-5 py-8 text-center">
             <p className="font-semibold">ما فيه أحداث لـ{name} بعد</p>
-            <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">سجّل حدثًا من النموذج، وبتظهر بطاقته هنا مع قرار طمّني.</p>
+            <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">سجّل حدثًا من النموذج، وبتظهر بطاقته هنا مع قرار طمّنـــي.</p>
           </div>
         ) : (
           <ul className="studio-event-ledger mt-3">

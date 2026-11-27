@@ -39,7 +39,7 @@ export function DemoLogin() {
             دخول تجريبي
           </h1>
           <p className="mt-4 max-w-[42rem] text-[1.0625rem] leading-8 text-chalk-soft">
-            ادخل إلى النموذج باسم ولي أمر خيالي. لا نطلب كلمة مرور ولا أي بيانات شخصية.
+            ادخل إلى النموذج باسم ولي أمر وهمي. لا نطلب كلمة مرور ولا أي بيانات شخصية.
           </p>
         </div>
       </section>
@@ -53,7 +53,7 @@ export function DemoLogin() {
               <div className="min-w-0">
                 <p className="font-display text-[1.25rem] leading-snug font-semibold text-ink">{parent.name}</p>
                 <p className="mt-1 text-[0.9375rem] leading-7 text-ink-soft">
-                  {parent.role} لريم ونواف — بيانات خيالية
+                  {parent.role} لسما وأحمد — بيانات وهمية
                 </p>
               </div>
             </div>
@@ -76,7 +76,7 @@ export function DemoLogin() {
         <ul className="mt-5 space-y-2 text-[0.875rem] leading-6 text-ink-soft">
           {[
             "هذا ليس تسجيل دخول حقيقيًا، ولا يمنح وصولًا إلى أي بيانات حقيقية.",
-            "تبقى تفضيلات طمّني محفوظة في الحساب التجريبي حتى بعد الخروج من هذه الجلسة.",
+            "اختياراتك تنحفظ في هذا الجهاز فقط، وكل شخص يبدأ تجربته من جديد.",
           ].map((note) => (
             <li key={note} className="flex gap-3">
               <InfoIcon size={18} className="mt-1 shrink-0 text-faint" />

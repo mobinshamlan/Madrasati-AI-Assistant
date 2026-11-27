@@ -13,13 +13,13 @@ TOKEN = "t" * 43
 CTX = {
     "version": 1,
     "persona": "lulwa",
-    "student": {"first_name": "ريم", "full_name": "ريم عبدالرحمن الشهري"},
+    "student": {"first_name": "سما", "full_name": "سما عبدالرحمن الشهري"},
     "topic": "attendance",
     "allowed_topics": ["attendance"],
     "method": "message",
     "facts": ["الحضور يوم الخميس 29 أكتوبر: غياب."],
-    "message": "طمّني | ريم عبدالرحمن الشهري\nتحديث حضور ريم:\nالحضور يوم الخميس 29 أكتوبر: غياب.",
-    "opening": "مرحبا، معك لولوة من طمّني. حابين نبلغك بخصوص ريم: الحضور يوم الخميس 29 أكتوبر: غياب.",
+    "message": "طمّني | سما عبدالرحمن الشهري\nتحديث حضور سما:\nالحضور يوم الخميس 29 أكتوبر: غياب.",
+    "opening": "مرحبا، معك لولوة من طمّني. حابين نبلغك بخصوص سما: الحضور يوم الخميس 29 أكتوبر: غياب.",
     "retry_unanswered_call": False,
     "attempt_id": "00000000-0000-4000-8000-000000000001",
 }
@@ -141,7 +141,7 @@ class CallContextTests(unittest.TestCase):
         self.assertFalse(valid_context({**CTX, "allowed_topics": ["attendance", "grades"]}))
 
     def test_off_topic_redirect_uses_the_current_students_name(self):
-        for name in ("ريم", "نواف"):
+        for name in ("سما", "أحمد"):
             with self.subTest(student=name):
                 ctx = {**CTX, "method": "call", "student": {"first_name": name}}
                 text = context_instructions(ctx)
@@ -152,8 +152,8 @@ class CallContextTests(unittest.TestCase):
 
     def test_call_language_is_arabic_even_with_english_school_data(self):
         from backend.call_context import ARABIC_CALL_RULE
-        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "reem-id"}, "conversation_data": {
-            "student_id": "reem-id", "records": {"grades": [{"subject": "English", "assessment": "Quiz - Unit 3", "score": 9, "out_of": 10}]}}}
+        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "sama-id"}, "conversation_data": {
+            "student_id": "sama-id", "records": {"grades": [{"subject": "English", "assessment": "Quiz - Unit 3", "score": 9, "out_of": 10}]}}}
         text = context_instructions(ctx)
         self.assertTrue(text.startswith(ARABIC_CALL_RULE))
         self.assertIn("لا تبدأ بالإنجليزية ولا تنتقل إليها", text)
@@ -164,12 +164,12 @@ class CallContextTests(unittest.TestCase):
         from backend.call_context import ARABIC_CALL_RULE
         from backend.phone_bridge import build_instructions
         with patch("backend.phone_bridge._load_student", return_value=None), patch("backend.phone_bridge.opening_line", return_value="مرحبا، معك لولوة"):
-            text = build_instructions({"persona": "lulwa", "gender": "f", "student": "reem"})
+            text = build_instructions({"persona": "lulwa", "gender": "f", "student": "sama"})
         self.assertTrue(text.startswith(ARABIC_CALL_RULE))
 
     def test_call_can_answer_other_topics_for_the_same_student(self):
-        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "reem-id"}, "conversation_data": {
-            "student_id": "reem-id", "as_of": "2026-10-29T14:00:00Z", "records": {
+        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "sama-id"}, "conversation_data": {
+            "student_id": "sama-id", "as_of": "2026-10-29T14:00:00Z", "records": {
                 "grades": [{"subject": "رياضيات", "assessment": "اختبار", "score": 9, "out_of": 10, "published_on": "2026-10-29"}],
                 "attendance_terms": [{"school_days": 2, "present": 2, "absent": 0, "late": 0, "excused": 0}],
                 "attendance_records": [
@@ -184,13 +184,13 @@ class CallContextTests(unittest.TestCase):
         self.assertNotIn("سؤال توضيحي واحد كحد أقصى", text)
         # The triggering event remains unchanged while conversation scope expands.
         self.assertIn(CTX["opening"], text)
-        wrong = {**ctx, "conversation_data": {**ctx["conversation_data"], "student_id": "nawaf-id"}}
+        wrong = {**ctx, "conversation_data": {**ctx["conversation_data"], "student_id": "ahmad-id"}}
         self.assertFalse(valid_context(wrong))
         self.assertFalse(valid_context({**ctx, "method": "message"}))
 
     def test_empty_grade_list_is_not_treated_as_zero(self):
-        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "reem-id"}, "conversation_data": {
-            "student_id": "reem-id", "records": {"grades": []}}}
+        ctx = {**CTX, "method": "call", "student": {**CTX["student"], "id": "sama-id"}, "conversation_data": {
+            "student_id": "sama-id", "records": {"grades": []}}}
         text = context_instructions(ctx)
         self.assertIn('"grades": []', text)
         self.assertIn("لا تعتبرها صفرًا", text)
@@ -212,7 +212,7 @@ class CallContextTests(unittest.TestCase):
             r = self.client.post(f"/api/phone/voice?ctx={TOKEN}", data=form, headers={"X-Twilio-Signature": signature})
         self.assertEqual(r.status_code, 200)
         self.assertIn(f'<Parameter name="ctx" value="{TOKEN}"/>', r.text)
-        self.assertNotIn("ريم", r.text)  # no facts in TwiML
+        self.assertNotIn("سما", r.text)  # no facts in TwiML
 
     def test_signed_voice_without_a_context_hangs_up_without_fallback(self):
         from twilio.request_validator import RequestValidator

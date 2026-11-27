@@ -1,5 +1,6 @@
 "use client";
 
+import { TimeText } from "@/components/dashboard/time-icons";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
@@ -82,9 +83,12 @@ function DashboardBody() {
           the wrappers dissolve (display: contents) and the panels follow the reading order below. */}
       <div className={`${container} mt-8 flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start`}>
         <div className="contents lg:col-span-7 lg:flex lg:flex-col lg:gap-4">
-          <div className="order-3 lg:order-1">
-            <PreferencesPanel student={current} prefs={prefs} />
-          </div>
+          {/* With nothing saved, the prompt under the title already asks to set the alerts up. */}
+          {!(prefs.status === "ready" && !prefs.data.exists) && (
+            <div className="order-3 lg:order-1">
+              <PreferencesPanel student={current} prefs={prefs} />
+            </div>
+          )}
           {record.status === "ready" && (
             <div className="order-4 lg:order-2">
               <GradesPanel student={record.data} />
@@ -152,7 +156,7 @@ function Finding({ student, record, recordFailed, prefs }: { student: LinkedStud
       أقرب اختبار: <strong className="font-semibold">{next.subject}</strong> يوم {arabicDay(next.examDate)}.{" "}
       {next.reminder.status === "suppressed"
         ? "تذكير الاختبارات متوقف."
-        : `${reminderText(next.reminder)}، ${next.reminder.method === "call" ? "باتصال" : "برسالة"}.`}
+        : <TimeText>{`${reminderText(next.reminder)}، ${next.reminder.method === "call" ? "باتصال" : "برسالة"}.`}</TimeText>}
     </p>
   );
 }
@@ -265,7 +269,9 @@ function ExamsPanel({ student, prefs }: { student: DashboardStudent; prefs: Pref
                       <span aria-hidden="true">·</span>
                       <span className="inline-flex items-center gap-1">
                         <ClockIcon size={14} />
-                        {reminderText(reminder)}
+                        <span>
+                          <TimeText>{reminderText(reminder)}</TimeText>
+                        </span>
                       </span>
                     </>
                   )}

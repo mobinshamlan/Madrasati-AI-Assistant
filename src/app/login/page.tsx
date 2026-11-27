@@ -4,8 +4,8 @@ import { PublicShell } from "@/components/dashboard/page-shell";
 import { DemoLogin } from "@/components/login/demo-login";
 
 export const metadata: Metadata = {
-  title: "دخول تجريبي | طمّني",
-  description: "دخول تجريبي بولي أمر خيالي، دون كلمة مرور أو بيانات شخصية.",
+  title: "دخول تجريبي | طمّنـــي",
+  description: "دخول تجريبي بولي أمر وهمي، دون كلمة مرور أو بيانات شخصية.",
 };
 
 export default function LoginPage() {

@@ -4,7 +4,7 @@
 
 The Next.js server uses `NEXT_PUBLIC_SUPABASE_URL` and a server-only `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SECRET_KEY`). Obtain this from the project API settings and place it only in `.env.local`, never browser code or Git. No operator password is needed. A missing key shows a configuration error, not a login screen. Restart Next after configuring it.
 
-Direct control APIs are restricted to local development requests; hosted/tunnel access is refused. Server credentials bypass RLS for these local operations; existing database policies remain unchanged for parent/browser clients. Only Reem/Nawaf can be selected by these handlers. Keep this local test setup private.
+Direct control APIs are restricted to local development requests; hosted/tunnel access is refused. Server credentials bypass RLS for these local operations; existing database policies remain unchanged for parent/browser clients. Only Sama/Ahmad can be selected by these handlers. Keep this local test setup private.
 
 Dispatch is forced to mock unless `TAMMENI_DEMO_REAL_DISPATCH=1` is explicitly set on the website server. The Python provider and destination allow-list still apply. This update never sends a notification by itself.
 
@@ -30,22 +30,22 @@ the same Supabase records; nothing falls back to the bundled copies when Supabas
   (Umm al-Qura) dates; the original display text is kept beside them and checked.
 - **School-day attendance and online lessons:** stored separately. Online lessons and assignments are kept, but
   produce no updates yet.
-- **Demo parent:** linked to ريم and نواف only. فيصل and لجين stay in the data but are linked to no account. Their
+- **Demo parent:** linked to ريم and أحمد only. فيصل and لجين stay in the data but are linked to no account. Their
   older browser-only preferences (from the earlier localStorage version) are left untouched on the device that
   saved them.
-- **Older browser preferences:** for ريم or نواف, the assistant page offers to load them into the review. They are
+- **Older browser preferences:** for ريم or أحمد, the assistant page offers to load them into the review. They are
   saved to the account only when the parent presses «حفظ التفضيلات», and are never deleted from the browser.
 
 ## Roles
 
 Both roles are real Supabase Auth users. The browser never decides a role.
 
-- **Parent** — `demo-parent@tammeni-demo.example`
+- **Parent** — `<demo-parent-email>`
   - The server signs this account in when a visitor presses «ابدأ مع طمّني» or «دخول». The password stays on the
     server.
-  - RLS lets it read only ريم and نواف and save only their preferences.
+  - RLS lets it read only ريم and أحمد and save only their preferences.
   - Every visitor to the demo becomes this same fictional parent, by design.
-- **Operator** — `demo-operator@tammeni-demo.example`, holding `app_metadata.tammeni_role = 'demo_operator'`
+- **Operator** — `<demo-operator-email>`, holding `app_metadata.tammeni_role = 'demo_operator'`
   - Only an administrator can set that role.
   - The operator signs in on `/demo-control` with a password, and the session uses its own cookie
     (`tammeni-operator`), so it never mixes with the parent's.
@@ -80,13 +80,13 @@ Both roles are real Supabase Auth users. The browser never decides a role.
    1. Choose ريم.
    2. Open «إعداد المساعد الذكي».
    3. Save choices. For example, attendance «مباشرة» by message, grades monthly on day 5.
-   4. Do the same for نواف, for example attendance «إيقاف».
+   4. Do the same for أحمد, for example attendance «إيقاف».
 4. **Operator side:** open `/demo-control`. With `TAMMENI_SHARED_DEMO=1` or local mode it opens directly; otherwise sign in with the operator password.
    1. Choose ريم.
    2. Record an absence, then «حفظ الحدث». You see the decision and its reason.
    3. Open the event card, then «معاينة التحديث». You see the exact message, or لولوة's first sentence on a call.
    4. Press «تشغيل التحديث الآن — للديمو». With the mock provider nothing is sent; the log says so.
-   5. Try نواف's absence: it is suppressed, and «تشغيل الآن» is not offered (the server refuses it too).
+   5. Try أحمد's absence: it is suppressed, and «تشغيل الآن» is not offered (the server refuses it too).
    6. Add an exam three days ahead: it waits for the reminder time. «تشغيل الآن» records the original time.
    7. Publish a grade with monthly grades: it waits for day D of next month. The preview covers that month only.
    8. Accept an excuse for a simulated absence: its unsent update is cancelled.

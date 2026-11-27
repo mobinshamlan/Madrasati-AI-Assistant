@@ -26,7 +26,7 @@ class PublicDeploymentTests(unittest.TestCase):
     def test_only_production_routes_answer(self):
         self.assertEqual(self.client.get("/api/health").status_code, 200)
         with patch.object(backend, "load_dataset", side_effect=AssertionError("must not load")):
-            for path in ("/api/students", "/api/students/reem", "/api/status", "/docs", "/openapi.json"):
+            for path in ("/api/students", "/api/students/sama", "/api/status", "/docs", "/openapi.json"):
                 self.assertEqual(self.client.get(path).status_code, 404, path)
             for path in ("/api/conversations", "/api/student/chat", "/api/student/lookup", "/api/live/session"):
                 self.assertEqual(self.client.post(path, json={}).status_code, 404, path)

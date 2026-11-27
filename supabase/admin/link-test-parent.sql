@@ -3,13 +3,13 @@
 --
 -- 1. Create the test user in Dashboard → Authentication → Users (use a test email you control).
 -- 2. Copy that user's UID and replace the placeholder below. Set the name and the student key
---    ('reem' or 'faisal'). The script stops if the placeholder is left, the user does not exist,
+--    ('sama' or 'faisal'). The script stops if the placeholder is left, the user does not exist,
 --    or the student key is unknown.
 do $$
 declare
   v_parent_id uuid := 'REPLACE-WITH-AUTH-USER-UID';  -- placeholder: fails until replaced
   v_full_name text := 'ولي أمر تجريبي (أ)';
-  v_student_key text := 'reem';
+  v_student_key text := 'sama';
   v_student_id uuid;
 begin
   if not exists (select 1 from auth.users where id = v_parent_id) then
@@ -33,4 +33,4 @@ end $$;
 -- To remove a link (this also deletes that pair's preferences):
 -- delete from public.parent_students
 --  where parent_id = '<auth-user-uid>'
---    and student_id = (select id from public.students where demo_key = 'reem');
+--    and student_id = (select id from public.students where demo_key = 'sama');

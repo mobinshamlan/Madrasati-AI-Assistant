@@ -2,9 +2,13 @@
 
 import { useSyncExternalStore } from "react";
 import { getParentClient } from "@/lib/supabase/browser";
+import { DEVICE_DEMO, deviceEntered, setDeviceEntered } from "@/lib/tammeni/device-demo";
+
+// In the public demo (see device-demo) "signed in" is only a mark kept in this browser. The rest below
+// describes the shared server demo.
 
 // The demo parent's session is a real Supabase Auth session for one fictional parent account, kept in
-// cookies. «ابدأ مع طمّني» / «دخول» ask the server to sign that account in (its password stays on the
+// cookies. «ابدأ مع طمّنـــي» / «دخول» ask the server to sign that account in (its password stays on the
 // server). What the parent can read or change is enforced by RLS in the database, not by this module.
 //
 // The earlier browser-only marker (localStorage "madrasati-demo:session:v1") is no longer read; it is
@@ -25,6 +29,10 @@ function set(next: DemoSessionStatus) {
 function watch() {
   if (watching) return;
   watching = true;
+  if (DEVICE_DEMO) {
+    set(deviceEntered() ? "signed-in" : "signed-out");
+    return;
+  }
   const supabase = getParentClient();
   // getSession reads the cookie for the page's state only; every data request is checked by RLS.
   supabase.auth.getSession().then(({ data }) => set(data.session ? "signed-in" : "signed-out"));
@@ -48,6 +56,12 @@ export const isLeavingOnPurpose = () => leftOnPurpose;
 
 /** Signs the demo parent account in. False when the server or Supabase cannot start the session. */
 export async function startDemoSession(): Promise<boolean> {
+  if (DEVICE_DEMO) {
+    setDeviceEntered(true);
+    leftOnPurpose = false;
+    set("signed-in");
+    return true;
+  }
   try {
     const response = await fetch("/api/demo/parent-session", { method: "POST", cache: "no-store" });
     if (!response.ok) return false;
@@ -66,6 +80,11 @@ export async function startDemoSession(): Promise<boolean> {
 /** Signs out in this browser only; other open demo sessions stay. Saved preferences are untouched. */
 export async function endDemoSession() {
   leftOnPurpose = true;
+  if (DEVICE_DEMO) {
+    setDeviceEntered(false);
+    set("signed-out");
+    return;
+  }
   try {
     await getParentClient().auth.signOut({ scope: "local" });
   } catch {
