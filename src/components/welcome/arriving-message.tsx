@@ -9,7 +9,7 @@ import "./welcome.css";
 
 // The day's text message, as it lands on the parent's locked phone at 6:00. It arrives by itself when the
 // visitor reaches it, with the message tone. Browsers only allow that sound after the visitor has pressed
-// something on the page; if nothing was pressed yet, it still arrives, silently.
+// something on the page; if nothing was pressed yet, it arrives silently and the next touch there sounds it.
 
 export function ArrivingMessage({ time }: { time: string }) {
   const spot = useRef<HTMLDivElement>(null);
@@ -22,9 +22,30 @@ export function ArrivingMessage({ time }: { time: string }) {
     const element = spot.current;
     if (!element) return;
     let timer: number | undefined;
+    // For a visitor who only scrolled here: the browser kept the tone back, so their first touch with the
+    // message in front of them sounds it. Presses on buttons and links are left to do their own thing.
+    const touches = ["touchend", "click", "keydown"] as const;
+    let trying = false;
+    const stopWaiting = () => touches.forEach((name) => document.removeEventListener(name, onTouch, true));
+    function onTouch(event: Event) {
+      if (trying || !element) return;
+      if (navigator.userActivation && !navigator.userActivation.isActive) return;
+      if (event.target instanceof Element && event.target.closest("a, button")) return;
+      const bounds = element.getBoundingClientRect();
+      if (bounds.bottom <= 0 || bounds.top >= window.innerHeight) return;
+      trying = true;
+      void soundMessageTone().then((sounded) => {
+        trying = false;
+        if (sounded) stopWaiting();
+      });
+    }
+    let gone = false;
     const deliver = () => {
       setArrived(true);
-      void soundMessageTone();
+      void soundMessageTone().then((sounded) => {
+        // Added after the presses that open the audio, so on a touch those have already run.
+        if (!sounded && !gone) touches.forEach((name) => document.addEventListener(name, onTouch, true));
+      });
     };
     const watcher = new IntersectionObserver(
       ([entry]) => {
@@ -37,6 +58,8 @@ export function ArrivingMessage({ time }: { time: string }) {
     );
     watcher.observe(element);
     return () => {
+      gone = true;
+      stopWaiting();
       watcher.disconnect();
       window.clearTimeout(timer);
     };

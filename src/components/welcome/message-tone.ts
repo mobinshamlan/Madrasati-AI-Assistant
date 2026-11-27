@@ -46,18 +46,19 @@ export function readyMessageTone() {
 }
 
 /**
- * Sounds the tone now. With no press yet the browser keeps the audio closed, and then nothing is queued:
+ * Sounds the tone now, and says whether it did. With no press yet the browser keeps the audio closed, and then nothing is queued:
  * a tone waiting in a closed player would go off on the visitor's next press instead.
  */
-export async function soundMessageTone() {
+export async function soundMessageTone(): Promise<boolean> {
   const audio = context;
-  if (!audio) return;
+  if (!audio) return false;
   const asked = Date.now();
   if (audio.state !== "running") await Promise.race([audio.resume().catch(() => {}), new Promise((wake) => setTimeout(wake, 400))]);
   const buffer = await decoded(audio).catch(() => null);
-  if (!buffer || audio.state !== "running" || Date.now() - asked > 1500) return;
+  if (!buffer || audio.state !== "running" || Date.now() - asked > 1500) return false;
   const source = audio.createBufferSource();
   source.buffer = buffer;
   source.connect(audio.destination);
   source.start(0);
+  return true;
 }
